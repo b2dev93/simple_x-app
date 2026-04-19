@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#0a0a0a" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Simple-x" />
+  <title>Simple-x</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body { background: #0a0a0a; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; overscroll-behavior: none; height: 100dvh; overflow: hidden; color: #f0ede8; }
+    #app { width: 100vw; height: 100dvh; position: relative; overflow: hidden; }
+
+    .screen { position: absolute; inset: 0; display: flex; flex-direction: column; }
+    .hidden { display: none !important; }
+
+    input, textarea, button { font-family: inherit; }
+
+    .input {
+      padding: 14px 16px; border-radius: 12px; border: 1px solid #252525;
+      background: #141414; color: #f0ede8; font-size: 15px; outline: none;
+      width: 100%; -webkit-appearance: none;
+    }
+    .input::placeholder { color: #6b6866; }
+
+    .btn-primary {
+      padding: 16px; border-radius: 14px; border: none; cursor: pointer;
+      background: #e8503a; color: #fff; font-size: 16px; font-weight: 600;
+      width: 100%; transition: opacity 0.15s;
+    }
+    .btn-primary:disabled { opacity: 0.5; }
+    .btn-ghost {
+      padding: 14px; border-radius: 12px; border: 1px solid #252525;
+      background: transparent; color: #9e9b97; font-size: 15px; cursor: pointer; width: 100%;
+    }
+
+    .logo { display: flex; align-items: flex-end; gap: 2px; }
+    .logo span:first-child { font-size: var(--logo-size, 28px); font-weight: 700; color: #f0ede8; letter-spacing: -1.5px; font-family: Georgia, serif; line-height: 1; }
+    .logo span:last-child  { font-size: var(--logo-size, 28px); font-weight: 700; color: #e8503a; letter-spacing: -1.5px; font-family: Georgia, serif; line-height: 1; }
+
+    /* NAV */
+    #nav {
+      position: absolute; bottom: 0; left: 0; right: 0; height: 64px;
+      background: #141414; border-top: 1px solid #252525;
+      display: flex; align-items: center;
+    }
+    .nav-btn { flex: 1; border: none; background: transparent; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 8px 0; }
+    .nav-label { font-size: 10px; font-weight: 400; color: #6b6866; }
+    .nav-btn.active .nav-label { color: #e8503a; font-weight: 600; }
+
+    /* SPLASH */
+    #splash { background: #0a0a0a; align-items: center; justify-content: center; gap: 14px; }
+    #splash .tagline { color: #6b6866; font-size: 13px; letter-spacing: 0.14em; text-transform: uppercase; }
+
+    /* AUTH */
+    #auth { background: #0a0a0a; padding: 60px 28px 40px; overflow-y: auto; }
+    .tab-bar { display: flex; background: #141414; border-radius: 12px; padding: 4px; margin-bottom: 28px; }
+    .tab-btn { flex: 1; padding: 10px 0; border-radius: 9px; border: none; cursor: pointer; font-size: 14px; font-weight: 500; background: transparent; color: #6b6866; transition: all 0.15s; }
+    .tab-btn.active { background: #1c1c1c; color: #f0ede8; }
+    .form-fields { display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px; }
+    .hsv-options { display: flex; gap: 8px; margin-top: 10px; }
+    .hsv-btn { padding: 8px 16px; border-radius: 20px; cursor: pointer; font-size: 13px; border: 1px solid #252525; background: transparent; color: #9e9b97; transition: all 0.15s; }
+    .hsv-btn.selected { border-color: #e8503a; background: #3a1a14; color: #e8503a; }
+    .error-msg { color: #e8503a; font-size: 13px; margin-bottom: 12px; }
+    .auth-footer { color: #6b6866; font-size: 11px; text-align: center; margin-top: auto; line-height: 1.6; }
+    .auth-switch { color: #6b6866; font-size: 13px; text-align: center; }
+    .auth-switch a { color: #e8503a; cursor: pointer; }
+
+    /* DISCOVER */
+    #discover-content { position: absolute; top: 56px; left: 0; right: 0; bottom: 64px; }
+    .card-stack { position: absolute; inset: 0; }
+    .profile-card {
+      position: absolute; inset: 12px 12px 80px;
+      border-radius: 20px; overflow: hidden;
+      background: #2a3a5a;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+      user-select: none; touch-action: none;
+      transition: transform 0.3s ease-out;
+    }
+    .card-photo { width: 100%; height: 100%; object-fit: cover; position: absolute; inset: 0; }
+    .card-placeholder { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; opacity: 0.15; }
+    .card-overlay { position: absolute; bottom: 0; left: 0; right: 0; padding: 80px 20px 20px; background: linear-gradient(transparent, rgba(0,0,0,0.85)); }
+    .card-name { color: #fff; font-size: 26px; font-weight: 700; margin-bottom: 2px; }
+    .card-city { color: rgba(255,255,255,0.75); font-size: 14px; margin-bottom: 8px; }
+    .card-bio { color: rgba(255,255,255,0.7); font-size: 14px; line-height: 1.5; }
+    .card-badge { display: inline-block; background: #3a1a14; color: #e8503a; font-size: 12px; font-weight: 700; padding: 4px 12px; border-radius: 20px; border: 1px solid #8c2a1c; }
+    .card-header { position: absolute; top: 0; left: 0; right: 0; display: flex; justify-content: space-between; align-items: flex-start; padding: 16px; }
+    .stamp { padding: 4px 12px; border-radius: 8px; font-size: 22px; font-weight: 800; opacity: 0; transition: opacity 0.1s; }
+    .stamp-like { border: 3px solid #2ecc71; color: #2ecc71; transform: rotate(-12deg); }
+    .stamp-pass { border: 3px solid #e8503a; color: #e8503a; transform: rotate(12deg); }
+
+    .card-actions { position: absolute; bottom: 14px; left: 0; right: 0; display: flex; justify-content: center; gap: 24px; align-items: center; }
+    .action-btn { border: 2px solid #252525; background: #141414; cursor: pointer; display: flex; align-items: center; justify-content: center; border-radius: 50%; }
+    .action-btn.pass { width: 56px; height: 56px; }
+    .action-btn.like { width: 68px; height: 68px; background: #e8503a; border: none; box-shadow: 0 4px 20px #8c2a1c; }
+    .action-btn.super { width: 56px; height: 56px; }
+
+    .empty-state { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 32px; text-align: center; }
+    .empty-icon { font-size: 40px; }
+    .empty-title { color: #f0ede8; font-size: 18px; font-weight: 600; }
+    .empty-sub { color: #6b6866; font-size: 14px; }
+
+    /* MESSAGES */
+    #messages-content { position: absolute; top: 56px; left: 0; right: 0; bottom: 64px; overflow-y: auto; }
+    .match-item { display: flex; align-items: center; gap: 14px; padding: 14px 20px; border-bottom: 1px solid #252525; cursor: pointer; }
+    .match-item:active { background: #141414; }
+    .avatar { border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600; color: #f0ede8; flex-shrink: 0; }
+    .match-info { flex: 1; min-width: 0; }
+    .match-name { color: #f0ede8; font-weight: 600; font-size: 15px; }
+    .match-preview { color: #6b6866; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 2px; }
+    .match-time { color: #6b6866; font-size: 12px; }
+
+    /* CHAT */
+    #chat { position: absolute; inset: 0; background: #0a0a0a; display: flex; flex-direction: column; z-index: 50; }
+    .chat-header { display: flex; align-items: center; gap: 12px; padding: 16px; border-bottom: 1px solid #252525; flex-shrink: 0; }
+    .back-btn { border: none; background: transparent; cursor: pointer; padding: 4px; display: flex; }
+    .chat-messages { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 8px; }
+    .bubble { max-width: 75%; padding: 10px 14px; font-size: 15px; line-height: 1.4; color: #fff; }
+    .bubble.mine { background: #e8503a; border-radius: 18px 18px 4px 18px; align-self: flex-end; }
+    .bubble.theirs { background: #1c1c1c; border-radius: 18px 18px 18px 4px; align-self: flex-start; }
+    .bubble-time { font-size: 10px; color: rgba(255,255,255,0.55); margin-top: 4px; text-align: right; }
+    .chat-input-bar { padding: 12px 16px; border-top: 1px solid #252525; display: flex; gap: 10px; flex-shrink: 0; background: #141414; padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
+    .chat-input { flex: 1; padding: 12px 16px; border-radius: 24px; border: 1px solid #252525; background: #0a0a0a; color: #f0ede8; font-size: 15px; outline: none; }
+    .chat-input::placeholder { color: #6b6866; }
+    .send-btn { width: 44px; height: 44px; border-radius: 50%; border: none; background: #e8503a; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: opacity 0.15s; }
+    .send-btn:disabled { opacity: 0.3; background: #252525; }
+
+    /* PROFILE */
+    #profile-content { position: absolute; top: 56px; left: 0; right: 0; bottom: 64px; overflow-y: auto; padding: 20px 24px 40px; }
+    .profile-header { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-bottom: 28px; }
+    .profile-name { color: #f0ede8; font-size: 20px; font-weight: 700; text-align: center; }
+    .profile-city-label { color: #6b6866; font-size: 14px; }
+    .edit-btn { padding: 8px 20px; border-radius: 20px; border: 1px solid #252525; background: transparent; color: #9e9b97; font-size: 13px; cursor: pointer; }
+    .profile-field { display: flex; justify-content: space-between; padding: 14px 0; border-bottom: 1px solid #252525; }
+    .field-label { color: #6b6866; font-size: 15px; }
+    .field-value { color: #f0ede8; font-size: 15px; }
+    .premium-card { padding: 16px 20px; background: #141414; border-radius: 14px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border: 1px solid #252525; }
+    .premium-title { color: #f0ede8; font-size: 15px; font-weight: 600; margin-bottom: 2px; }
+    .premium-sub { color: #6b6866; font-size: 12px; }
+    .premium-badge { background: #e8503a; color: #fff; padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 600; }
+
+    /* TOP BAR */
+    #topbar { position: absolute; top: 0; left: 0; right: 0; height: 56px; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; z-index: 10; }
+    .location-pill { background: #141414; border-radius: 20px; padding: 6px 14px; border: 1px solid #252525; display: flex; align-items: center; gap: 6px; color: #9e9b97; font-size: 13px; }
+
+    /* MATCH MODAL */
+    #match-modal { position: absolute; inset: 0; background: rgba(0,0,0,0.88); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 32px; }
+    .match-modal-inner { background: #1c1c1c; border-radius: 24px; padding: 36px 28px; text-align: center; border: 1px solid #252525; width: 100%; }
+    .match-modal-title { color: #f0ede8; font-size: 24px; font-weight: 700; margin-bottom: 8px; }
+    .match-modal-sub { color: #6b6866; font-size: 15px; margin-bottom: 32px; }
+    .match-modal-btns { display: flex; gap: 12px; }
+  </style>
+</head>
+<body>
+<div id="app">
+
+  <!-- SPLASH -->
+  <div id="splash" class="screen">
+    <div class="logo" style="--logo-size: 44px"><span>simple</span><span>x</span></div>
+    <p class="tagline">no complications</p>
+  </div>
+
+  <!-- AUTH -->
+  <div id="auth" class="screen hidden">
+    <div class="logo" style="--logo-size: 34px; margin-bottom: 8px"><span>simple</span><span>x</span></div>
+    <p style="color:#6b6866;font-size:14px;margin-bottom:44px">Dating for people who already know</p>
+    <div class="tab-bar">
+      <button class="tab-btn active" id="tab-in" onclick="switchTab('in')">Sign in</button>
+      <button class="tab-btn" id="tab-up" onclick="switchTab('up')">Create account</button>
+    </div>
+    <div class="form-fields">
+      <input class="input hidden" id="auth-name" placeholder="Display name" />
+      <input class="input" id="auth-email" type="email" placeholder="Email" />
+      <input class="input" id="auth-pass" type="password" placeholder="Password" />
+      <div class="hidden" id="hsv-picker">
+        <p style="color:#6b6866;font-size:12px;margin-bottom:10px">I have</p>
+        <div class="hsv-options">
+          <button class="hsv-btn" onclick="selectHsv(this,'HSV-1')">HSV-1</button>
+          <button class="hsv-btn" onclick="selectHsv(this,'HSV-2')">HSV-2</button>
+          <button class="hsv-btn" onclick="selectHsv(this,'Both')">Both</button>
+        </div>
+      </div>
+    </div>
+    <p class="error-msg hidden" id="auth-error"></p>
+    <button class="btn-primary" id="auth-submit" onclick="handleAuth()">Sign in</button>
+    <p class="auth-switch" style="margin-top:16px" id="auth-switch">
+      No account? <a onclick="switchTab('up')">Sign up free</a>
+    </p>
+    <p class="auth-footer" style="margin-top:32px">Your data is private and never sold.<br>Health info is never displayed publicly.</p>
+  </div>
+
+  <!-- APP SHELL -->
+  <div id="app-shell" class="hidden" style="position:absolute;inset:0">
+
+    <!-- Top Bar -->
+    <div id="topbar">
+      <div class="logo" style="--logo-size: 22px"><span>simple</span><span>x</span></div>
+      <div class="location-pill" id="location-pill">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="#e8503a"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+        25 mi
+      </div>
+    </div>
+
+    <!-- DISCOVER TAB -->
+    <div id="discover-content">
+      <div class="card-stack" id="card-stack"></div>
+    </div>
+
+    <!-- MESSAGES TAB -->
+    <div id="messages-content" style="display:none">
+      <div style="padding:20px 20px 0;margin-bottom:4px">
+        <h2 style="font-size:22px;font-weight:700">Messages</h2>
+      </div>
+      <div id="matches-list"></div>
+    </div>
+
+    <!-- PROFILE TAB -->
+    <div id="profile-content" style="display:none">
+      <div class="profile-header">
+        <div class="avatar" id="profile-avatar" style="width:76px;height:76px;font-size:28px"></div>
+        <p class="profile-name" id="profile-display-name"></p>
+        <p class="profile-city-label" id="profile-city-label"></p>
+        <button class="edit-btn" onclick="toggleEdit()">Edit profile</button>
+      </div>
+      <div id="profile-fields"></div>
+      <div id="profile-edit-form" style="display:none;flex-direction:column;gap:12px;margin-bottom:24px">
+        <input class="input" id="edit-name" placeholder="Display name" />
+        <input class="input" id="edit-city" placeholder="City" />
+        <textarea class="input" id="edit-bio" placeholder="Bio" rows="3" style="resize:vertical"></textarea>
+        <div>
+          <p style="color:#6b6866;font-size:12px;margin-bottom:10px">My type</p>
+          <div class="hsv-options" id="edit-hsv-options">
+            <button class="hsv-btn" onclick="selectEditHsv(this,'HSV-1')">HSV-1</button>
+            <button class="hsv-btn" onclick="selectEditHsv(this,'HSV-2')">HSV-2</button>
+            <button class="hsv-btn" onclick="selectEditHsv(this,'Both')">Both</button>
+          </div>
+        </div>
+        <button class="btn-primary" onclick="saveProfile()">Save changes</button>
+      </div>
+      <div class="premium-card">
+        <div>
+          <p class="premium-title">Simple-x Plus</p>
+          <p class="premium-sub">Unlimited likes · See who liked you</p>
+        </div>
+        <span class="premium-badge">$9/mo</span>
+      </div>
+      <button class="btn-ghost" onclick="handleLogout()">Sign out</button>
+    </div>
+
+    <!-- NAV -->
+    <div id="nav">
+      <button class="nav-btn active" id="nav-discover" onclick="switchTab2('discover')">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#e8503a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <span class="nav-label active" style="color:#e8503a">Discover</span>
+      </button>
+      <button class="nav-btn" id="nav-messages" onclick="switchTab2('messages')">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6b6866" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" id="nav-msg-icon"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        <span class="nav-label">Messages</span>
+      </button>
+      <button class="nav-btn" id="nav-profile" onclick="switchTab2('profile')">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6b6866" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        <span class="nav-label">Profile</span>
+      </button>
+    </div>
+
+    <!-- CHAT OVERLAY -->
+    <div id="chat" style="display:none">
+      <div class="chat-header">
+        <button class="back-btn" onclick="closeChat()">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#9e9b97" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
+        <div class="avatar" id="chat-avatar" style="width:38px;height:38px;font-size:14px"></div>
+        <div>
+          <p style="font-weight:600;font-size:15px" id="chat-name"></p>
+          <p style="color:#6b6866;font-size:12px" id="chat-city"></p>
+        </div>
+      </div>
+      <div class="chat-messages" id="chat-messages"></div>
+      <div class="chat-input-bar">
+        <input class="chat-input" id="chat-input" placeholder="Message..." />
+        <button class="send-btn" id="send-btn" onclick="sendMessage()">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MATCH MODAL -->
+  <div id="match-modal" class="hidden">
+    <div class="match-modal-inner">
+      <div style="font-size:48px;margin-bottom:16px">🎉</div>
+      <p class="match-modal-title">It's a match!</p>
+      <p class="match-modal-sub" id="match-modal-sub"></p>
+      <div class="match-modal-btns">
+        <button class="btn-ghost" onclick="closeMatchModal()">Keep swiping</button>
+        <button class="btn-primary" onclick="goToMessages()" style="border-radius:12px">Say hey</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const SUPABASE_URL = 'https://ocwgwfnrstzrapsblkxm.supabase.co'
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9jd2d3Zm5yc3R6cmFwc2Jsa3htIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY1NjAxNzksImV4cCI6MjA5MjEzNjE3OX0.Tr_l0wJjUDHdklj1AG9MW9FIlNC3lNgGbklpzz4AAfo'
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
+
+const AVATAR_COLORS = ['#3a4a8a','#6a3a5a','#2a5a4a','#5a3a2a','#3a5a6a','#4a3a6a']
+let currentUser = null
+let currentProfile = null
+let discoverProfiles = []
+let discoverIdx = 0
+let currentMatchId = null
+let chatSubscription = null
+let authTab = 'in'
+let selectedHsv = ''
+let editHsv = ''
+let lastMatchProfile = null
+
+function show(id) { document.getElementById(id).classList.remove('hidden') }
+function hide(id) { document.getElementById(id).classList.add('hidden') }
+function el(id) { return document.getElementById(id) }
+
+function avatarEl(name, size, idx, targetEl) {
+  targetEl.style.background = AVATAR_COLORS[idx % AVATAR_COLORS.length]
+  targetEl.style.width = size + 'px'
+  targetEl.style.height = size + 'px'
+  targetEl.style.fontSize = (size * 0.38) + 'px'
+  targetEl.textContent = (name || '?')[0].toUpperCase()
+}
+
+// ── AUTH ──────────────────────────────────────────
+function switchTab(tab) {
+  authTab = tab
+  el('tab-in').classList.toggle('active', tab === 'in')
+  el('tab-up').classList.toggle('active', tab === 'up')
+  el('auth-name').classList.toggle('hidden', tab === 'in')
+  el('hsv-picker').classList.toggle('hidden', tab === 'in')
+  el('auth-submit').textContent = tab === 'in' ? 'Sign in' : 'Create account'
+  el('auth-switch').innerHTML = tab === 'in'
+    ? 'No account? <a onclick="switchTab(\'up\')">Sign up free</a>'
+    : 'Have an account? <a onclick="switchTab(\'in\')">Sign in</a>'
+  el('auth-error').classList.add('hidden')
+}
+
+function selectHsv(btn, val) {
+  selectedHsv = val
+  document.querySelectorAll('#hsv-picker .hsv-btn').forEach(b => b.classList.remove('selected'))
+  btn.classList.add('selected')
+}
+
+async function handleAuth() {
+  const email = el('auth-email').value.trim()
+  const pass = el('auth-pass').value
+  const name = el('auth-name').value.trim()
+  el('auth-error').classList.add('hidden')
+  el('auth-submit').disabled = true
+  el('auth-submit').textContent = 'Please wait...'
+
+  try {
+    if (authTab === 'in') {
+      const { error } = await sb.auth.signInWithPassword({ email, password: pass })
+      if (error) throw error
+    } else {
+      if (!name) throw new Error('Enter a display name')
+      if (!selectedHsv) throw new Error('Select your type')
+      const { data, error } = await sb.auth.signUp({ email, password: pass, options: { data: { display_name: name } } })
+      if (error) throw error
+      if (data.user) {
+        await sb.from('profiles').upsert({ id: data.user.id, display_name: name, hsv_type: selectedHsv })
+      }
+    }
+    const { data: { session } } = await sb.auth.getSession()
+    if (session) await enterApp(session.user)
+  } catch (e) {
+    el('auth-error').textContent = e.message
+    el('auth-error').classList.remove('hidden')
+    el('auth-submit').disabled = false
+    el('auth-submit').textContent = authTab === 'in' ? 'Sign in' : 'Create account'
+  }
+}
+
+async function handleLogout() {
+  await sb.auth.signOut()
+  currentUser = null
+  currentProfile = null
+  hide('app-shell')
+  show('auth')
+}
+
+// ── APP ENTRY ─────────────────────────────────────
+async function enterApp(user) {
+  currentUser = user
+  const { data } = await sb.from('profiles').select('*').eq('id', user.id).single()
+  currentProfile = data
+  hide('auth')
+  show('app-shell')
+  loadDiscover()
+  renderProfileScreen()
+}
+
+// ── NAV ───────────────────────────────────────────
+function switchTab2(tab) {
+  const tabs = ['discover', 'messages', 'profile']
+  tabs.forEach(t => {
+    const content = el(t === 'discover' ? 'discover-content' : t + '-content')
+    content.style.display = t === tab ? '' : 'none'
+    el('nav-' + t).classList.toggle('active', t === tab)
+    el('nav-' + t).querySelector('.nav-label').style.color = t === tab ? '#e8503a' : '#6b6866'
+    const icon = el('nav-' + t).querySelector('svg')
+    icon.setAttribute('stroke', t === tab ? '#e8503a' : '#6b6866')
+  })
+  el('location-pill').style.display = tab === 'discover' ? '' : 'none'
+  if (tab === 'messages') loadMatches()
+  if (tab === 'profile') renderProfileScreen()
+}
+
+// ── DISCOVER ──────────────────────────────────────
+async function loadDiscover() {
+  el('card-stack').innerHTML = '<div class="empty-state"><p style="color:#6b6866;font-size:14px">Finding people nearby...</p></div>'
+  const { data: swipes } = await sb.from('swipes').select('swiped_id').eq('swiper_id', currentUser.id)
+  const swipedIds = (swipes || []).map(s => s.swiped_id)
+  swipedIds.push(currentUser.id)
+
+  let query = sb.from('profiles').select('*').limit(20)
+  if (swipedIds.length > 0) query = query.not('id', 'in', `(${swipedIds.join(',')})`)
+  const { data } = await query
+  discoverProfiles = data || []
+  discoverIdx = 0
+  renderCard()
+}
+
+function renderCard() {
+  const stack = el('card-stack')
+  if (discoverIdx >= discoverProfiles.length) {
+    stack.innerHTML = `
+      <div class="empty-state">
+        <p class="empty-icon">🌿</p>
+        <p class="empty-title">All caught up</p>
+        <p class="empty-sub">Check back soon — new people join every day</p>
+        <button class="btn-ghost" style="margin-top:16px;width:auto;padding:12px 28px" onclick="loadDiscover()">Refresh</button>
+      </div>`
+    return
+  }
+  const p = discoverProfiles[discoverIdx]
+  const color = AVATAR_COLORS[discoverIdx % AVATAR_COLORS.length]
+  stack.innerHTML = `
+    <div class="profile-card" id="current-card" style="background:${color}">
+      <div class="card-header">
+        <div class="stamp stamp-like" id="stamp-like">LIKE</div>
+        <div class="stamp stamp-pass" id="stamp-pass">PASS</div>
+      </div>
+      ${p.photo_urls?.[0]
+        ? `<img class="card-photo" src="${p.photo_urls[0]}" alt="" />`
+        : `<div class="card-placeholder"><svg width="80" height="80" viewBox="0 0 24 24" fill="white" opacity="0.15"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4" fill="white"/></svg></div>`
+      }
+      <div class="card-overlay">
+        <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:8px">
+          <div>
+            <p class="card-name">${p.display_name}${p.birthdate ? ', ' + getAge(p.birthdate) : ''}</p>
+            <p class="card-city">${p.city || 'Nearby'}</p>
+          </div>
+          ${p.hsv_type ? `<span class="card-badge">${p.hsv_type}</span>` : ''}
+        </div>
+        ${p.bio ? `<p class="card-bio">${p.bio}</p>` : ''}
+      </div>
+    </div>
+    <div class="card-actions">
+      <button class="action-btn pass" onclick="swipe('pass')">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6b6866" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+      <button class="action-btn like" onclick="swipe('like')">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="white"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+      </button>
+      <button class="action-btn super" onclick="swipe('super')">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#f5c518" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+      </button>
+    </div>`
+
+  setupSwipeGesture()
+}
+
+function getAge(birthdate) {
+  const d = new Date(birthdate), n = new Date()
+  let age = n.getFullYear() - d.getFullYear()
+  if (n < new Date(n.getFullYear(), d.getMonth(), d.getDate())) age--
+  return age
+}
+
+function setupSwipeGesture() {
+  const card = el('current-card')
+  if (!card) return
+  let startX, startY, isDragging = false
+
+  card.addEventListener('touchstart', e => {
+    startX = e.touches[0].clientX; startY = e.touches[0].clientY; isDragging = true
+    card.style.transition = 'none'
+  }, { passive: true })
+
+  card.addEventListener('touchmove', e => {
+    if (!isDragging) return
+    const dx = e.touches[0].clientX - startX
+    const dy = e.touches[0].clientY - startY
+    card.style.transform = `translateX(${dx}px) translateY(${dy * 0.3}px) rotate(${dx * 0.06}deg)`
+    el('stamp-like').style.opacity = Math.max(0, Math.min(1, dx / 60))
+    el('stamp-pass').style.opacity = Math.max(0, Math.min(1, -dx / 60))
+  }, { passive: true })
+
+  card.addEventListener('touchend', e => {
+    if (!isDragging) return
+    isDragging = false
+    const dx = e.changedTouches[0].clientX - startX
+    if (Math.abs(dx) > 80) swipe(dx > 0 ? 'like' : 'pass')
+    else { card.style.transition = 'transform 0.3s ease-out'; card.style.transform = '' }
+  })
+}
+
+async function swipe(direction) {
+  const card = el('current-card')
+  const profile = discoverProfiles[discoverIdx]
+  if (!profile || !card) return
+
+  card.style.transition = 'transform 0.28s ease-in'
+  card.style.transform = direction === 'like' || direction === 'super'
+    ? 'translateX(150%) rotate(12deg)' : 'translateX(-150%) rotate(-12deg)'
+
+  await sb.from('swipes').insert({ swiper_id: currentUser.id, swiped_id: profile.id, direction })
+
+  if (direction === 'like' || direction === 'super') {
+    const { data: theirSwipe } = await sb.from('swipes')
+      .select('id').eq('swiper_id', profile.id).eq('swiped_id', currentUser.id).in('direction', ['like','super']).maybeSingle()
+    if (theirSwipe) {
+      const { data: match } = await sb.from('matches').insert({ user_a: currentUser.id, user_b: profile.id }).select().single()
+      lastMatchProfile = profile
+      showMatchModal(profile)
+    }
+  }
+
+  setTimeout(() => { discoverIdx++; renderCard() }, 300)
+}
+
+function showMatchModal(profile) {
+  el('match-modal-sub').textContent = `You and ${profile.display_name} liked each other`
+  show('match-modal')
+}
+function closeMatchModal() { hide('match-modal') }
+function goToMessages() { hide('match-modal'); switchTab2('messages') }
+
+// ── MESSAGES ──────────────────────────────────────
+async function loadMatches() {
+  const list = el('matches-list')
+  list.innerHTML = '<p style="color:#6b6866;font-size:14px;text-align:center;margin-top:40px">Loading...</p>'
+
+  const { data } = await sb.from('matches')
+    .select('*, profiles_a:profiles!matches_user_a_fkey(*), profiles_b:profiles!matches_user_b_fkey(*)')
+    .or(`user_a.eq.${currentUser.id},user_b.eq.${currentUser.id}`)
+    .order('created_at', { ascending: false })
+
+  if (!data || data.length === 0) {
+    list.innerHTML = `
+      <div class="empty-state" style="margin-top:40px">
+        <p class="empty-icon">💬</p>
+        <p class="empty-title">No matches yet</p>
+        <p class="empty-sub">Keep swiping — your first match is out there</p>
+      </div>`
+    return
+  }
+
+  list.innerHTML = data.map((m, i) => {
+    const other = m.user_a === currentUser.id ? m.profiles_b : m.profiles_a
+    const color = AVATAR_COLORS[i % AVATAR_COLORS.length]
+    const initial = (other?.display_name || '?')[0].toUpperCase()
+    const age = timeAgo(m.created_at)
+    return `
+      <div class="match-item" onclick="openChat(${JSON.stringify(m).replace(/"/g,'&quot;')})">
+        <div class="avatar" style="width:50px;height:50px;font-size:18px;background:${color}">${initial}</div>
+        <div class="match-info">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span class="match-name">${other?.display_name || 'User'}</span>
+            <span class="match-time">${age}</span>
+          </div>
+          <p class="match-preview">Matched — say hey!</p>
+        </div>
+      </div>`
+  }).join('')
+}
+
+function timeAgo(ts) {
+  const diff = (Date.now() - new Date(ts)) / 60000
+  if (diff < 60) return Math.floor(diff) + 'm'
+  if (diff < 1440) return Math.floor(diff / 60) + 'h'
+  return Math.floor(diff / 1440) + 'd'
+}
+
+// ── CHAT ──────────────────────────────────────────
+let activeMatch = null
+
+function openChat(match) {
+  activeMatch = match
+  const other = match.user_a === currentUser.id ? match.profiles_b : match.profiles_a
+  const color = AVATAR_COLORS[1]
+  avatarEl(other?.display_name || '?', 38, 1, el('chat-avatar'))
+  el('chat-name').textContent = other?.display_name || 'User'
+  el('chat-city').textContent = other?.city || ''
+  el('chat').style.display = 'flex'
+  loadChatMessages()
+
+  if (chatSubscription) sb.removeChannel(chatSubscription)
+  chatSubscription = sb.channel('chat-' + match.id)
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `match_id=eq.${match.id}` },
+      payload => appendMessage(payload.new))
+    .subscribe()
+
+  el('chat-input').onkeydown = e => { if (e.key === 'Enter') sendMessage() }
+}
+
+function closeChat() {
+  el('chat').style.display = 'none'
+  if (chatSubscription) { sb.removeChannel(chatSubscription); chatSubscription = null }
+}
+
+async function loadChatMessages() {
+  const msgs = el('chat-messages')
+  msgs.innerHTML = ''
+  const { data } = await sb.from('messages').select('*').eq('match_id', activeMatch.id).order('created_at')
+  if (!data || data.length === 0) {
+    const other = activeMatch.user_a === currentUser.id ? activeMatch.profiles_b : activeMatch.profiles_a
+    msgs.innerHTML = `<p style="color:#6b6866;font-size:14px;text-align:center;margin-top:40px">You matched with ${other?.display_name}. Say hey!</p>`
+    return
+  }
+  data.forEach(m => appendMessage(m))
+}
+
+function appendMessage(msg) {
+  const msgs = el('chat-messages')
+  const placeholder = msgs.querySelector('p')
+  if (placeholder) placeholder.remove()
+  const mine = msg.sender_id === currentUser.id
+  const time = new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  const div = document.createElement('div')
+  div.className = 'bubble ' + (mine ? 'mine' : 'theirs')
+  div.innerHTML = msg.content + `<div class="bubble-time">${time}</div>`
+  msgs.appendChild(div)
+  msgs.scrollTop = msgs.scrollHeight
+}
+
+async function sendMessage() {
+  const input = el('chat-input')
+  const content = input.value.trim()
+  if (!content || !activeMatch) return
+  input.value = ''
+  await sb.from('messages').insert({ match_id: activeMatch.id, sender_id: currentUser.id, content })
+}
+
+// ── PROFILE ───────────────────────────────────────
+function renderProfileScreen() {
+  if (!currentProfile) return
+  const p = currentProfile
+  avatarEl(p.display_name || '?', 76, 2, el('profile-avatar'))
+  el('profile-display-name').textContent = p.display_name || ''
+  el('profile-city-label').textContent = p.city || 'Add your city'
+  const fields = [['Type', p.hsv_type], ['City', p.city], ['Bio', p.bio]].filter(([,v]) => v)
+  el('profile-fields').innerHTML = fields.map(([l, v]) =>
+    `<div class="profile-field"><span class="field-label">${l}</span><span class="field-value" style="max-width:60%;text-align:right">${v}</span></div>`
+  ).join('')
+}
+
+function toggleEdit() {
+  const form = el('profile-edit-form')
+  const showing = form.style.display === 'flex'
+  if (!showing) {
+    el('edit-name').value = currentProfile?.display_name || ''
+    el('edit-city').value = currentProfile?.city || ''
+    el('edit-bio').value = currentProfile?.bio || ''
+    editHsv = currentProfile?.hsv_type || ''
+    document.querySelectorAll('#edit-hsv-options .hsv-btn').forEach(b => {
+      b.classList.toggle('selected', b.textContent === editHsv)
+    })
+  }
+  form.style.display = showing ? 'none' : 'flex'
+}
+
+function selectEditHsv(btn, val) {
+  editHsv = val
+  document.querySelectorAll('#edit-hsv-options .hsv-btn').forEach(b => b.classList.remove('selected'))
+  btn.classList.add('selected')
+}
+
+async function saveProfile() {
+  const updates = {
+    id: currentUser.id,
+    display_name: el('edit-name').value.trim(),
+    city: el('edit-city').value.trim(),
+    bio: el('edit-bio').value.trim(),
+    hsv_type: editHsv || currentProfile?.hsv_type,
+  }
+  await sb.from('profiles').upsert(updates)
+  currentProfile = { ...currentProfile, ...updates }
+  renderProfileScreen()
+  toggleEdit()
+}
+
+// ── INIT ──────────────────────────────────────────
+async function init() {
+  setTimeout(async () => {
+    const { data: { session } } = await sb.auth.getSession()
+    hide('splash')
+    if (session) {
+      await enterApp(session.user)
+    } else {
+      show('auth')
+    }
+  }, 1800)
+}
+
+init()
+</script>
+</body>
+</html>
