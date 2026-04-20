@@ -499,6 +499,8 @@ async function handleLogout() {
   el('auth-email').value = ''
   el('auth-pass').value = ''
   el('auth-error').classList.add('hidden')
+  el('auth-submit').disabled = false
+  el('auth-submit').textContent = 'Sign in'
   switchTab('in')
   hide('app-shell')
   show('auth')
