@@ -848,6 +848,7 @@ function setupSwipeGesture() {
 
 async function checkLikeLimit() {
   if (currentProfile?.is_premium) return true
+  if (currentProfile?.gender === 'Woman') return true
   const today = new Date(); today.setHours(0,0,0,0)
   const { count } = await sb.from('swipes')
     .select('*', { count: 'exact', head: true })
@@ -1017,6 +1018,7 @@ function appendMessage(msg) {
 
 async function checkMessageLimit() {
   if (currentProfile?.is_premium) return true
+  if (currentProfile?.gender === 'Woman') return true
   // Check if other person already sent a message in this match (reply = always allowed)
   const { data: theirMsg } = await sb.from('messages')
     .select('id').eq('match_id', activeMatch.id)
