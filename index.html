@@ -486,9 +486,20 @@ async function handleAuth() {
 }
 
 async function handleLogout() {
+  if (chatSubscription) { sb.removeChannel(chatSubscription); chatSubscription = null }
   await sb.auth.signOut()
   currentUser = null
   currentProfile = null
+  discoverProfiles = []
+  discoverIdx = 0
+  activeMatch = null
+  selectedHsv = ''
+  selectedGender = ''
+  selectedSeeking = ''
+  el('auth-email').value = ''
+  el('auth-pass').value = ''
+  el('auth-error').classList.add('hidden')
+  switchTab('in')
   hide('app-shell')
   show('auth')
 }
