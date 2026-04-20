@@ -239,7 +239,7 @@
 
     <!-- PROFILE TAB -->
     <div id="profile-content" style="display:none">
-      <input type="file" id="photo-input" accept="image/*" style="display:none" onchange="uploadPhoto(this)" />
+      <input type="file" id="photo-input" accept="image/*" style="display:none" onchange="uploadPhoto(this)" multiple />
       <div class="profile-header">
         <div class="avatar-wrap" onclick="el('photo-input').click()">
           <div class="avatar" id="profile-avatar" style="width:76px;height:76px;font-size:28px"></div>
@@ -415,25 +415,45 @@ function avatarEl(name, size, idx, targetEl, photoUrl) {
 }
 
 async function uploadPhoto(input) {
-  const file = input.files[0]
-  if (!file) return
-  const avatarEl2 = el('profile-avatar')
-  avatarEl2.innerHTML = '<div class="uploading-ring"></div>'
-  avatarEl2.style.background = '#1c1c1c'
+  const files = Array.from(input.files)
+  if (!files.length) return
 
-  const ext = file.name.split('.').pop()
-  const path = `${currentUser.id}/avatar.${ext}`
+  const existing = currentProfile.photo_urls || []
+  const slots = 20 - existing.length
+  if (slots <= 0) { showToast('You already have 20 photos. Remove one first.'); input.value = ''; return }
 
-  const { error: upErr } = await sb.storage.from('avatars').upload(path, file, { upsert: true })
-  if (upErr) { alert('Upload failed: ' + upErr.message); renderProfileScreen(); return }
+  const toUpload = files.slice(0, slots)
+  if (files.length > slots) showToast(`Only ${slots} slot(s) remaining. Uploading first ${slots}.`)
 
-  const { data: urlData } = sb.storage.from('avatars').getPublicUrl(path)
-  const url = urlData.publicUrl + '?t=' + Date.now()
+  showToast('Uploading...')
+  const newUrls = []
 
-  await sb.from('profiles').update({ photo_urls: [url] }).eq('id', currentUser.id)
-  currentProfile.photo_urls = [url]
+  for (const file of toUpload) {
+    const ext = file.name.split('.').pop()
+    const path = `${currentUser.id}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`
+    const { error: upErr } = await sb.storage.from('avatars').upload(path, file, { upsert: false })
+    if (upErr) { showToast('Upload failed: ' + upErr.message); continue }
+    const { data: urlData } = sb.storage.from('avatars').getPublicUrl(path)
+    newUrls.push(urlData.publicUrl)
+  }
+
+  if (newUrls.length === 0) { input.value = ''; return }
+
+  const updatedUrls = [...existing, ...newUrls]
+  await sb.from('profiles').update({ photo_urls: updatedUrls }).eq('id', currentUser.id)
+  currentProfile.photo_urls = updatedUrls
   renderProfileScreen()
   input.value = ''
+  showToast(`${newUrls.length} photo${newUrls.length > 1 ? 's' : ''} uploaded.`)
+}
+
+async function deletePhoto(idx) {
+  if (!confirm('Remove this photo?')) return
+  const urls = [...(currentProfile.photo_urls || [])]
+  urls.splice(idx, 1)
+  await sb.from('profiles').update({ photo_urls: urls }).eq('id', currentUser.id)
+  currentProfile.photo_urls = urls
+  renderProfileScreen()
 }
 
 // ── AUTH ──────────────────────────────────────────
@@ -934,6 +954,39 @@ function renderProfileScreen() {
   el('profile-fields').innerHTML = fields.map(([l, v]) =>
     `<div class="profile-field"><span class="field-label">${l}</span><span class="field-value" style="max-width:60%;text-align:right">${v}</span></div>`
   ).join('')
+  renderPhotoGrid()
+}
+
+function renderPhotoGrid() {
+  const existing = document.getElementById('photo-grid')
+  if (existing) existing.remove()
+  const photos = currentProfile.photo_urls || []
+  const grid = document.createElement('div')
+  grid.id = 'photo-grid'
+  grid.style.cssText = 'display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:20px'
+
+  photos.forEach((url, i) => {
+    const cell = document.createElement('div')
+    cell.style.cssText = 'position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;background:#1c1c1c'
+    cell.innerHTML = `
+      <img src="${url}" style="width:100%;height:100%;object-fit:cover" />
+      <button onclick="deletePhoto(${i})" style="position:absolute;top:4px;right:4px;width:22px;height:22px;border-radius:50%;background:rgba(0,0,0,0.7);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;line-height:1">×</button>
+      ${i === 0 ? '<div style="position:absolute;bottom:4px;left:4px;background:rgba(0,0,0,0.6);border-radius:6px;padding:2px 6px;font-size:10px;color:#fff">Main</div>' : ''}
+    `
+    grid.appendChild(cell)
+  })
+
+  if (photos.length < 20) {
+    const add = document.createElement('div')
+    add.style.cssText = 'aspect-ratio:1;border-radius:10px;border:1px dashed #252525;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;gap:4px'
+    add.onclick = () => el('photo-input').click()
+    add.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#6b6866" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg><span style="color:#6b6866;font-size:11px">' + (20 - photos.length) + ' left</span>'
+    grid.appendChild(add)
+  }
+
+  const profileContent = el('profile-content')
+  const profileHeader = profileContent.querySelector('.profile-header')
+  profileHeader.insertAdjacentElement('afterend', grid)
 }
 
 function toggleEdit() {
