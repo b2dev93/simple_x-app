@@ -186,6 +186,20 @@
           <button class="hsv-btn" onclick="selectHsv(this,'HSV-2')">HSV-2</button>
           <button class="hsv-btn" onclick="selectHsv(this,'Both')">Both</button>
         </div>
+        <p style="color:#6b6866;font-size:12px;margin:14px 0 10px">I am</p>
+        <div class="hsv-options" id="gender-options">
+          <button class="hsv-btn" onclick="selectGender(this,'Man')">Man</button>
+          <button class="hsv-btn" onclick="selectGender(this,'Woman')">Woman</button>
+          <button class="hsv-btn" onclick="selectGender(this,'Other')">Other</button>
+        </div>
+        <p style="color:#6b6866;font-size:12px;margin:14px 0 10px">Looking for</p>
+        <div class="hsv-options" id="seeking-options">
+          <button class="hsv-btn" onclick="selectSeeking(this,'Men')">Men</button>
+          <button class="hsv-btn" onclick="selectSeeking(this,'Women')">Women</button>
+          <button class="hsv-btn" onclick="selectSeeking(this,'Everyone')">Everyone</button>
+        </div>
+        <p style="color:#6b6866;font-size:12px;margin:14px 0 10px">Date of birth</p>
+        <input class="input" type="date" id="auth-birthdate" style="color:#9e9b97" />
       </div>
     </div>
     <p class="error-msg hidden" id="auth-error"></p>
@@ -247,6 +261,20 @@
             <button class="hsv-btn" onclick="selectEditHsv(this,'HSV-2')">HSV-2</button>
             <button class="hsv-btn" onclick="selectEditHsv(this,'Both')">Both</button>
           </div>
+          <p style="color:#6b6866;font-size:12px;margin:14px 0 10px">I am</p>
+          <div class="hsv-options" id="edit-gender-options">
+            <button class="hsv-btn" onclick="selectEditGender(this,'Man')">Man</button>
+            <button class="hsv-btn" onclick="selectEditGender(this,'Woman')">Woman</button>
+            <button class="hsv-btn" onclick="selectEditGender(this,'Other')">Other</button>
+          </div>
+          <p style="color:#6b6866;font-size:12px;margin:14px 0 10px">Looking for</p>
+          <div class="hsv-options" id="edit-seeking-options">
+            <button class="hsv-btn" onclick="selectEditSeeking(this,'Men')">Men</button>
+            <button class="hsv-btn" onclick="selectEditSeeking(this,'Women')">Women</button>
+            <button class="hsv-btn" onclick="selectEditSeeking(this,'Everyone')">Everyone</button>
+          </div>
+          <p style="color:#6b6866;font-size:12px;margin:14px 0 10px">Date of birth</p>
+          <input class="input" type="date" id="edit-birthdate" style="color:#9e9b97" />
         </div>
         <button class="btn-primary" onclick="saveProfile()">Save changes</button>
       </div>
@@ -327,7 +355,11 @@ let currentMatchId = null
 let chatSubscription = null
 let authTab = 'in'
 let selectedHsv = ''
+let selectedGender = ''
+let selectedSeeking = ''
 let editHsv = ''
+let editGender = ''
+let editSeeking = ''
 let lastMatchProfile = null
 
 function show(id) { document.getElementById(id).classList.remove('hidden') }
@@ -391,6 +423,30 @@ function selectHsv(btn, val) {
   btn.classList.add('selected')
 }
 
+function selectGender(btn, val) {
+  selectedGender = val
+  document.querySelectorAll('#gender-options .hsv-btn').forEach(b => b.classList.remove('selected'))
+  btn.classList.add('selected')
+}
+
+function selectSeeking(btn, val) {
+  selectedSeeking = val
+  document.querySelectorAll('#seeking-options .hsv-btn').forEach(b => b.classList.remove('selected'))
+  btn.classList.add('selected')
+}
+
+function selectEditGender(btn, val) {
+  editGender = val
+  document.querySelectorAll('#edit-gender-options .hsv-btn').forEach(b => b.classList.remove('selected'))
+  btn.classList.add('selected')
+}
+
+function selectEditSeeking(btn, val) {
+  editSeeking = val
+  document.querySelectorAll('#edit-seeking-options .hsv-btn').forEach(b => b.classList.remove('selected'))
+  btn.classList.add('selected')
+}
+
 async function handleAuth() {
   const email = el('auth-email').value.trim()
   const pass = el('auth-pass').value
@@ -409,7 +465,14 @@ async function handleAuth() {
       const { data, error } = await sb.auth.signUp({ email, password: pass, options: { data: { display_name: name } } })
       if (error) throw error
       if (data.user) {
-        await sb.from('profiles').upsert({ id: data.user.id, display_name: name, hsv_type: selectedHsv })
+        await sb.from('profiles').upsert({
+          id: data.user.id,
+          display_name: name,
+          hsv_type: selectedHsv,
+          gender: selectedGender,
+          seeking: selectedSeeking,
+          birthdate: el('auth-birthdate').value || null,
+        })
       }
     }
     const { data: { session } } = await sb.auth.getSession()
@@ -466,6 +529,11 @@ async function loadDiscover() {
 
   let query = sb.from('profiles').select('*').limit(20)
   if (swipedIds.length > 0) query = query.not('id', 'in', `(${swipedIds.join(',')})`)
+  // Filter by what current user is seeking
+  if (currentProfile?.seeking && currentProfile.seeking !== 'Everyone') {
+    const genderWanted = currentProfile.seeking === 'Women' ? 'Woman' : 'Man'
+    query = query.eq('gender', genderWanted)
+  }
   const { data } = await query
   discoverProfiles = data || []
   discoverIdx = 0
@@ -757,10 +825,13 @@ function toggleEdit() {
     el('edit-name').value = currentProfile?.display_name || ''
     el('edit-city').value = currentProfile?.city || ''
     el('edit-bio').value = currentProfile?.bio || ''
+    el('edit-birthdate').value = currentProfile?.birthdate || ''
     editHsv = currentProfile?.hsv_type || ''
-    document.querySelectorAll('#edit-hsv-options .hsv-btn').forEach(b => {
-      b.classList.toggle('selected', b.textContent === editHsv)
-    })
+    editGender = currentProfile?.gender || ''
+    editSeeking = currentProfile?.seeking || ''
+    document.querySelectorAll('#edit-hsv-options .hsv-btn').forEach(b => b.classList.toggle('selected', b.textContent === editHsv))
+    document.querySelectorAll('#edit-gender-options .hsv-btn').forEach(b => b.classList.toggle('selected', b.textContent === editGender))
+    document.querySelectorAll('#edit-seeking-options .hsv-btn').forEach(b => b.classList.toggle('selected', b.textContent === editSeeking))
   }
   form.style.display = showing ? 'none' : 'flex'
 }
@@ -778,6 +849,9 @@ async function saveProfile() {
     city: el('edit-city').value.trim(),
     bio: el('edit-bio').value.trim(),
     hsv_type: editHsv || currentProfile?.hsv_type,
+    gender: editGender || currentProfile?.gender,
+    seeking: editSeeking || currentProfile?.seeking,
+    birthdate: el('edit-birthdate').value || currentProfile?.birthdate || null,
   }
   await sb.from('profiles').upsert(updates)
   currentProfile = { ...currentProfile, ...updates }
