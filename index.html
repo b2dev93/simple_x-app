@@ -158,6 +158,8 @@
     .match-modal-btns { display: flex; gap: 12px; }
     .report-reason-btn { width:100%;padding:12px 16px;border-radius:10px;border:1px solid #252525;background:transparent;color:#9e9b97;font-size:14px;text-align:left;cursor:pointer;transition:all 0.15s; }
     .report-reason-btn.selected { border-color:#e8503a;background:#3a1a14;color:#e8503a; }
+    .filter-hsv-btn { padding:8px 16px;border-radius:20px;border:1px solid #252525;background:transparent;color:#9e9b97;font-size:13px;cursor:pointer;transition:all 0.15s; }
+    .filter-hsv-btn.selected { border-color:#e8503a;background:#3a1a14;color:#e8503a; }
   </style>
 </head>
 <body>
@@ -218,10 +220,11 @@
     <!-- Top Bar -->
     <div id="topbar">
       <div class="logo" style="--logo-size: 22px"><span>simple</span><span>x</span></div>
-      <div class="location-pill" id="location-pill">
+      <button id="location-pill" onclick="show('filter-panel')" style="background:#141414;border-radius:20px;padding:6px 14px;border:1px solid #252525;display:flex;align-items:center;gap:6px;color:#9e9b97;font-size:13px;cursor:pointer">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="#e8503a"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
-        25 mi
-      </div>
+        <span id="location-pill-label">Worldwide</span>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#6b6866" stroke-width="2" stroke-linecap="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>
+      </button>
     </div>
 
     <!-- DISCOVER TAB -->
@@ -356,6 +359,62 @@
         <button onclick="hide('report-modal')" class="btn-ghost" style="flex:1">Cancel</button>
         <button onclick="submitReport()" class="btn-primary" style="flex:1;border-radius:12px">Submit</button>
       </div>
+    </div>
+  </div>
+
+  <!-- FILTER PANEL -->
+  <div id="filter-panel" class="hidden" style="position:fixed;inset:0;background:rgba(0,0,0,0.88);display:flex;align-items:flex-end;z-index:150">
+    <div style="background:#141414;border-radius:24px 24px 0 0;width:100%;padding:28px 24px 40px;border-top:1px solid #252525">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:28px">
+        <h2 style="font-size:18px;font-weight:700">Filters</h2>
+        <button onclick="hide('filter-panel')" style="border:none;background:transparent;color:#6b6866;font-size:15px;cursor:pointer">Done</button>
+      </div>
+
+      <!-- Distance -->
+      <div style="margin-bottom:28px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:12px">
+          <span style="color:#9e9b97;font-size:14px">Distance</span>
+          <span style="color:#f0ede8;font-size:14px;font-weight:600" id="distance-label">Worldwide</span>
+        </div>
+        <input type="range" id="filter-distance" min="0" max="7" value="7" step="1" style="width:100%" oninput="updateDistanceLabel(this.value)" />
+        <div style="display:flex;justify-content:space-between;margin-top:6px">
+          <span style="color:#6b6866;font-size:11px">5 mi</span>
+          <span style="color:#6b6866;font-size:11px">Worldwide</span>
+        </div>
+      </div>
+
+      <!-- Age Range -->
+      <div style="margin-bottom:28px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:12px">
+          <span style="color:#9e9b97;font-size:14px">Age range</span>
+          <span style="color:#f0ede8;font-size:14px;font-weight:600" id="age-range-label">18 – 65+</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div style="display:flex;align-items:center;gap:12px">
+            <span style="color:#6b6866;font-size:12px;width:24px">Min</span>
+            <input type="range" id="filter-age-min" min="18" max="65" value="18" step="1" style="flex:1" oninput="updateAgeLabel()" />
+            <span style="color:#f0ede8;font-size:13px;width:28px;text-align:right" id="age-min-val">18</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px">
+            <span style="color:#6b6866;font-size:12px;width:24px">Max</span>
+            <input type="range" id="filter-age-max" min="18" max="65" value="65" step="1" style="flex:1" oninput="updateAgeLabel()" />
+            <span style="color:#f0ede8;font-size:13px;width:28px;text-align:right" id="age-max-val">65+</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- HSV Type -->
+      <div style="margin-bottom:28px">
+        <span style="color:#9e9b97;font-size:14px;display:block;margin-bottom:12px">HSV type</span>
+        <div style="display:flex;gap:8px">
+          <button class="filter-hsv-btn selected" onclick="toggleFilterHsv(this,'all')" data-val="all">All</button>
+          <button class="filter-hsv-btn" onclick="toggleFilterHsv(this,'HSV-1')" data-val="HSV-1">HSV-1</button>
+          <button class="filter-hsv-btn" onclick="toggleFilterHsv(this,'HSV-2')" data-val="HSV-2">HSV-2</button>
+          <button class="filter-hsv-btn" onclick="toggleFilterHsv(this,'Both')" data-val="Both">Both</button>
+        </div>
+      </div>
+
+      <button onclick="applyFilters()" class="btn-primary">Apply filters</button>
     </div>
   </div>
 
@@ -552,6 +611,7 @@ async function enterApp(user) {
   renderProfileScreen()
   startRealtimeListeners()
   checkUnreadOnLoad()
+  requestLocation()
 }
 
 async function checkUnreadOnLoad() {
@@ -644,12 +704,33 @@ async function loadDiscover() {
 
   let query = sb.from('profiles').select('*').limit(20)
   if (swipedIds.length > 0) query = query.not('id', 'in', `(${swipedIds.join(',')})`)
-  // Filter by what current user is seeking
+  // Filter by gender/seeking
   if (currentProfile?.seeking && currentProfile.seeking !== 'Everyone') {
     const genderWanted = currentProfile.seeking === 'Women' ? 'Woman' : 'Man'
     query = query.eq('gender', genderWanted)
   }
-  const { data } = await query
+
+  // Filter by HSV type
+  if (filterHsv !== 'all') query = query.eq('hsv_type', filterHsv)
+
+  const { data: rawProfiles } = await query
+
+  // Filter by age and distance client-side
+  const now = new Date()
+  const data = (rawProfiles || []).filter(p => {
+    // Age filter
+    if (p.birthdate) {
+      const age = Math.floor((now - new Date(p.birthdate)) / (365.25 * 24 * 3600 * 1000))
+      if (age < filterAgeMin) return false
+      if (filterAgeMax < 65 && age > filterAgeMax) return false
+    }
+    // Distance filter
+    if (filterDistance !== null && userLat && userLng && p.lat && p.lng) {
+      const dist = haversineDistance(userLat, userLng, p.lat, p.lng)
+      if (dist > filterDistance) return false
+    }
+    return true
+  })
   discoverProfiles = data || []
   discoverIdx = 0
   renderCard()
@@ -1028,6 +1109,66 @@ async function saveProfile() {
   currentProfile = { ...currentProfile, ...updates }
   renderProfileScreen()
   toggleEdit()
+}
+
+// ── FILTERS & LOCATION ───────────────────────────
+const DISTANCE_STEPS = [5, 25, 50, 100, 250, 500, 1000, null] // null = worldwide
+let userLat = null
+let userLng = null
+let filterDistance = null // miles, null = worldwide
+let filterAgeMin = 18
+let filterAgeMax = 65
+let filterHsv = 'all'
+
+function updateDistanceLabel(val) {
+  const step = DISTANCE_STEPS[parseInt(val)]
+  const label = step === null ? 'Worldwide' : step + ' mi'
+  el('distance-label').textContent = label
+  el('location-pill-label').textContent = label
+}
+
+function updateAgeLabel() {
+  const min = parseInt(el('filter-age-min').value)
+  const max = parseInt(el('filter-age-max').value)
+  if (min > max - 2) { el('filter-age-min').value = max - 2; return }
+  el('age-min-val').textContent = min
+  el('age-max-val').textContent = max >= 65 ? '65+' : max
+  el('age-range-label').textContent = `${min} – ${max >= 65 ? '65+' : max}`
+}
+
+function toggleFilterHsv(btn, val) {
+  document.querySelectorAll('.filter-hsv-btn').forEach(b => b.classList.remove('selected'))
+  btn.classList.add('selected')
+  filterHsv = val
+}
+
+function applyFilters() {
+  const distVal = parseInt(el('filter-distance').value)
+  filterDistance = DISTANCE_STEPS[distVal]
+  filterAgeMin = parseInt(el('filter-age-min').value)
+  filterAgeMax = parseInt(el('filter-age-max').value)
+  hide('filter-panel')
+  loadDiscover()
+}
+
+function requestLocation() {
+  if (!navigator.geolocation) return
+  navigator.geolocation.getCurrentPosition(async pos => {
+    userLat = pos.coords.latitude
+    userLng = pos.coords.longitude
+    // Save to profile
+    await sb.from('profiles').update({ lat: userLat, lng: userLng }).eq('id', currentUser.id)
+    currentProfile.lat = userLat
+    currentProfile.lng = userLng
+  }, () => {}) // silently fail if denied
+}
+
+function haversineDistance(lat1, lng1, lat2, lng2) {
+  const R = 3958.8 // miles
+  const dLat = (lat2 - lat1) * Math.PI / 180
+  const dLng = (lng2 - lng1) * Math.PI / 180
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLng/2)**2
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))
 }
 
 // ── BLOCK & REPORT ───────────────────────────────
