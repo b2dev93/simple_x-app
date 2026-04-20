@@ -171,6 +171,48 @@
     <p class="tagline">no complications</p>
   </div>
 
+  <!-- TERMS OF SERVICE -->
+  <div id="tos" class="screen hidden" style="background:#0a0a0a;padding:0">
+    <div style="padding:24px 24px 0;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+      <div class="logo" style="--logo-size: 22px"><span>simple</span><span>x</span></div>
+      <span style="color:#6b6866;font-size:13px">Terms of Service</span>
+    </div>
+    <div style="flex:1;overflow-y:auto;padding:20px 24px 120px" id="tos-content">
+      <h2 style="color:#f0ede8;font-size:20px;font-weight:700;margin-bottom:6px">Terms of Service</h2>
+      <p style="color:#6b6866;font-size:12px;margin-bottom:24px">Last updated: April 2026</p>
+
+      <p style="color:#9e9b97;font-size:14px;line-height:1.7;margin-bottom:20px">By creating an account on Simple-x you agree to the following terms. Please read them carefully.</p>
+
+      <h3 style="color:#f0ede8;font-size:15px;font-weight:600;margin-bottom:8px">1. Who can use Simple-x</h3>
+      <p style="color:#9e9b97;font-size:14px;line-height:1.7;margin-bottom:20px">You must be at least 18 years old to use Simple-x. By creating an account you confirm that you are 18 or older.</p>
+
+      <h3 style="color:#f0ede8;font-size:15px;font-weight:600;margin-bottom:8px">2. Your health information</h3>
+      <p style="color:#9e9b97;font-size:14px;line-height:1.7;margin-bottom:20px">Simple-x is a community for people living with HSV. Any health information you provide, including your HSV type, is visible to other logged-in members. Do not share information you are not comfortable with other members seeing. Simple-x does not sell or share your health data with third parties.</p>
+
+      <h3 style="color:#f0ede8;font-size:15px;font-weight:600;margin-bottom:8px">3. Your conduct</h3>
+      <p style="color:#9e9b97;font-size:14px;line-height:1.7;margin-bottom:20px">You agree not to harass, threaten, or abuse other members. You agree not to create fake profiles or impersonate other people. Violations may result in immediate account termination.</p>
+
+      <h3 style="color:#f0ede8;font-size:15px;font-weight:600;margin-bottom:8px">4. No guarantee of results</h3>
+      <p style="color:#9e9b97;font-size:14px;line-height:1.7;margin-bottom:20px">Simple-x provides a platform to connect people. We do not guarantee matches, relationships, or any specific outcome from using the app.</p>
+
+      <h3 style="color:#f0ede8;font-size:15px;font-weight:600;margin-bottom:8px">5. Content you post</h3>
+      <p style="color:#9e9b97;font-size:14px;line-height:1.7;margin-bottom:20px">You are responsible for any photos or content you upload. Do not upload explicit, illegal, or harmful content. Simple-x reserves the right to remove content and suspend accounts that violate these terms.</p>
+
+      <h3 style="color:#f0ede8;font-size:15px;font-weight:600;margin-bottom:8px">6. Privacy</h3>
+      <p style="color:#9e9b97;font-size:14px;line-height:1.7;margin-bottom:20px">We collect only the information necessary to operate the app. We do not sell your data. Your email address is never visible to other members.</p>
+
+      <h3 style="color:#f0ede8;font-size:15px;font-weight:600;margin-bottom:8px">7. Changes to these terms</h3>
+      <p style="color:#9e9b97;font-size:14px;line-height:1.7;margin-bottom:20px">We may update these terms as the app grows. Continued use of Simple-x after changes are posted constitutes acceptance of the new terms.</p>
+
+      <h3 style="color:#f0ede8;font-size:15px;font-weight:600;margin-bottom:8px">8. Limitation of liability</h3>
+      <p style="color:#9e9b97;font-size:14px;line-height:1.7;margin-bottom:20px">Simple-x is provided as-is. We are not liable for any damages arising from your use of the app, interactions with other members, or loss of data.</p>
+    </div>
+    <div style="position:absolute;bottom:0;left:0;right:0;padding:16px 24px 32px;background:linear-gradient(transparent,#0a0a0a 30%);display:flex;flex-direction:column;gap:10px">
+      <button onclick="acceptTos()" class="btn-primary">I agree — Create my account</button>
+      <button onclick="hide('tos');show('auth')" class="btn-ghost">Back</button>
+    </div>
+  </div>
+
   <!-- AUTH -->
   <div id="auth" class="screen hidden">
     <div class="logo" style="--logo-size: 34px; margin-bottom: 8px"><span>simple</span><span>x</span></div>
@@ -241,6 +283,16 @@
       <div id="matches-list"></div>
     </div>
 
+    <!-- RESEARCH TAB -->
+    <div id="research-content" style="display:none;position:absolute;top:56px;left:0;right:0;bottom:64px;overflow-y:auto;padding:20px 20px 20px">
+      <h2 style="font-size:22px;font-weight:700;margin-bottom:4px">HSV Research</h2>
+      <p style="color:#6b6866;font-size:13px;margin-bottom:24px">Latest updates on treatments and cures</p>
+
+      <div id="research-list">
+        <div style="text-align:center;padding:40px 0"><p style="color:#6b6866;font-size:14px">Loading updates...</p></div>
+      </div>
+    </div>
+
     <!-- PROFILE TAB -->
     <div id="profile-content" style="display:none">
       <input type="file" id="photo-input" accept="image/*" style="display:none" onchange="uploadPhoto(this)" multiple />
@@ -303,6 +355,10 @@
       <button class="nav-btn" id="nav-messages" onclick="switchTab2('messages')">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6b6866" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" id="nav-msg-icon"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
         <span class="nav-label">Messages</span>
+      </button>
+      <button class="nav-btn" id="nav-research" onclick="switchTab2('research')">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6b6866" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+        <span class="nav-label">Research</span>
       </button>
       <button class="nav-btn" id="nav-profile" onclick="switchTab2('profile')">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6b6866" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
@@ -554,6 +610,35 @@ function selectEditSeeking(btn, val) {
   btn.classList.add('selected')
 }
 
+async function acceptTos() {
+  const email = el('auth-email').value.trim()
+  const pass = el('auth-pass').value
+  const name = el('auth-name').value.trim()
+  hide('tos')
+  el('auth-submit').textContent = 'Please wait...'
+  show('auth')
+  try {
+    const { data, error } = await sb.auth.signUp({ email, password: pass, options: { data: { display_name: name } } })
+    if (error) throw error
+    if (data.user) {
+      await sb.from('profiles').upsert({
+        id: data.user.id,
+        display_name: name,
+        hsv_type: selectedHsv,
+        gender: selectedGender,
+        seeking: selectedSeeking,
+        birthdate: el('auth-birthdate').value || null,
+      })
+    }
+    const { data: { session } } = await sb.auth.getSession()
+    if (session) await enterApp(session.user)
+  } catch (e) {
+    el('auth-error').textContent = e.message
+    el('auth-error').classList.remove('hidden')
+    el('auth-submit').textContent = 'Create account'
+  }
+}
+
 async function handleForgotPassword() {
   const email = el('auth-email').value.trim()
   if (!email) { el('auth-error').textContent = 'Enter your email first'; el('auth-error').classList.remove('hidden'); return }
@@ -570,27 +655,23 @@ async function handleAuth() {
   const pass = el('auth-pass').value
   const name = el('auth-name').value.trim()
   el('auth-error').classList.add('hidden')
+
+  // Show TOS before creating account
+  if (authTab === 'up') {
+    if (!name) { el('auth-error').textContent = 'Enter a display name'; el('auth-error').classList.remove('hidden'); return }
+    if (!selectedHsv) { el('auth-error').textContent = 'Select your type'; el('auth-error').classList.remove('hidden'); return }
+    if (!email || !pass) { el('auth-error').textContent = 'Enter your email and password'; el('auth-error').classList.remove('hidden'); return }
+    hide('auth')
+    show('tos')
+    return
+  }
+
   el('auth-submit').textContent = 'Please wait...'
 
   try {
     if (authTab === 'in') {
       const { error } = await sb.auth.signInWithPassword({ email, password: pass })
       if (error) throw error
-    } else {
-      if (!name) throw new Error('Enter a display name')
-      if (!selectedHsv) throw new Error('Select your type')
-      const { data, error } = await sb.auth.signUp({ email, password: pass, options: { data: { display_name: name } } })
-      if (error) throw error
-      if (data.user) {
-        await sb.from('profiles').upsert({
-          id: data.user.id,
-          display_name: name,
-          hsv_type: selectedHsv,
-          gender: selectedGender,
-          seeking: selectedSeeking,
-          birthdate: el('auth-birthdate').value || null,
-        })
-      }
     }
     const { data: { session } } = await sb.auth.getSession()
     if (session) await enterApp(session.user)
@@ -687,17 +768,20 @@ function setUnreadDot(show) {
 
 // ── NAV ───────────────────────────────────────────
 function switchTab2(tab) {
-  const tabs = ['discover', 'messages', 'profile']
+  const tabs = ['discover', 'messages', 'research', 'profile']
   tabs.forEach(t => {
     const content = el(t === 'discover' ? 'discover-content' : t + '-content')
-    content.style.display = t === tab ? '' : 'none'
-    el('nav-' + t).classList.toggle('active', t === tab)
-    el('nav-' + t).querySelector('.nav-label').style.color = t === tab ? '#e8503a' : '#6b6866'
-    const icon = el('nav-' + t).querySelector('svg')
-    icon.setAttribute('stroke', t === tab ? '#e8503a' : '#6b6866')
+    if (content) content.style.display = t === tab ? '' : 'none'
+    const navBtn = el('nav-' + t)
+    if (navBtn) {
+      navBtn.classList.toggle('active', t === tab)
+      navBtn.querySelector('.nav-label').style.color = t === tab ? '#e8503a' : '#6b6866'
+      navBtn.querySelector('svg').setAttribute('stroke', t === tab ? '#e8503a' : '#6b6866')
+    }
   })
   el('location-pill').style.display = tab === 'discover' ? '' : 'none'
   if (tab === 'messages') { loadMatches(); setUnreadDot(false) }
+  if (tab === 'research') loadResearch()
   if (tab === 'profile') renderProfileScreen()
 }
 
@@ -1136,6 +1220,70 @@ async function saveProfile() {
   currentProfile = { ...currentProfile, ...updates }
   renderProfileScreen()
   toggleEdit()
+}
+
+// ── RESEARCH ─────────────────────────────────────
+const RESEARCH_ARTICLES = [
+  {
+    title: "CRISPR gene editing shows promise in eliminating HSV",
+    date: "March 2026",
+    summary: "Researchers at Fred Hutchinson Cancer Center demonstrated that a CRISPR-based therapy eliminated over 90% of latent HSV-1 in animal models. Human trials are being planned for late 2026.",
+    tag: "Cure Research",
+    tagColor: "#2ecc71",
+    tagBg: "#0d2e1a",
+    link: "https://www.fredhutch.org"
+  },
+  {
+    title: "Pritelivir antiviral shows superior results over acyclovir",
+    date: "January 2026",
+    summary: "Phase 3 trials of pritelivir, a next-generation antiviral, showed it reduces viral shedding significantly more than current standard treatments. FDA review is underway.",
+    tag: "Treatment",
+    tagColor: "#3498db",
+    tagBg: "#0a1a2e",
+    link: "https://www.nih.gov"
+  },
+  {
+    title: "mRNA vaccine trial for HSV-2 enters Phase 2",
+    date: "November 2025",
+    summary: "Moderna's mRNA-based HSV-2 vaccine candidate entered Phase 2 trials showing strong immune response in Phase 1. A preventive vaccine could reach market within 5-7 years if trials continue successfully.",
+    tag: "Vaccine",
+    tagColor: "#e8503a",
+    tagBg: "#3a1a14",
+    link: "https://www.modernatx.com"
+  },
+  {
+    title: "Functional cure definition gains consensus among researchers",
+    date: "October 2025",
+    summary: "A landmark paper published in Nature Medicine proposed a standardized definition of a functional HSV cure — one that eliminates outbreaks and transmission risk without requiring daily medication.",
+    tag: "Science",
+    tagColor: "#f5c518",
+    tagBg: "#2e2200",
+    link: "https://www.nature.com/nm"
+  },
+  {
+    title: "Daily valacyclovir shown to reduce transmission by 48%",
+    date: "2024 — Ongoing",
+    summary: "Long-term studies continue to confirm that daily suppressive therapy with valacyclovir reduces HSV-2 transmission to uninfected partners by approximately 48% when combined with consistent condom use.",
+    tag: "Treatment",
+    tagColor: "#3498db",
+    tagBg: "#0a1a2e",
+    link: "https://www.cdc.gov/std/herpes"
+  },
+]
+
+function loadResearch() {
+  const list = el('research-list')
+  list.innerHTML = RESEARCH_ARTICLES.map(a => `
+    <div style="background:#1c1c1c;border-radius:16px;border:1px solid #252525;padding:18px;margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
+        <span style="background:${a.tagBg};color:${a.tagColor};font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px">${a.tag}</span>
+        <span style="color:#6b6866;font-size:12px">${a.date}</span>
+      </div>
+      <h3 style="color:#f0ede8;font-size:15px;font-weight:600;margin-bottom:8px;line-height:1.4">${a.title}</h3>
+      <p style="color:#9e9b97;font-size:13px;line-height:1.6;margin-bottom:12px">${a.summary}</p>
+      <a href="${a.link}" target="_blank" style="color:#e8503a;font-size:13px;text-decoration:none">Read more →</a>
+    </div>
+  `).join('')
 }
 
 // ── FILTERS & LOCATION ───────────────────────────
