@@ -452,7 +452,6 @@ async function handleAuth() {
   const pass = el('auth-pass').value
   const name = el('auth-name').value.trim()
   el('auth-error').classList.add('hidden')
-  el('auth-submit').disabled = true
   el('auth-submit').textContent = 'Please wait...'
 
   try {
@@ -480,30 +479,13 @@ async function handleAuth() {
   } catch (e) {
     el('auth-error').textContent = e.message
     el('auth-error').classList.remove('hidden')
-    el('auth-submit').disabled = false
     el('auth-submit').textContent = authTab === 'in' ? 'Sign in' : 'Create account'
   }
 }
 
 async function handleLogout() {
-  if (chatSubscription) { sb.removeChannel(chatSubscription); chatSubscription = null }
   await sb.auth.signOut()
-  currentUser = null
-  currentProfile = null
-  discoverProfiles = []
-  discoverIdx = 0
-  activeMatch = null
-  selectedHsv = ''
-  selectedGender = ''
-  selectedSeeking = ''
-  el('auth-email').value = ''
-  el('auth-pass').value = ''
-  el('auth-error').classList.add('hidden')
-  el('auth-submit').disabled = false
-  el('auth-submit').textContent = 'Sign in'
-  switchTab('in')
-  hide('app-shell')
-  show('auth')
+  window.location.reload()
 }
 
 // ── APP ENTRY ─────────────────────────────────────
