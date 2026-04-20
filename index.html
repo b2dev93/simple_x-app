@@ -497,6 +497,50 @@ async function enterApp(user) {
   show('app-shell')
   loadDiscover()
   renderProfileScreen()
+  startRealtimeListeners()
+}
+
+function startRealtimeListeners() {
+  // Watch for new matches
+  sb.channel('my-matches')
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'matches' }, payload => {
+      const m = payload.new
+      if (m.user_a === currentUser.id || m.user_b === currentUser.id) {
+        // Find other person's profile and show match modal
+        const otherId = m.user_a === currentUser.id ? m.user_b : m.user_a
+        sb.from('profiles').select('*').eq('id', otherId).single().then(({ data }) => {
+          if (data) showMatchModal(data)
+        })
+      }
+    })
+    .subscribe()
+
+  // Watch for new messages across all matches — show unread dot
+  sb.channel('my-messages')
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
+      const msg = payload.new
+      if (msg.sender_id !== currentUser.id) {
+        // Not in active chat — show dot
+        if (!activeMatch || activeMatch.id !== msg.match_id) {
+          setUnreadDot(true)
+        }
+      }
+    })
+    .subscribe()
+}
+
+function setUnreadDot(show) {
+  const nav = el('nav-messages')
+  let dot = document.getElementById('msg-dot')
+  if (show && !dot) {
+    dot = document.createElement('div')
+    dot.id = 'msg-dot'
+    dot.style.cssText = 'position:absolute;top:6px;right:26%;width:8px;height:8px;border-radius:50%;background:#e8503a;border:2px solid #141414'
+    nav.style.position = 'relative'
+    nav.appendChild(dot)
+  } else if (!show && dot) {
+    dot.remove()
+  }
 }
 
 // ── NAV ───────────────────────────────────────────
@@ -511,7 +555,7 @@ function switchTab2(tab) {
     icon.setAttribute('stroke', t === tab ? '#e8503a' : '#6b6866')
   })
   el('location-pill').style.display = tab === 'discover' ? '' : 'none'
-  if (tab === 'messages') loadMatches()
+  if (tab === 'messages') { loadMatches(); setUnreadDot(false) }
   if (tab === 'profile') renderProfileScreen()
 }
 
