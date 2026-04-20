@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0a0a0a" />
+  <title>Simple-x — Dating for people who already know</title>
+  <meta name="description" content="Simple-x is a free dating app for people living with HSV. No hidden profiles, no algorithm working against you, no price gouging. Just real people who already know." />
+  <meta name="keywords" content="HSV dating app, herpes dating, HSV-1 dating, HSV-2 dating, herpes dating app free, positive singles alternative, dating with herpes" />
+  <meta property="og:title" content="Simple-x — Dating for people who already know" />
+  <meta property="og:description" content="A dating app built for people with HSV. No paywalls hiding matches. No algorithms working against you." />
+  <meta property="og:type" content="website" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      background: #0a0a0a;
+      color: #f0ede8;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      line-height: 1.6;
+    }
+
+    a { color: inherit; text-decoration: none; }
+
+    /* NAV */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      padding: 16px 24px;
+      display: flex; justify-content: space-between; align-items: center;
+      background: rgba(10,10,10,0.9);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid #1a1a1a;
+    }
+    .logo { display: flex; align-items: flex-end; gap: 2px; }
+    .logo span:first-child { font-size: 24px; font-weight: 700; color: #f0ede8; letter-spacing: -1.5px; font-family: Georgia, serif; line-height: 1; }
+    .logo span:last-child { font-size: 24px; font-weight: 700; color: #e8503a; letter-spacing: -1.5px; font-family: Georgia, serif; line-height: 1; }
+    .nav-cta {
+      padding: 10px 22px; border-radius: 24px; border: none; cursor: pointer;
+      background: #e8503a; color: #fff; font-size: 14px; font-weight: 600;
+      transition: opacity 0.15s;
+    }
+    .nav-cta:hover { opacity: 0.85; }
+
+    /* HERO */
+    .hero {
+      min-height: 100vh;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: 100px 24px 60px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .hero::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: radial-gradient(ellipse 80% 60% at 50% 40%, rgba(232,80,58,0.08) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .hero-tag {
+      display: inline-block;
+      background: #3a1a14; color: #e8503a;
+      font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+      padding: 6px 16px; border-radius: 20px; border: 1px solid #8c2a1c;
+      margin-bottom: 28px;
+    }
+    .hero h1 {
+      font-size: clamp(36px, 8vw, 72px);
+      font-weight: 700;
+      letter-spacing: -2px;
+      line-height: 1.05;
+      margin-bottom: 24px;
+      font-family: Georgia, serif;
+    }
+    .hero h1 em { color: #e8503a; font-style: normal; }
+    .hero p {
+      font-size: clamp(16px, 2.5vw, 20px);
+      color: #9e9b97;
+      max-width: 520px;
+      margin: 0 auto 40px;
+      line-height: 1.6;
+    }
+    .hero-btns { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+    .btn-main {
+      padding: 16px 36px; border-radius: 14px; border: none; cursor: pointer;
+      background: #e8503a; color: #fff; font-size: 16px; font-weight: 600;
+      transition: opacity 0.15s; display: inline-block;
+    }
+    .btn-main:hover { opacity: 0.85; }
+    .btn-secondary {
+      padding: 16px 36px; border-radius: 14px;
+      border: 1px solid #252525; background: transparent;
+      color: #9e9b97; font-size: 16px; font-weight: 500;
+      cursor: pointer; transition: border-color 0.15s; display: inline-block;
+    }
+    .btn-secondary:hover { border-color: #444; }
+    .hero-note { color: #4a4a4a; font-size: 13px; margin-top: 20px; }
+
+    /* PROBLEM SECTION */
+    .section { padding: 80px 24px; max-width: 900px; margin: 0 auto; }
+    .section-tag { color: #e8503a; font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 16px; }
+    .section h2 { font-size: clamp(28px, 5vw, 44px); font-weight: 700; letter-spacing: -1px; margin-bottom: 16px; font-family: Georgia, serif; line-height: 1.2; }
+    .section p { color: #9e9b97; font-size: 17px; line-height: 1.7; max-width: 600px; }
+
+    /* COMPARISON */
+    .comparison { padding: 80px 24px; background: #0d0d0d; }
+    .comparison-inner { max-width: 900px; margin: 0 auto; }
+    .compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 40px; }
+    .compare-card { border-radius: 16px; padding: 28px; border: 1px solid #252525; }
+    .compare-card.them { background: #111; }
+    .compare-card.us { background: #1a0d0a; border-color: #8c2a1c; }
+    .compare-card h3 { font-size: 16px; font-weight: 700; margin-bottom: 20px; }
+    .compare-card h3.bad { color: #6b6866; }
+    .compare-card h3.good { color: #e8503a; }
+    .compare-item { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 14px; font-size: 14px; color: #9e9b97; line-height: 1.5; }
+    .compare-item .icon { flex-shrink: 0; margin-top: 2px; }
+
+    /* FEATURES */
+    .features { padding: 80px 24px; max-width: 900px; margin: 0 auto; }
+    .features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin-top: 40px; }
+    .feature-card { background: #141414; border-radius: 16px; padding: 24px; border: 1px solid #1e1e1e; }
+    .feature-icon { font-size: 28px; margin-bottom: 14px; }
+    .feature-card h3 { font-size: 15px; font-weight: 600; margin-bottom: 8px; }
+    .feature-card p { color: #6b6866; font-size: 14px; line-height: 1.6; }
+
+    /* RESEARCH TEASER */
+    .research { padding: 80px 24px; background: #0d0d0d; }
+    .research-inner { max-width: 900px; margin: 0 auto; }
+    .research-card { background: #141414; border-radius: 16px; padding: 24px; border: 1px solid #1e1e1e; margin-top: 16px; display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+    .research-card h4 { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+    .research-card p { color: #6b6866; font-size: 13px; }
+    .research-tag { background: #0d2e1a; color: #2ecc71; font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 20px; white-space: nowrap; flex-shrink: 0; }
+
+    /* CTA SECTION */
+    .cta-section { padding: 100px 24px; text-align: center; }
+    .cta-section h2 { font-size: clamp(28px, 5vw, 48px); font-weight: 700; letter-spacing: -1.5px; margin-bottom: 16px; font-family: Georgia, serif; }
+    .cta-section p { color: #9e9b97; font-size: 17px; margin-bottom: 36px; }
+
+    /* FOOTER */
+    footer { padding: 32px 24px; border-top: 1px solid #1a1a1a; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
+    footer p { color: #4a4a4a; font-size: 13px; }
+    .footer-links { display: flex; gap: 20px; }
+    .footer-links a { color: #4a4a4a; font-size: 13px; transition: color 0.15s; }
+    .footer-links a:hover { color: #9e9b97; }
+
+    @media (max-width: 600px) {
+      .compare-grid { grid-template-columns: 1fr; }
+      .research-card { flex-direction: column; align-items: flex-start; }
+      footer { flex-direction: column; text-align: center; }
+      .footer-links { justify-content: center; }
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <div class="logo"><span>simple</span><span>x</span></div>
+  <a href="./index.html" class="nav-cta">Open app</a>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-tag">Now in beta</div>
+  <h1>Dating for people<br>who <em>already know</em></h1>
+  <p>Simple-x is a dating app built specifically for people with HSV. No paywalls hiding matches. No algorithm working against you. Just real people skipping the awkward conversation.</p>
+  <div class="hero-btns">
+    <a href="./index.html" class="btn-main">Get started — it's free</a>
+    <a href="#how-it-works" class="btn-secondary">How it works</a>
+  </div>
+  <p class="hero-note">No credit card required. Women always free.</p>
+</section>
+
+<!-- PROBLEM -->
+<section class="section">
+  <p class="section-tag">The problem</p>
+  <h2>The only HSV dating app is designed to keep you single</h2>
+  <p>The dominant platform in this space deliberately hides profiles from you, throttles your matches, and makes it impossible to connect with anyone nearby unless you pay — and even then the algorithm is still working against you. It's not a dating app. It's a subscription trap that profits off people who are already going through something hard.</p>
+</section>
+
+<!-- COMPARISON -->
+<section class="comparison">
+  <div class="comparison-inner">
+    <p class="section-tag">Simple-x vs the alternative</p>
+    <h2 style="font-size:clamp(28px,5vw,44px);font-weight:700;letter-spacing:-1px;font-family:Georgia,serif">Why we built this</h2>
+    <div class="compare-grid">
+      <div class="compare-card them">
+        <h3 class="bad">The other app</h3>
+        <div class="compare-item"><span class="icon">✗</span><span>Hides nearby profiles until you pay</span></div>
+        <div class="compare-item"><span class="icon">✗</span><span>Throttles matches to keep you subscribed</span></div>
+        <div class="compare-item"><span class="icon">✗</span><span>Charges $30+/month for basic features</span></div>
+        <div class="compare-item"><span class="icon">✗</span><span>Algorithm designed to frustrate, not connect</span></div>
+        <div class="compare-item"><span class="icon">✗</span><span>No transparency about how it works</span></div>
+      </div>
+      <div class="compare-card us">
+        <h3 class="good">Simple-x</h3>
+        <div class="compare-item"><span class="icon" style="color:#e8503a">✓</span><span>Every profile visible — no artificial hiding</span></div>
+        <div class="compare-item"><span class="icon" style="color:#e8503a">✓</span><span>Real matching, no throttling</span></div>
+        <div class="compare-item"><span class="icon" style="color:#e8503a">✓</span><span>Free to use, fraction of the cost when premium launches</span></div>
+        <div class="compare-item"><span class="icon" style="color:#e8503a">✓</span><span>Built to connect people, not extract money</span></div>
+        <div class="compare-item"><span class="icon" style="color:#e8503a">✓</span><span>Women always free, forever</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section class="features" id="how-it-works">
+  <p class="section-tag">Features</p>
+  <h2 style="font-size:clamp(28px,5vw,44px);font-weight:700;letter-spacing:-1px;font-family:Georgia,serif">Everything you need, nothing you don't</h2>
+  <div class="features-grid">
+    <div class="feature-card">
+      <div class="feature-icon">🔍</div>
+      <h3>Real discovery</h3>
+      <p>Filter by distance, age, and HSV type. See everyone who matches your preferences — no profiles buried behind a paywall.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">💬</div>
+      <h3>Match and message</h3>
+      <p>When you both like each other, you match. Women control who can message them. Real-time chat with no delays.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🌍</div>
+      <h3>Worldwide</h3>
+      <p>Search locally or expand worldwide. HSV doesn't care about borders and neither does Simple-x.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🔒</div>
+      <h3>Private by design</h3>
+      <p>Your email is never visible to other users. Your health info stays within the app. We don't sell your data — ever.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🛡️</div>
+      <h3>Block and report</h3>
+      <p>Full block and report tools built in. You're in control of who has access to you.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🧬</div>
+      <h3>Research updates</h3>
+      <p>Stay current on HSV cure research, new antivirals, and vaccine trials — all inside the app.</p>
+    </div>
+  </div>
+</section>
+
+<!-- RESEARCH TEASER -->
+<section class="research">
+  <div class="research-inner">
+    <p class="section-tag">Latest research</p>
+    <h2 style="font-size:clamp(28px,5vw,44px);font-weight:700;letter-spacing:-1px;font-family:Georgia,serif">A cure is closer than you think</h2>
+    <div class="research-card">
+      <div>
+        <h4>CRISPR gene editing eliminates 90%+ of latent HSV in animal models</h4>
+        <p>Fred Hutchinson Cancer Center — March 2026</p>
+      </div>
+      <span class="research-tag">Cure Research</span>
+    </div>
+    <div class="research-card">
+      <div>
+        <h4>Moderna's mRNA HSV-2 vaccine enters Phase 2 trials</h4>
+        <p>November 2025</p>
+      </div>
+      <span class="research-tag" style="background:#1a0d2e;color:#9b59b6">Vaccine</span>
+    </div>
+    <div style="text-align:center;margin-top:24px">
+      <a href="./index.html" class="btn-secondary" style="display:inline-block">See all research updates in the app</a>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="cta-section">
+  <h2>Skip the awkward conversation.<br>Just <em style="color:#e8503a;font-style:normal">connect.</em></h2>
+  <p>Join the beta. It's free. No credit card, no BS.</p>
+  <a href="./index.html" class="btn-main">Open Simple-x</a>
+  <p style="color:#4a4a4a;font-size:13px;margin-top:20px">Women always free · No hidden profiles · Built by someone who gets it</p>
+</section>
+
+<footer>
+  <div class="logo"><span>simple</span><span>x</span></div>
+  <div class="footer-links">
+    <a href="./index.html">Open app</a>
+    <a href="./index.html#tos">Terms of Service</a>
+  </div>
+  <p>© 2026 Simple-x. All rights reserved.</p>
+</footer>
+
+</body>
+</html>
