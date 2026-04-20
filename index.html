@@ -498,15 +498,36 @@ async function enterApp(user) {
   loadDiscover()
   renderProfileScreen()
   startRealtimeListeners()
+  checkUnreadOnLoad()
+}
+
+async function checkUnreadOnLoad() {
+  // Get all matches
+  const { data: matches } = await sb.from('matches')
+    .select('id')
+    .or(`user_a.eq.${currentUser.id},user_b.eq.${currentUser.id}`)
+  if (!matches || matches.length === 0) return
+  const matchIds = matches.map(m => m.id)
+
+  // Check for any messages not sent by me
+  const { count } = await sb.from('messages')
+    .select('*', { count: 'exact', head: true })
+    .in('match_id', matchIds)
+    .neq('sender_id', currentUser.id)
+    .is('read_at', null)
+  if (count > 0) setUnreadDot(true)
 }
 
 function startRealtimeListeners() {
-  // Watch for new matches
+  const appStartTime = Date.now()
+
+  // Watch for new matches — only fire for matches created after app loaded
   sb.channel('my-matches')
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'matches' }, payload => {
       const m = payload.new
+      const matchAge = Date.now() - new Date(m.created_at).getTime()
+      if (matchAge > 15000) return // ignore matches older than 15 seconds
       if (m.user_a === currentUser.id || m.user_b === currentUser.id) {
-        // Find other person's profile and show match modal
         const otherId = m.user_a === currentUser.id ? m.user_b : m.user_a
         sb.from('profiles').select('*').eq('id', otherId).single().then(({ data }) => {
           if (data) showMatchModal(data)
@@ -515,14 +536,16 @@ function startRealtimeListeners() {
     })
     .subscribe()
 
-  // Watch for new messages across all matches — show unread dot
+  // Watch for new messages — show unread dot and update matches list
   sb.channel('my-messages')
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
       const msg = payload.new
       if (msg.sender_id !== currentUser.id) {
-        // Not in active chat — show dot
         if (!activeMatch || activeMatch.id !== msg.match_id) {
           setUnreadDot(true)
+          // Refresh matches list if it's visible
+          const msgsTab = el('messages-content')
+          if (msgsTab && msgsTab.style.display !== 'none') loadMatches()
         }
       }
     })
@@ -530,12 +553,12 @@ function startRealtimeListeners() {
 }
 
 function setUnreadDot(show) {
-  const nav = el('nav-messages')
   let dot = document.getElementById('msg-dot')
   if (show && !dot) {
     dot = document.createElement('div')
     dot.id = 'msg-dot'
-    dot.style.cssText = 'position:absolute;top:6px;right:26%;width:8px;height:8px;border-radius:50%;background:#e8503a;border:2px solid #141414'
+    dot.style.cssText = 'position:absolute;top:8px;right:50%;transform:translateX(14px);width:9px;height:9px;border-radius:50%;background:#e8503a;border:2px solid #141414;z-index:10'
+    const nav = el('nav-messages')
     nav.style.position = 'relative'
     nav.appendChild(dot)
   } else if (!show && dot) {
@@ -732,20 +755,43 @@ async function loadMatches() {
     return
   }
 
+  // Fetch last message for each match
+  const matchIds = data.map(m => m.id)
+  const { data: lastMsgs } = await sb.from('messages')
+    .select('match_id, content, sender_id, created_at')
+    .in('match_id', matchIds)
+    .order('created_at', { ascending: false })
+
+  // Build map of match_id -> last message
+  const lastMsgMap = {}
+  if (lastMsgs) {
+    lastMsgs.forEach(msg => {
+      if (!lastMsgMap[msg.match_id]) lastMsgMap[msg.match_id] = msg
+    })
+  }
+
   list.innerHTML = data.map((m, i) => {
     const other = m.user_a === currentUser.id ? m.profiles_b : m.profiles_a
     const color = AVATAR_COLORS[i % AVATAR_COLORS.length]
     const initial = (other?.display_name || '?')[0].toUpperCase()
-    const age = timeAgo(m.created_at)
+    const lastMsg = lastMsgMap[m.id]
+    const preview = lastMsg
+      ? (lastMsg.sender_id === currentUser.id ? 'You: ' : '') + lastMsg.content
+      : 'Matched — say hey!'
+    const age = timeAgo(lastMsg ? lastMsg.created_at : m.created_at)
+    const unread = lastMsg && lastMsg.sender_id !== currentUser.id
     return `
       <div class="match-item" onclick="openChat(${JSON.stringify(m).replace(/"/g,'&quot;')})">
-        <div class="avatar" style="width:50px;height:50px;font-size:18px;background:${color}">${initial}</div>
+        <div style="position:relative">
+          <div class="avatar" style="width:50px;height:50px;font-size:18px;background:${color}">${initial}</div>
+          ${unread ? '<div style="position:absolute;top:0;right:0;width:12px;height:12px;border-radius:50%;background:#e8503a;border:2px solid #0a0a0a"></div>' : ''}
+        </div>
         <div class="match-info">
           <div style="display:flex;justify-content:space-between;align-items:center">
-            <span class="match-name">${other?.display_name || 'User'}</span>
+            <span class="match-name" style="${unread ? 'color:#fff;font-weight:700' : ''}">${other?.display_name || 'User'}</span>
             <span class="match-time">${age}</span>
           </div>
-          <p class="match-preview">Matched — say hey!</p>
+          <p class="match-preview" style="${unread ? 'color:#f0ede8' : ''}">${preview}</p>
         </div>
       </div>`
   }).join('')
