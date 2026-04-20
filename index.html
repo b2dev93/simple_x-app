@@ -386,20 +386,13 @@
       <!-- Age Range -->
       <div style="margin-bottom:28px">
         <div style="display:flex;justify-content:space-between;margin-bottom:12px">
-          <span style="color:#9e9b97;font-size:14px">Age range</span>
-          <span style="color:#f0ede8;font-size:14px;font-weight:600" id="age-range-label">18 – 65+</span>
+          <span style="color:#9e9b97;font-size:14px">Maximum age</span>
+          <span style="color:#f0ede8;font-size:14px;font-weight:600" id="age-range-label">65+</span>
         </div>
-        <div style="display:flex;flex-direction:column;gap:10px">
-          <div style="display:flex;align-items:center;gap:12px">
-            <span style="color:#6b6866;font-size:12px;width:24px">Min</span>
-            <input type="range" id="filter-age-min" min="18" max="65" value="18" step="1" style="flex:1" oninput="updateAgeLabel()" />
-            <span style="color:#f0ede8;font-size:13px;width:28px;text-align:right" id="age-min-val">18</span>
-          </div>
-          <div style="display:flex;align-items:center;gap:12px">
-            <span style="color:#6b6866;font-size:12px;width:24px">Max</span>
-            <input type="range" id="filter-age-max" min="18" max="65" value="65" step="1" style="flex:1" oninput="updateAgeLabel()" />
-            <span style="color:#f0ede8;font-size:13px;width:28px;text-align:right" id="age-max-val">65+</span>
-          </div>
+        <input type="range" id="filter-age-max" min="18" max="65" value="65" step="1" style="width:100%" oninput="updateAgeLabel()" />
+        <div style="display:flex;justify-content:space-between;margin-top:6px">
+          <span style="color:#6b6866;font-size:11px">18</span>
+          <span style="color:#6b6866;font-size:11px">65+</span>
         </div>
       </div>
 
@@ -1128,12 +1121,8 @@ function updateDistanceLabel(val) {
 }
 
 function updateAgeLabel() {
-  const min = parseInt(el('filter-age-min').value)
   const max = parseInt(el('filter-age-max').value)
-  if (min > max - 2) { el('filter-age-min').value = max - 2; return }
-  el('age-min-val').textContent = min
-  el('age-max-val').textContent = max >= 65 ? '65+' : max
-  el('age-range-label').textContent = `${min} – ${max >= 65 ? '65+' : max}`
+  el('age-range-label').textContent = max >= 65 ? '65+' : max
 }
 
 function toggleFilterHsv(btn, val) {
@@ -1145,7 +1134,7 @@ function toggleFilterHsv(btn, val) {
 function applyFilters() {
   const distVal = parseInt(el('filter-distance').value)
   filterDistance = DISTANCE_STEPS[distVal]
-  filterAgeMin = parseInt(el('filter-age-min').value)
+  filterAgeMin = 18
   filterAgeMax = parseInt(el('filter-age-max').value)
   hide('filter-panel')
   loadDiscover()
