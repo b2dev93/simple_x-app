@@ -211,6 +211,7 @@
     <p class="auth-switch" style="margin-top:16px" id="auth-switch">
       No account? <a onclick="switchTab('up')">Sign up free</a>
     </p>
+    <p style="text-align:center;margin-top:12px"><a id="forgot-link" onclick="handleForgotPassword()" style="color:#6b6866;font-size:13px;cursor:pointer">Forgot password?</a></p>
     <p class="auth-footer" style="margin-top:32px">Your data is private and never sold.<br>Health info is never displayed publicly.</p>
   </div>
 
@@ -337,6 +338,7 @@
   <!-- BLOCK/REPORT MENU -->
   <div id="chat-menu" class="hidden" style="position:fixed;inset:0;z-index:150" onclick="hideChatMenu()">
     <div style="position:absolute;top:70px;right:16px;background:#1c1c1c;border-radius:14px;border:1px solid #252525;overflow:hidden;min-width:180px" onclick="event.stopPropagation()">
+      <button onclick="unmatchUser()" style="width:100%;padding:16px 20px;border:none;background:transparent;color:#f0ede8;font-size:15px;text-align:left;cursor:pointer;border-bottom:1px solid #252525">Unmatch</button>
       <button onclick="reportUser()" style="width:100%;padding:16px 20px;border:none;background:transparent;color:#f0ede8;font-size:15px;text-align:left;cursor:pointer;border-bottom:1px solid #252525">Report</button>
       <button onclick="blockUser()" style="width:100%;padding:16px 20px;border:none;background:transparent;color:#e8503a;font-size:15px;text-align:left;cursor:pointer">Block</button>
     </div>
@@ -552,6 +554,17 @@ function selectEditSeeking(btn, val) {
   btn.classList.add('selected')
 }
 
+async function handleForgotPassword() {
+  const email = el('auth-email').value.trim()
+  if (!email) { el('auth-error').textContent = 'Enter your email first'; el('auth-error').classList.remove('hidden'); return }
+  el('auth-error').classList.add('hidden')
+  const { error } = await sb.auth.resetPasswordForEmail(email, {
+    redirectTo: window.location.href
+  })
+  if (error) { el('auth-error').textContent = error.message; el('auth-error').classList.remove('hidden') }
+  else { showToast('Password reset email sent. Check your inbox.') }
+}
+
 async function handleAuth() {
   const email = el('auth-email').value.trim()
   const pass = el('auth-pass').value
@@ -749,8 +762,13 @@ function renderCard() {
         <div class="stamp stamp-like" id="stamp-like">LIKE</div>
         <div class="stamp stamp-pass" id="stamp-pass">PASS</div>
       </div>
-      ${p.photo_urls?.[0]
-        ? `<img class="card-photo" src="${p.photo_urls[0]}" alt="" />`
+      ${p.photo_urls?.length > 0
+        ? `<img class="card-photo" id="card-photo-img" src="${p.photo_urls[0]}" alt="" onclick="nextCardPhoto()" />
+           ${p.photo_urls.length > 1 ? `
+           <div style="position:absolute;top:10px;left:0;right:0;display:flex;justify-content:center;gap:4px;z-index:5;padding:0 12px">
+             ${p.photo_urls.map((_, i) => `<div class="photo-dot ${i === 0 ? 'active' : ''}" id="photo-dot-${i}" style="flex:1;height:3px;border-radius:2px;background:${i === 0 ? '#fff' : 'rgba(255,255,255,0.4)'}"></div>`).join('')}
+           </div>` : ''}
+          `
         : `<div class="card-placeholder"><svg width="80" height="80" viewBox="0 0 24 24" fill="white" opacity="0.15"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4" fill="white"/></svg></div>`
       }
       <div class="card-overlay">
@@ -776,7 +794,21 @@ function renderCard() {
       </button>
     </div>`
 
+  currentCardPhotoIdx = 0
   setupSwipeGesture()
+}
+
+let currentCardPhotoIdx = 0
+function nextCardPhoto() {
+  const p = discoverProfiles[discoverIdx]
+  if (!p?.photo_urls || p.photo_urls.length <= 1) return
+  currentCardPhotoIdx = (currentCardPhotoIdx + 1) % p.photo_urls.length
+  const img = document.getElementById('card-photo-img')
+  if (img) img.src = p.photo_urls[currentCardPhotoIdx]
+  p.photo_urls.forEach((_, i) => {
+    const dot = document.getElementById('photo-dot-' + i)
+    if (dot) dot.style.background = i === currentCardPhotoIdx ? '#fff' : 'rgba(255,255,255,0.4)'
+  })
 }
 
 function getAge(birthdate) {
@@ -1192,6 +1224,16 @@ async function submitReport() {
   }).select()
   hide('report-modal')
   showToast('Report submitted. Thank you.')
+}
+
+async function unmatchUser() {
+  hideChatMenu()
+  const other = activeMatch.user_a === currentUser.id ? activeMatch.profiles_b : activeMatch.profiles_a
+  if (!confirm(`Unmatch ${other.display_name}? This will delete your conversation.`)) return
+  await sb.from('matches').delete().eq('id', activeMatch.id)
+  closeChat()
+  loadMatches()
+  showToast('Unmatched.')
 }
 
 async function blockUser() {
