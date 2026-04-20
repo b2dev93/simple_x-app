@@ -557,10 +557,27 @@ function setupSwipeGesture() {
   })
 }
 
+async function checkLikeLimit() {
+  if (currentProfile?.is_premium) return true
+  const today = new Date(); today.setHours(0,0,0,0)
+  const { count } = await sb.from('swipes')
+    .select('*', { count: 'exact', head: true })
+    .eq('swiper_id', currentUser.id)
+    .in('direction', ['like','super'])
+    .gte('created_at', today.toISOString())
+  if (count >= 20) {
+    showUpgradePrompt("You've used your 20 likes for today. Upgrade to Simple-x Plus for unlimited likes.")
+    return false
+  }
+  return true
+}
+
 async function swipe(direction) {
   const card = el('current-card')
   const profile = discoverProfiles[discoverIdx]
   if (!profile || !card) return
+
+  if ((direction === 'like' || direction === 'super') && !(await checkLikeLimit())) return
 
   card.style.transition = 'transform 0.28s ease-in'
   card.style.transform = direction === 'like' || direction === 'super'
@@ -686,10 +703,36 @@ function appendMessage(msg) {
   msgs.scrollTop = msgs.scrollHeight
 }
 
+async function checkMessageLimit() {
+  if (currentProfile?.is_premium) return true
+  // Check if other person already sent a message in this match (reply = always allowed)
+  const { data: theirMsg } = await sb.from('messages')
+    .select('id').eq('match_id', activeMatch.id)
+    .neq('sender_id', currentUser.id).limit(1).maybeSingle()
+  if (theirMsg) return true
+  // Count matches where user sent the first message (they initiated)
+  const { data: allMatches } = await sb.from('matches')
+    .select('id').or('user_a.eq.' + currentUser.id + ',user_b.eq.' + currentUser.id)
+  if (!allMatches) return true
+  let initiatedCount = 0
+  for (const m of allMatches) {
+    if (m.id === activeMatch.id) continue
+    const { data: firstMsg } = await sb.from('messages')
+      .select('sender_id').eq('match_id', m.id).order('created_at').limit(1).maybeSingle()
+    if (firstMsg && firstMsg.sender_id === currentUser.id) initiatedCount++
+  }
+  if (initiatedCount >= 2) {
+    showUpgradePrompt('Free members can start conversations with 2 people. Upgrade to Simple-x Plus to message everyone.')
+    return false
+  }
+  return true
+}
+
 async function sendMessage() {
   const input = el('chat-input')
   const content = input.value.trim()
   if (!content || !activeMatch) return
+  if (!(await checkMessageLimit())) return
   input.value = ''
   await sb.from('messages').insert({ match_id: activeMatch.id, sender_id: currentUser.id, content })
 }
@@ -740,6 +783,26 @@ async function saveProfile() {
   currentProfile = { ...currentProfile, ...updates }
   renderProfileScreen()
   toggleEdit()
+}
+
+// ── UPGRADE PROMPT ───────────────────────────────
+function showUpgradePrompt(msg) {
+  const existing = document.getElementById('upgrade-modal')
+  if (existing) existing.remove()
+  const modal = document.createElement('div')
+  modal.id = 'upgrade-modal'
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.88);display:flex;align-items:center;justify-content:center;z-index:200;padding:32px'
+  modal.innerHTML = `
+    <div style="background:#1c1c1c;border-radius:24px;padding:36px 28px;text-align:center;border:1px solid #252525;width:100%">
+      <p style="font-size:36px;margin-bottom:16px">⭐</p>
+      <h2 style="color:#f0ede8;font-size:20px;font-weight:700;margin-bottom:12px">Upgrade to Plus</h2>
+      <p style="color:#6b6866;font-size:14px;margin-bottom:28px;line-height:1.6">${msg}</p>
+      <div style="display:flex;gap:12px">
+        <button onclick="document.getElementById('upgrade-modal').remove()" style="flex:1;padding:14px;border-radius:12px;border:1px solid #252525;background:transparent;color:#9e9b97;font-size:15px;cursor:pointer">Not now</button>
+        <button onclick="document.getElementById('upgrade-modal').remove()" style="flex:1;padding:14px;border-radius:12px;border:none;background:#e8503a;color:#fff;font-size:15px;font-weight:600;cursor:pointer">Upgrade — $9/mo</button>
+      </div>
+    </div>`
+  document.body.appendChild(modal)
 }
 
 // ── INIT ──────────────────────────────────────────
