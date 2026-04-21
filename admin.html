@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Simple-x Admin</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #0a0a0a; color: #f0ede8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; min-height: 100vh; }
+    
+    #login-screen {
+      min-height: 100vh; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; padding: 32px;
+    }
+    .logo { display: flex; align-items: flex-end; gap: 2px; margin-bottom: 8px; }
+    .logo span:first-child { font-size: 32px; font-weight: 700; color: #f0ede8; letter-spacing: -1.5px; font-family: Georgia, serif; }
+    .logo span:last-child { font-size: 32px; font-weight: 700; color: #e8503a; letter-spacing: -1.5px; font-family: Georgia, serif; }
+    .admin-tag { color: #6b6866; font-size: 13px; margin-bottom: 40px; }
+    .input { padding: 14px 16px; border-radius: 12px; border: 1px solid #252525; background: #141414; color: #f0ede8; font-size: 15px; outline: none; width: 100%; max-width: 360px; margin-bottom: 12px; }
+    .btn { padding: 14px 32px; border-radius: 12px; border: none; cursor: pointer; background: #e8503a; color: #fff; font-size: 15px; font-weight: 600; width: 100%; max-width: 360px; }
+    .error { color: #e8503a; font-size: 13px; margin-bottom: 12px; max-width: 360px; text-align: center; }
+
+    #dashboard { display: none; }
+    
+    header {
+      background: #141414; border-bottom: 1px solid #252525;
+      padding: 16px 24px; display: flex; justify-content: space-between; align-items: center;
+      position: sticky; top: 0; z-index: 10;
+    }
+    .header-left { display: flex; align-items: center; gap: 16px; }
+    .header-logo { display: flex; align-items: flex-end; gap: 2px; }
+    .header-logo span:first-child { font-size: 20px; font-weight: 700; color: #f0ede8; letter-spacing: -1px; font-family: Georgia, serif; }
+    .header-logo span:last-child { font-size: 20px; font-weight: 700; color: #e8503a; letter-spacing: -1px; font-family: Georgia, serif; }
+    .admin-badge { background: #3a1a14; color: #e8503a; font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 20px; border: 1px solid #8c2a1c; }
+    .signout-btn { border: 1px solid #252525; background: transparent; color: #6b6866; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 13px; }
+
+    main { padding: 24px; max-width: 1200px; margin: 0 auto; }
+
+    /* STATS GRID */
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-bottom: 28px; }
+    .stat-card { background: #141414; border-radius: 14px; border: 1px solid #1e1e1e; padding: 20px; }
+    .stat-label { color: #6b6866; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; }
+    .stat-value { color: #f0ede8; font-size: 32px; font-weight: 700; letter-spacing: -1px; margin-bottom: 4px; }
+    .stat-sub { color: #4a4a4a; font-size: 12px; }
+    .stat-card.accent { border-color: #8c2a1c; background: #1a0d0a; }
+    .stat-card.accent .stat-value { color: #e8503a; }
+
+    /* CHARTS */
+    .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 28px; }
+    .chart-card { background: #141414; border-radius: 14px; border: 1px solid #1e1e1e; padding: 20px; }
+    .chart-title { color: #f0ede8; font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+    .chart-sub { color: #6b6866; font-size: 12px; margin-bottom: 20px; }
+    .chart-wrap { position: relative; height: 200px; }
+
+    /* TABLES */
+    .table-card { background: #141414; border-radius: 14px; border: 1px solid #1e1e1e; padding: 20px; margin-bottom: 14px; }
+    .table-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .table-title { color: #f0ede8; font-size: 15px; font-weight: 600; }
+    .table-count { color: #6b6866; font-size: 13px; }
+    table { width: 100%; border-collapse: collapse; }
+    th { color: #6b6866; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; padding: 8px 12px; text-align: left; border-bottom: 1px solid #252525; }
+    td { padding: 12px; font-size: 14px; color: #9e9b97; border-bottom: 1px solid #1a1a1a; }
+    td:first-child { color: #f0ede8; }
+    tr:last-child td { border-bottom: none; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+    .badge.hsv1 { background: #0a1a2e; color: #3498db; }
+    .badge.hsv2 { background: #3a1a14; color: #e8503a; }
+    .badge.both { background: #1a0d2e; color: #9b59b6; }
+    .badge.woman { background: #0d2e1a; color: #2ecc71; }
+    .badge.man { background: #0a1a2e; color: #3498db; }
+    .action-btn { border: 1px solid #252525; background: transparent; color: #6b6866; padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 12px; }
+    .action-btn.danger { border-color: #8c2a1c; color: #e8503a; }
+    .action-btn:hover { border-color: #444; color: #f0ede8; }
+
+    /* REPORTS */
+    .report-row td:first-child { color: #e8503a; }
+
+    /* TABS */
+    .tabs { display: flex; gap: 4px; background: #141414; border-radius: 12px; padding: 4px; margin-bottom: 24px; border: 1px solid #1e1e1e; width: fit-content; }
+    .tab { padding: 8px 20px; border-radius: 9px; border: none; cursor: pointer; font-size: 13px; font-weight: 500; background: transparent; color: #6b6866; transition: all 0.15s; }
+    .tab.active { background: #1e1e1e; color: #f0ede8; }
+
+    .loading { color: #4a4a4a; font-size: 14px; padding: 20px; text-align: center; }
+
+    @media (max-width: 700px) {
+      .charts-grid { grid-template-columns: 1fr; }
+      .stats-grid { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="logo"><span>simple</span><span>x</span></div>
+  <p class="admin-tag">Admin Dashboard</p>
+  <input class="input" id="login-email" type="email" placeholder="Email" />
+  <input class="input" id="login-pass" type="password" placeholder="Password" />
+  <p class="error hidden" id="login-error"></p>
+  <button class="btn" onclick="adminLogin()">Sign in</button>
+</div>
+
+<!-- DASHBOARD -->
+<div id="dashboard">
+  <header>
+    <div class="header-left">
+      <div class="header-logo"><span>simple</span><span>x</span></div>
+      <span class="admin-badge">Admin</span>
+    </div>
+    <button class="signout-btn" onclick="adminSignout()">Sign out</button>
+  </header>
+
+  <main>
+    <!-- TABS -->
+    <div class="tabs">
+      <button class="tab active" onclick="showTab('overview')">Overview</button>
+      <button class="tab" onclick="showTab('users')">Users</button>
+      <button class="tab" onclick="showTab('reports')">Reports</button>
+    </div>
+
+    <!-- OVERVIEW TAB -->
+    <div id="tab-overview">
+      <div class="stats-grid" id="stats-grid">
+        <div class="stat-card"><div class="stat-label">Total Users</div><div class="stat-value" id="stat-users">—</div><div class="stat-sub">All time</div></div>
+        <div class="stat-card"><div class="stat-label">New Today</div><div class="stat-value" id="stat-today">—</div><div class="stat-sub">Signups</div></div>
+        <div class="stat-card"><div class="stat-label">Total Matches</div><div class="stat-value" id="stat-matches">—</div><div class="stat-sub">All time</div></div>
+        <div class="stat-card"><div class="stat-label">Messages Sent</div><div class="stat-value" id="stat-messages">—</div><div class="stat-sub">All time</div></div>
+        <div class="stat-card accent"><div class="stat-label">Open Reports</div><div class="stat-value" id="stat-reports">—</div><div class="stat-sub">Needs review</div></div>
+        <div class="stat-card"><div class="stat-label">Women</div><div class="stat-value" id="stat-women">—</div><div class="stat-sub">% of users</div></div>
+      </div>
+
+      <div class="charts-grid">
+        <div class="chart-card">
+          <div class="chart-title">Signups over time</div>
+          <div class="chart-sub">Last 14 days</div>
+          <div class="chart-wrap"><canvas id="signup-chart"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">HSV type breakdown</div>
+          <div class="chart-sub">All users</div>
+          <div class="chart-wrap"><canvas id="hsv-chart"></canvas></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- USERS TAB -->
+    <div id="tab-users" style="display:none">
+      <div class="table-card">
+        <div class="table-header">
+          <span class="table-title">All Users</span>
+          <span class="table-count" id="users-count"></span>
+        </div>
+        <div style="overflow-x:auto">
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Gender</th>
+                <th>HSV Type</th>
+                <th>City</th>
+                <th>Joined</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="users-table"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- REPORTS TAB -->
+    <div id="tab-reports" style="display:none">
+      <div class="table-card">
+        <div class="table-header">
+          <span class="table-title">User Reports</span>
+          <span class="table-count" id="reports-count"></span>
+        </div>
+        <div style="overflow-x:auto">
+          <table>
+            <thead>
+              <tr>
+                <th>Reported User</th>
+                <th>Reason</th>
+                <th>Details</th>
+                <th>Date</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="reports-table"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://ocwgwfnrstzrapsblkxm.supabase.co'
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9jd2d3Zm5yc3R6cmFwc2Jsa3htIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY1NjAxNzksImV4cCI6MjA5MjEzNjE3OX0.Tr_l0wJjUDHdklj1AG9MW9FIlNC3lNgGbklpzz4AAfo'
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
+
+let signupChart, hsvChart
+
+function hidden(id) { document.getElementById(id).classList.add('hidden') }
+function show(id) { document.getElementById(id).classList.remove('hidden') }
+function el(id) { return document.getElementById(id) }
+
+async function adminLogin() {
+  const email = el('login-email').value.trim()
+  const pass = el('login-pass').value
+  el('login-error').classList.add('hidden')
+
+  const { data, error } = await sb.auth.signInWithPassword({ email, password: pass })
+  if (error) { el('login-error').textContent = error.message; el('login-error').classList.remove('hidden'); return }
+
+  // Check is_admin
+  const { data: profile } = await sb.from('profiles').select('is_admin').eq('id', data.user.id).single()
+  if (!profile?.is_admin) {
+    await sb.auth.signOut()
+    el('login-error').textContent = 'Access denied — admin only'
+    el('login-error').classList.remove('hidden')
+    return
+  }
+
+  el('login-screen').style.display = 'none'
+  el('dashboard').style.display = 'block'
+  loadOverview()
+}
+
+async function adminSignout() {
+  await sb.auth.signOut()
+  window.location.reload()
+}
+
+function showTab(tab) {
+  ['overview','users','reports'].forEach(t => {
+    el('tab-' + t).style.display = t === tab ? '' : 'none'
+  })
+  document.querySelectorAll('.tab').forEach((btn, i) => {
+    btn.classList.toggle('active', ['overview','users','reports'][i] === tab)
+  })
+  if (tab === 'users') loadUsers()
+  if (tab === 'reports') loadReports()
+}
+
+async function loadOverview() {
+  const today = new Date(); today.setHours(0,0,0,0)
+
+  const [
+    { count: totalUsers },
+    { count: todayUsers },
+    { count: totalMatches },
+    { count: totalMessages },
+    { count: openReports },
+    { data: allProfiles },
+  ] = await Promise.all([
+    sb.from('profiles').select('*', { count: 'exact', head: true }),
+    sb.from('profiles').select('*', { count: 'exact', head: true }).gte('created_at', today.toISOString()),
+    sb.from('matches').select('*', { count: 'exact', head: true }),
+    sb.from('messages').select('*', { count: 'exact', head: true }),
+    sb.from('reports').select('*', { count: 'exact', head: true }),
+    sb.from('profiles').select('gender, hsv_type, created_at'),
+  ])
+
+  el('stat-users').textContent = totalUsers || 0
+  el('stat-today').textContent = todayUsers || 0
+  el('stat-matches').textContent = totalMatches || 0
+  el('stat-messages').textContent = totalMessages || 0
+  el('stat-reports').textContent = openReports || 0
+
+  const women = (allProfiles || []).filter(p => p.gender === 'Woman').length
+  const womenPct = totalUsers > 0 ? Math.round((women / totalUsers) * 100) : 0
+  el('stat-women').textContent = womenPct + '%'
+
+  buildSignupChart(allProfiles || [])
+  buildHsvChart(allProfiles || [])
+}
+
+function buildSignupChart(profiles) {
+  const days = 14
+  const labels = []
+  const data = []
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date()
+    d.setDate(d.getDate() - i)
+    d.setHours(0,0,0,0)
+    const next = new Date(d); next.setDate(next.getDate() + 1)
+    labels.push(d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }))
+    data.push(profiles.filter(p => {
+      const created = new Date(p.created_at)
+      return created >= d && created < next
+    }).length)
+  }
+
+  if (signupChart) signupChart.destroy()
+  signupChart = new Chart(el('signup-chart'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        data,
+        backgroundColor: '#e8503a',
+        borderRadius: 6,
+        borderSkipped: false,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { color: '#1a1a1a' }, ticks: { color: '#6b6866', font: { size: 10 } } },
+        y: { grid: { color: '#1a1a1a' }, ticks: { color: '#6b6866', stepSize: 1 }, beginAtZero: true }
+      }
+    }
+  })
+}
+
+function buildHsvChart(profiles) {
+  const counts = { 'HSV-1': 0, 'HSV-2': 0, 'Both': 0, 'Unknown': 0 }
+  profiles.forEach(p => { counts[p.hsv_type || 'Unknown']++ })
+
+  if (hsvChart) hsvChart.destroy()
+  hsvChart = new Chart(el('hsv-chart'), {
+    type: 'doughnut',
+    data: {
+      labels: Object.keys(counts),
+      datasets: [{
+        data: Object.values(counts),
+        backgroundColor: ['#3498db', '#e8503a', '#9b59b6', '#4a4a4a'],
+        borderWidth: 0,
+        hoverOffset: 4,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'bottom', labels: { color: '#9e9b97', font: { size: 12 }, padding: 16, boxWidth: 12 } }
+      }
+    }
+  })
+}
+
+async function loadUsers() {
+  const tbody = el('users-table')
+  tbody.innerHTML = '<tr><td colspan="6" class="loading">Loading...</td></tr>'
+
+  const { data } = await sb.from('profiles').select('*').order('created_at', { ascending: false })
+  el('users-count').textContent = (data?.length || 0) + ' users'
+
+  if (!data || data.length === 0) { tbody.innerHTML = '<tr><td colspan="6" class="loading">No users yet</td></tr>'; return }
+
+  tbody.innerHTML = data.map(u => `
+    <tr>
+      <td>${u.display_name || '—'}</td>
+      <td>${u.gender ? `<span class="badge ${u.gender === 'Woman' ? 'woman' : 'man'}">${u.gender}</span>` : '—'}</td>
+      <td>${u.hsv_type ? `<span class="badge ${u.hsv_type === 'HSV-1' ? 'hsv1' : u.hsv_type === 'HSV-2' ? 'hsv2' : 'both'}">${u.hsv_type}</span>` : '—'}</td>
+      <td>${u.city || '—'}</td>
+      <td>${new Date(u.created_at).toLocaleDateString()}</td>
+      <td><button class="action-btn danger" onclick="deleteUser('${u.id}', '${u.display_name}')">Remove</button></td>
+    </tr>
+  `).join('')
+}
+
+async function deleteUser(id, name) {
+  if (!confirm(`Remove ${name}? This will delete their account and all data.`)) return
+  await sb.from('profiles').delete().eq('id', id)
+  loadUsers()
+}
+
+async function loadReports() {
+  const tbody = el('reports-table')
+  tbody.innerHTML = '<tr><td colspan="5" class="loading">Loading...</td></tr>'
+
+  const { data } = await sb.from('reports')
+    .select('*, reported:profiles!reports_reported_id_fkey(display_name)')
+    .order('created_at', { ascending: false })
+
+  el('reports-count').textContent = (data?.length || 0) + ' reports'
+
+  if (!data || data.length === 0) { tbody.innerHTML = '<tr><td colspan="5" class="loading">No reports yet</td></tr>'; return }
+
+  tbody.innerHTML = data.map(r => `
+    <tr class="report-row">
+      <td>${r.reported?.display_name || 'Unknown'}</td>
+      <td>${r.reason}</td>
+      <td style="max-width:200px;color:#6b6866">${r.details || '—'}</td>
+      <td>${new Date(r.created_at).toLocaleDateString()}</td>
+      <td>
+        <button class="action-btn danger" onclick="deleteUser('${r.reported_id}', '${r.reported?.display_name}')">Remove user</button>
+      </td>
+    </tr>
+  `).join('')
+}
+
+// Check existing session on load
+sb.auth.getSession().then(async ({ data: { session } }) => {
+  if (!session) return
+  const { data: profile } = await sb.from('profiles').select('is_admin').eq('id', session.user.id).single()
+  if (profile?.is_admin) {
+    el('login-screen').style.display = 'none'
+    el('dashboard').style.display = 'block'
+    loadOverview()
+  }
+})
+</script>
+</body>
+</html>
