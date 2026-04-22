@@ -364,9 +364,15 @@ async function loadUsers() {
 }
 
 async function deleteUser(id, name) {
-  if (!confirm(`Remove ${name}? This will delete their account and all data.`)) return
-  await sb.from('profiles').delete().eq('id', id)
+  if (!confirm(`Remove ${name}? This will permanently delete their account and all data.`)) return
+  // Call the secure delete function which removes from auth.users (cascades to all tables)
+  const { error } = await sb.rpc('delete_user', { user_id: id })
+  if (error) {
+    alert('Error deleting user: ' + error.message)
+    return
+  }
   loadUsers()
+  loadOverview()
 }
 
 async function loadReports() {
