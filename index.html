@@ -8,6 +8,8 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Simple-x" />
   <title>Simple-x</title>
+  <link rel="manifest" href="/simple_x-app/manifest.json" />
+  <link rel="apple-touch-icon" href="/simple_x-app/icons/icon-192.png" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -1440,6 +1442,13 @@ async function init() {
 }
 
 init()
+
+// ── SERVICE WORKER ────────────────────────────────
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/simple_x-app/sw.js')
+  })
+}
 </script>
 </body>
 </html>
