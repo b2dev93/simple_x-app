@@ -3,9 +3,9 @@
     "relation": ["delegate_permission/common.handle_all_urls"],
     "target": {
       "namespace": "android_app",
-      "package_name": "com.simplex.app",
+      "package_name": "io.github.b2dev93.twa",
       "sha256_cert_fingerprints": [
-        "REPLACE_WITH_YOUR_SHA256_FINGERPRINT_FROM_BUBBLEWRAP"
+        "82:04:0B:73:F3:19:1E:38:EE:19:A0:73:C7:AE:E9:89:6D:F5:DF:6C:C5:2C:9A:2B:9B:6B:B8:B9:54:35:21:E8"
       ]
     }
   }
