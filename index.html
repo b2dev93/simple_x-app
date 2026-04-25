@@ -345,6 +345,7 @@
         </div>
         <span class="premium-badge">$10/mo</span>
       </div>
+      <button class="btn-ghost" onclick="shareApp()">Share</button>
       <button class="btn-ghost" onclick="handleLogout()">Sign out</button>
     </div>
 
@@ -682,6 +683,12 @@ async function handleAuth() {
     el('auth-error').classList.remove('hidden')
     el('auth-submit').textContent = authTab === 'in' ? 'Sign in' : 'Create account'
   }
+}
+
+function shareApp() {
+  const data = { title: 'Simple-x', text: 'Dating for people living with HSV.', url: 'https://b2dev93.github.io/simple_x-app/' }
+  if (navigator.share) { navigator.share(data).catch(() => {}) }
+  else { navigator.clipboard.writeText(data.url).then(() => showToast('Link copied!')).catch(() => {}) }
 }
 
 async function handleLogout() {
