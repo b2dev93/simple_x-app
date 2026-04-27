@@ -347,6 +347,7 @@
       </div>
       <button class="btn-ghost" onclick="shareApp()">Share</button>
       <button class="btn-ghost" onclick="handleLogout()">Sign out</button>
+      <button class="btn-ghost" onclick="showDeleteAccountModal()" style="color:#e8503a;border-color:#3a1a14;margin-top:4px">Delete account</button>
     </div>
 
     <!-- NAV -->
@@ -1449,6 +1450,72 @@ async function init() {
 init()
 
 // ── SERVICE WORKER ────────────────────────────────
+// ── DELETE ACCOUNT ───────────────────────────────
+function showDeleteAccountModal() {
+  const existing = document.getElementById('delete-account-modal')
+  if (existing) existing.remove()
+  const modal = document.createElement('div')
+  modal.id = 'delete-account-modal'
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);display:flex;align-items:flex-end;justify-content:center;z-index:9999;padding:0 0 32px'
+  modal.innerHTML = `
+    <div style="background:#141414;border-radius:20px 20px 0 0;padding:28px 24px;width:100%;max-width:480px;border-top:1px solid #252525">
+      <h2 style="color:#f0ede8;font-size:20px;font-weight:700;margin-bottom:8px">Delete your account?</h2>
+      <p style="color:#9e9b97;font-size:14px;line-height:1.6;margin-bottom:8px">This will permanently delete:</p>
+      <ul style="color:#6b6866;font-size:13px;line-height:2;margin-bottom:20px;padding-left:18px">
+        <li>Your profile and all photos</li>
+        <li>All your matches and conversations</li>
+        <li>Your likes, blocks, and reports</li>
+        <li>Your account login</li>
+      </ul>
+      <p style="color:#e8503a;font-size:13px;margin-bottom:24px;font-weight:500">This cannot be undone.</p>
+      <div style="display:flex;gap:10px">
+        <button onclick="document.getElementById('delete-account-modal').remove()" style="flex:1;padding:14px;border-radius:12px;border:1px solid #252525;background:transparent;color:#9e9b97;font-size:15px;cursor:pointer">Cancel</button>
+        <button id="confirm-delete-btn" onclick="deleteAccount()" style="flex:1;padding:14px;border-radius:12px;border:none;background:#e8503a;color:#fff;font-size:15px;font-weight:600;cursor:pointer">Yes, delete everything</button>
+      </div>
+    </div>
+  `
+  document.body.appendChild(modal)
+}
+
+async function deleteAccount() {
+  const btn = document.getElementById('confirm-delete-btn')
+  if (btn) { btn.textContent = 'Deleting…'; btn.disabled = true }
+
+  try {
+    // 1. Delete all photos from Supabase Storage
+    const photos = currentProfile?.photo_urls || []
+    if (photos.length > 0) {
+      const paths = photos.map(url => {
+        // Extract storage path from public URL
+        const parts = url.split('/avatars/')
+        return parts[1] ? parts[1].split('?')[0] : null
+      }).filter(Boolean)
+      if (paths.length > 0) {
+        await sb.storage.from('avatars').remove(paths)
+      }
+    }
+
+    // 2. Call the database function — deletes all rows + auth record
+    const { error } = await sb.rpc('delete_my_account')
+    if (error) throw error
+
+    // 3. Sign out locally (auth record is gone server-side)
+    await sb.auth.signOut()
+
+    // 4. Clear local state and reload to auth screen
+    currentUser = null
+    currentProfile = null
+    document.getElementById('delete-account-modal')?.remove()
+    showToast('Your account has been deleted.')
+    setTimeout(() => { window.location.reload() }, 1500)
+
+  } catch (err) {
+    console.error('Delete account error:', err)
+    if (btn) { btn.textContent = 'Yes, delete everything'; btn.disabled = false }
+    showToast('Something went wrong. Please try again or contact support.')
+  }
+}
+
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/simple_x-app/sw.js')
