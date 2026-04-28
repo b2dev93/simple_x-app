@@ -710,6 +710,54 @@ async function enterApp(user) {
   checkUnreadOnLoad()
   requestLocation()
   checkUpgradeReturn()
+  checkProfileComplete()
+}
+
+function checkProfileComplete() {
+  const p = currentProfile
+  if (!p) return
+
+  const hasPhoto = p.photo_urls && p.photo_urls.length > 0
+  const hasBio = p.bio && p.bio.trim().length > 0
+  const hasCity = p.city && p.city.trim().length > 0
+
+  if (hasPhoto && hasBio && hasCity) return
+
+  // Build list of what's missing
+  const missing = []
+  if (!hasPhoto) missing.push('a profile photo')
+  if (!hasBio) missing.push('a short bio')
+  if (!hasCity) missing.push('your city')
+
+  const existing = document.getElementById('profile-nudge-modal')
+  if (existing) return
+
+  const modal = document.createElement('div')
+  modal.id = 'profile-nudge-modal'
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.88);display:flex;align-items:flex-end;justify-content:center;z-index:9999;padding:0 0 32px'
+  modal.innerHTML = `
+    <div style="background:#141414;border-radius:20px 20px 0 0;padding:28px 24px;width:100%;max-width:480px;border-top:1px solid #252525">
+      <p style="font-size:32px;margin-bottom:12px;text-align:center">👋</p>
+      <h2 style="color:#f0ede8;font-size:20px;font-weight:700;margin-bottom:8px;text-align:center">Finish your profile</h2>
+      <p style="color:#9e9b97;font-size:14px;line-height:1.6;margin-bottom:16px;text-align:center">
+        You're missing ${missing.join(' and ')}. Profiles with photos and bios get <strong style="color:#f0ede8">3x more matches</strong>.
+      </p>
+      <div style="display:flex;gap:10px">
+        <button onclick="document.getElementById('profile-nudge-modal').remove()" style="flex:1;padding:14px;border-radius:12px;border:1px solid #252525;background:transparent;color:#9e9b97;font-size:15px;cursor:pointer">Later</button>
+        <button onclick="goToProfileSetup()" style="flex:1;padding:14px;border-radius:12px;border:none;background:#e8503a;color:#fff;font-size:15px;font-weight:600;cursor:pointer">Complete profile</button>
+      </div>
+    </div>
+  `
+  document.body.appendChild(modal)
+}
+
+function goToProfileSetup() {
+  document.getElementById('profile-nudge-modal')?.remove()
+  switchTab2('profile')
+  setTimeout(() => {
+    const editBtn = document.querySelector('.edit-btn')
+    if (editBtn) editBtn.click()
+  }, 150)
 }
 
 async function checkUnreadOnLoad() {
