@@ -1335,16 +1335,60 @@ const RESEARCH_ARTICLES = [
     tagBg: "#1a0d2e",
     link: "https://www.ashasexualhealth.org/herpes/"
   },
+  {
+    title: "Prunella vulgaris (Self-Heal): antiviral herb with HSV research backing",
+    date: "Holistic",
+    summary: "Prunella vulgaris is one of the most studied herbs in relation to HSV. Lab studies have found rosmarinic acid and other polyphenols in Prunella inhibit HSV-1 and HSV-2 replication. It's available as a tea, tincture, or topical extract. While not a replacement for antivirals, it's a well-tolerated complementary option with a real evidence base — unlike many herbal claims.",
+    tag: "Holistic",
+    tagColor: "#27ae60",
+    tagBg: "#0a1f12",
+    link: "https://pubmed.ncbi.nlm.nih.gov/?term=prunella+vulgaris+herpes"
+  },
+  {
+    title: "Lysine vs. arginine: the amino acid balance and outbreaks",
+    date: "Holistic",
+    summary: "HSV replication depends on arginine. Lysine competes with arginine for absorption, and research suggests high-lysine, low-arginine diets may reduce outbreak frequency. Foods to favor: fish, chicken, eggs, legumes. Foods to limit during outbreaks: nuts (especially peanuts), chocolate, seeds, and oats. Lysine supplements (1,000–3,000mg/day) are widely used by HSV-positive people, though study results are mixed.",
+    tag: "Holistic",
+    tagColor: "#27ae60",
+    tagBg: "#0a1f12",
+    link: "https://pubmed.ncbi.nlm.nih.gov/?term=lysine+herpes+simplex"
+  },
+  {
+    title: "Immune support: key nutrients that may reduce outbreak frequency",
+    date: "Holistic",
+    summary: "HSV outbreaks are often triggered by a suppressed immune system. Nutrients with the strongest supporting evidence include: Vitamin D (deficiency is correlated with more frequent outbreaks), Zinc (shown to inhibit HSV replication topically and orally), Vitamin C (supports immune response), and B-complex vitamins (support nervous system where HSV lies dormant). Getting bloodwork to check levels is a practical first step.",
+    tag: "Holistic",
+    tagColor: "#27ae60",
+    tagBg: "#0a1f12",
+    link: "https://pubmed.ncbi.nlm.nih.gov/?term=zinc+herpes+simplex"
+  },
+  {
+    title: "Stress, sleep, and HSV: the outbreak trigger most people underestimate",
+    date: "Holistic",
+    summary: "Psychological stress and poor sleep are among the most consistently reported outbreak triggers. Cortisol suppresses immune function and can reactivate latent HSV. Practical interventions with evidence behind them: consistent sleep schedule, magnesium glycinate before bed, adaptogenic herbs like ashwagandha to blunt cortisol, and regular moderate exercise. Overtraining is itself a trigger — intense prolonged exercise spikes cortisol.",
+    tag: "Holistic",
+    tagColor: "#27ae60",
+    tagBg: "#0a1f12",
+    link: "https://pubmed.ncbi.nlm.nih.gov/?term=stress+herpes+reactivation"
+  },
+  {
+    title: "Anti-inflammatory diet and HSV: what to eat and what to avoid",
+    date: "Holistic",
+    summary: "Chronic inflammation creates an environment where HSV reactivates more easily. An anti-inflammatory diet emphasizes: leafy greens, berries, fatty fish (omega-3s), turmeric with black pepper, garlic, and olive oil. Foods commonly associated with increased outbreaks: alcohol, refined sugar, processed foods, and excessive caffeine. No diet eliminates HSV, but reducing inflammatory load is a legitimate and low-risk strategy.",
+    tag: "Holistic",
+    tagColor: "#27ae60",
+    tagBg: "#0a1f12",
+    link: "https://pubmed.ncbi.nlm.nih.gov/?term=diet+inflammation+herpes"
+  },
 ]
 
 function loadResearch() {
   const list = el('research-list')
-  list.innerHTML = `
-    <div style="margin-bottom:20px">
-      <h2 style="color:#f0ede8;font-size:18px;font-weight:700;margin-bottom:6px">HSV Research & Education</h2>
-      <p style="color:#6b6866;font-size:13px;line-height:1.5">Summaries of current research, treatments, and resources. Always consult your healthcare provider for medical advice.</p>
-    </div>
-    ${RESEARCH_ARTICLES.map(a => `
+  const medical = RESEARCH_ARTICLES.filter(a => a.tag !== 'Holistic')
+  const holistic = RESEARCH_ARTICLES.filter(a => a.tag === 'Holistic')
+
+  function renderCard(a) {
+    return `
     <div style="background:#1c1c1c;border-radius:16px;border:1px solid #252525;padding:18px;margin-bottom:14px">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
         <span style="background:${a.tagBg};color:${a.tagColor};font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px">${a.tag}</span>
@@ -1353,8 +1397,24 @@ function loadResearch() {
       <h3 style="color:#f0ede8;font-size:15px;font-weight:600;margin-bottom:8px;line-height:1.4">${a.title}</h3>
       <p style="color:#9e9b97;font-size:13px;line-height:1.6;margin-bottom:12px">${a.summary}</p>
       <a href="${a.link}" target="_blank" style="color:#e8503a;font-size:13px;text-decoration:none;font-weight:500">Read more →</a>
+    </div>`
+  }
+
+  list.innerHTML = `
+    <div style="margin-bottom:20px">
+      <h2 style="color:#f0ede8;font-size:18px;font-weight:700;margin-bottom:6px">HSV Research & Education</h2>
+      <p style="color:#6b6866;font-size:13px;line-height:1.5">Summaries of current research, treatments, and resources. Always consult your healthcare provider for medical advice.</p>
     </div>
-  `).join('')}
+
+    ${medical.map(renderCard).join('')}
+
+    <div style="margin:24px 0 16px">
+      <h2 style="color:#f0ede8;font-size:18px;font-weight:700;margin-bottom:6px">🌿 Holistic Approaches</h2>
+      <p style="color:#6b6866;font-size:13px;line-height:1.5">Lifestyle, diet, and natural strategies for managing outbreaks. Complementary to — not a replacement for — medical treatment.</p>
+    </div>
+
+    ${holistic.map(renderCard).join('')}
+
     <div style="background:#141414;border-radius:16px;border:1px solid #252525;padding:16px;margin-top:8px;margin-bottom:20px">
       <p style="color:#6b6866;font-size:12px;line-height:1.6;text-align:center">Simple-x does not provide medical advice. Research summaries are for informational purposes only. Speak with a healthcare provider about treatment options.</p>
     </div>
