@@ -274,6 +274,30 @@
 
     <!-- DISCOVER TAB -->
     <div id="discover-content">
+
+      <!-- ONLINE NOW -->
+      <div id="online-section" style="padding:12px 16px 0">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="width:8px;height:8px;background:#2ecc71;border-radius:50%;display:inline-block"></span>
+            <span style="color:#f0ede8;font-size:14px;font-weight:600">Online Now</span>
+          </div>
+        </div>
+        <div id="online-list" style="display:flex;gap:12px;overflow-x:auto;padding-bottom:10px;scrollbar-width:none">
+          <p style="color:#6b6866;font-size:13px;padding:8px 0">Loading...</p>
+        </div>
+      </div>
+
+      <!-- LIKED RECENTLY -->
+      <div id="liked-section" style="padding:8px 16px 0">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <span style="color:#f0ede8;font-size:14px;font-weight:600">❤️ Liked Recently</span>
+        </div>
+        <div id="liked-list" style="display:flex;gap:12px;overflow-x:auto;padding-bottom:10px;scrollbar-width:none">
+          <p style="color:#6b6866;font-size:13px;padding:8px 0">Loading...</p>
+        </div>
+      </div>
+
       <div class="card-stack" id="card-stack"></div>
     </div>
 
@@ -731,6 +755,9 @@ async function enterApp(user) {
   checkUpgradeReturn()
   checkProfileComplete()
   registerPushNotifications()
+  updateLastSeen()
+  // Refresh last_seen every 5 minutes while app is open
+  setInterval(updateLastSeen, 5 * 60 * 1000)
 }
 
 function checkProfileComplete() {
@@ -1063,7 +1090,191 @@ function switchTab2(tab) {
 }
 
 // ── DISCOVER ──────────────────────────────────────
+// ── ONLINE NOW & LIKED RECENTLY ───────────────────
+async function loadOnlineNow() {
+  const list = el('online-list')
+  const fifteenMinsAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString()
+
+  let query = sb.from('profiles')
+    .select('*')
+    .gte('last_seen', fifteenMinsAgo)
+    .neq('id', currentUser.id)
+    .limit(20)
+
+  // Auto-filter by seeking preference
+  if (currentProfile?.seeking && currentProfile.seeking !== 'Everyone') {
+    const genderWanted = currentProfile.seeking === 'Women' ? 'Woman' : 'Man'
+    query = query.eq('gender', genderWanted)
+  }
+
+  const { data } = await query
+
+  if (!data || data.length === 0) {
+    list.innerHTML = '<p style="color:#6b6866;font-size:13px;padding:8px 0">No one online right now — check back soon.</p>'
+    return
+  }
+
+  // Client-side distance filter
+  const filtered = data.filter(p => {
+    if (filterDistance !== null && userLat && userLng && p.lat && p.lng) {
+      return haversineDistance(userLat, userLng, p.lat, p.lng) <= filterDistance
+    }
+    return true
+  })
+
+  if (filtered.length === 0) {
+    list.innerHTML = '<p style="color:#6b6866;font-size:13px;padding:8px 0">No one online nearby right now.</p>'
+    return
+  }
+
+  list.innerHTML = filtered.map(p => {
+    const photo = p.photo_urls?.[0]
+    const name = p.display_name || 'Member'
+    const age = p.birthdate ? Math.floor((Date.now() - new Date(p.birthdate)) / (365.25 * 24 * 3600 * 1000)) : ''
+    return `
+    <div onclick="showProfilePreview('${p.id}')" style="flex-shrink:0;cursor:pointer;text-align:center;width:72px">
+      <div style="position:relative;width:64px;height:64px;margin:0 auto 6px">
+        <div style="width:64px;height:64px;border-radius:50%;background:#252525;overflow:hidden;border:2px solid #1c1c1c">
+          ${photo ? `<img src="${photo}" style="width:100%;height:100%;object-fit:cover">` : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#f0ede8;font-size:20px;font-weight:700">${name.charAt(0).toUpperCase()}</div>`}
+        </div>
+        <span style="position:absolute;bottom:1px;right:1px;width:12px;height:12px;background:#2ecc71;border-radius:50%;border:2px solid #0a0a0a"></span>
+      </div>
+      <p style="color:#f0ede8;font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:72px">${name.split(' ')[0]}</p>
+      ${age ? `<p style="color:#6b6866;font-size:11px">${age}</p>` : ''}
+    </div>`
+  }).join('')
+}
+
+async function loadLikedRecently() {
+  const list = el('liked-list')
+
+  const { data: swipes } = await sb.from('swipes')
+    .select('swiped_id, created_at')
+    .eq('swiper_id', currentUser.id)
+    .eq('direction', 'right')
+    .order('created_at', { ascending: false })
+    .limit(20)
+
+  if (!swipes || swipes.length === 0) {
+    list.innerHTML = '<p style="color:#6b6866;font-size:13px;padding:8px 0">You haven\'t liked anyone yet. Start swiping!</p>'
+    return
+  }
+
+  const ids = swipes.map(s => s.swiped_id)
+  const { data: profiles } = await sb.from('profiles').select('*').in('id', ids)
+
+  if (!profiles || profiles.length === 0) {
+    list.innerHTML = '<p style="color:#6b6866;font-size:13px;padding:8px 0">Could not load liked profiles.</p>'
+    return
+  }
+
+  // Sort by swipe order
+  const profileMap = Object.fromEntries(profiles.map(p => [p.id, p]))
+  const ordered = swipes.map(s => profileMap[s.swiped_id]).filter(Boolean)
+
+  list.innerHTML = ordered.map(p => {
+    const photo = p.photo_urls?.[0]
+    const name = p.display_name || 'Member'
+    const age = p.birthdate ? Math.floor((Date.now() - new Date(p.birthdate)) / (365.25 * 24 * 3600 * 1000)) : ''
+    const isOnline = p.last_seen && (Date.now() - new Date(p.last_seen).getTime()) < 15 * 60 * 1000
+    return `
+    <div onclick="showProfilePreview('${p.id}')" style="flex-shrink:0;cursor:pointer;text-align:center;width:72px">
+      <div style="position:relative;width:64px;height:64px;margin:0 auto 6px">
+        <div style="width:64px;height:64px;border-radius:50%;background:#252525;overflow:hidden;border:2px solid ${isOnline ? '#2ecc71' : '#1c1c1c'}">
+          ${photo ? `<img src="${photo}" style="width:100%;height:100%;object-fit:cover">` : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#f0ede8;font-size:20px;font-weight:700">${name.charAt(0).toUpperCase()}</div>`}
+        </div>
+        ${isOnline ? `<span style="position:absolute;bottom:1px;right:1px;width:12px;height:12px;background:#2ecc71;border-radius:50%;border:2px solid #0a0a0a"></span>` : ''}
+      </div>
+      <p style="color:#f0ede8;font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:72px">${name.split(' ')[0]}</p>
+      ${age ? `<p style="color:#6b6866;font-size:11px">${age}</p>` : ''}
+    </div>`
+  }).join('')
+}
+
+async function showProfilePreview(userId) {
+  const { data: p } = await sb.from('profiles').select('*').eq('id', userId).single()
+  if (!p) return
+
+  const existing = document.getElementById('profile-preview-modal')
+  if (existing) existing.remove()
+
+  const photo = p.photo_urls?.[0]
+  const name = p.display_name || 'Member'
+  const age = p.birthdate ? Math.floor((Date.now() - new Date(p.birthdate)) / (365.25 * 24 * 3600 * 1000)) : ''
+  const isOnline = p.last_seen && (Date.now() - new Date(p.last_seen).getTime()) < 15 * 60 * 1000
+
+  // Check if matched
+  const { data: match } = await sb.from('matches')
+    .select('id')
+    .or(`and(user_a.eq.${currentUser.id},user_b.eq.${p.id}),and(user_a.eq.${p.id},user_b.eq.${currentUser.id})`)
+    .single()
+
+  // Check if already liked
+  const { data: existingSwipe } = await sb.from('swipes')
+    .select('id')
+    .eq('swiper_id', currentUser.id)
+    .eq('swiped_id', p.id)
+    .eq('direction', 'right')
+    .single()
+
+  const isMatched = !!match
+  const alreadyLiked = !!existingSwipe
+
+  // Build action buttons based on state
+  let actionButtons = ''
+  if (isMatched) {
+    actionButtons = `
+      <button onclick="document.getElementById('profile-preview-modal').remove();switchTab2('messages')" style="flex:1;padding:14px;border-radius:12px;border:none;background:#e8503a;color:#fff;font-size:15px;font-weight:600;cursor:pointer">💬 Message</button>`
+  } else if (alreadyLiked) {
+    if (currentProfile?.is_premium) {
+      actionButtons = `
+        <button onclick="document.getElementById('profile-preview-modal').remove()" style="flex:1;padding:14px;border-radius:12px;border:1px solid #252525;background:transparent;color:#9e9b97;font-size:15px;cursor:pointer">Close</button>
+        <button disabled style="flex:1;padding:14px;border-radius:12px;border:none;background:#252525;color:#6b6866;font-size:14px;cursor:default">✓ Already Liked</button>`
+    } else {
+      actionButtons = `
+        <button onclick="document.getElementById('profile-preview-modal').remove()" style="flex:1;padding:14px;border-radius:12px;border:1px solid #252525;background:transparent;color:#9e9b97;font-size:15px;cursor:pointer">Close</button>
+        <button onclick="document.getElementById('profile-preview-modal').remove();showUpgradePrompt('Upgrade to Plus to unlock unlimited likes and start conversations with people you\\\'ve already liked.')" style="flex:1;padding:14px;border-radius:12px;border:none;background:#e8503a;color:#fff;font-size:14px;font-weight:600;cursor:pointer">⭐ Upgrade to Message</button>`
+    }
+  } else {
+    actionButtons = `
+      <button onclick="document.getElementById('profile-preview-modal').remove()" style="flex:1;padding:14px;border-radius:12px;border:1px solid #252525;background:transparent;color:#9e9b97;font-size:15px;cursor:pointer">Close</button>
+      <button onclick="document.getElementById('profile-preview-modal').remove();swipe('${p.id}','right')" style="flex:1;padding:14px;border-radius:12px;border:none;background:#e8503a;color:#fff;font-size:15px;font-weight:600;cursor:pointer">❤️ Like</button>`
+  }
+
+  const modal = document.createElement('div')
+  modal.id = 'profile-preview-modal'
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.92);display:flex;align-items:flex-end;justify-content:center;z-index:9999'
+  modal.innerHTML = `
+    <div style="background:#141414;border-radius:20px 20px 0 0;width:100%;max-width:480px;border-top:1px solid #252525;overflow:hidden">
+      ${photo ? `<img src="${photo}" style="width:100%;height:280px;object-fit:cover">` : `<div style="width:100%;height:280px;background:#252525;display:flex;align-items:center;justify-content:center;font-size:64px;color:#f0ede8">${name.charAt(0).toUpperCase()}</div>`}
+      <div style="padding:20px 24px 32px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <h2 style="color:#f0ede8;font-size:22px;font-weight:700">${name}${age ? `, ${age}` : ''}</h2>
+          ${isOnline ? `<span style="background:#0d2e1a;color:#2ecc71;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">● Online</span>` : ''}
+          ${isMatched ? `<span style="background:#3a1a14;color:#e8503a;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">✓ Matched</span>` : ''}
+        </div>
+        ${p.city ? `<p style="color:#6b6866;font-size:14px;margin-bottom:8px">📍 ${p.city}</p>` : ''}
+        ${p.hsv_type ? `<p style="color:#6b6866;font-size:14px;margin-bottom:8px">HSV-${p.hsv_type}</p>` : ''}
+        ${p.bio ? `<p style="color:#9e9b97;font-size:14px;line-height:1.6;margin-bottom:20px">${p.bio}</p>` : '<p style="color:#6b6866;font-size:14px;margin-bottom:20px;font-style:italic">No bio yet.</p>'}
+        ${!isMatched && alreadyLiked && !currentProfile?.is_premium ? `
+        <div style="background:#1c1c1c;border:1px solid #3a1a14;border-radius:12px;padding:12px 14px;margin-bottom:16px">
+          <p style="color:#e8503a;font-size:13px;font-weight:600;margin-bottom:4px">⭐ You already liked ${name.split(' ')[0]}</p>
+          <p style="color:#6b6866;font-size:12px;line-height:1.5">Upgrade to Plus to send a message directly — don't wait for a match.</p>
+        </div>` : ''}
+        <div style="display:flex;gap:10px">${actionButtons}</div>
+      </div>
+    </div>
+  `
+  document.body.appendChild(modal)
+}
+
+async function updateLastSeen() {
+  await sb.from('profiles').update({ last_seen: new Date().toISOString() }).eq('id', currentUser.id)
+}
+
 async function loadDiscover() {
+  loadOnlineNow()
+  loadLikedRecently()
   el('card-stack').innerHTML = '<div class="empty-state"><p style="color:#6b6866;font-size:14px">Finding people nearby...</p></div>'
   const { data: swipes } = await sb.from('swipes').select('swiped_id').eq('swiper_id', currentUser.id)
   const swipedIds = (swipes || []).map(s => s.swiped_id)
