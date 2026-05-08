@@ -756,6 +756,11 @@ async function enterApp(user) {
   currentUser = user
   const { data } = await sb.from('profiles').select('*').eq('id', user.id).single()
   currentProfile = data
+  // Backfill email if missing
+  if (data && !data.email && user.email) {
+    await sb.from('profiles').update({ email: user.email }).eq('id', user.id)
+    currentProfile.email = user.email
+  }
   hide('auth')
   show('app-shell')
   loadDiscover()
