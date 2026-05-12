@@ -778,7 +778,7 @@ function setDobSelects(prefix, dateStr) {
 
 async function sendWelcomeEmail(toEmail, toName) {
   try {
-    await emailjs.send('service_simplex', 'template_no11won', {
+    await emailjs.send('simplex_service', 'template_no11won', {
       to_email: toEmail,
       to_name: toName || 'there',
     })
