@@ -356,11 +356,13 @@ async function sendEmailToAll() {
   for (const u of data) {
     if (!u.email) continue
     try {
-      await emailjs.send('simplex_service', 'template_no11won', {
-        to_email: u.email,
-        to_name: u.display_name || 'there',
+      const res = await fetch('https://ocwgwfnrstzrapsblkxm.supabase.co/functions/v1/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9jd2d3Zm5yc3R6cmFwc2Jsa3htIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY1NjAxNzksImV4cCI6MjA5MjEzNjE3OX0.Tr_l0wJjUDHdklj1AG9MW9FIlNC3lNgGbklpzz4AAfo' },
+        body: JSON.stringify({ to_email: u.email, to_name: u.display_name || 'there' })
       })
-      sent++
+      if (res.ok) sent++
+      else { failed++; console.error('Failed:', u.email, await res.text()) }
       await new Promise(r => setTimeout(r, 300))
     } catch(e) {
       failed++
