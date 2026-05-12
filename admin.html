@@ -89,6 +89,8 @@
       .stats-grid { grid-template-columns: 1fr 1fr; }
     }
   </style>
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+  <script>emailjs.init("6hhTlpLKzeQ4Q2eRv")</script>
 </head>
 <body>
 
@@ -150,15 +152,16 @@
       <div class="table-card">
         <div class="table-header">
           <span class="table-title">All Users</span>
-          <span class="table-count" id="users-count"></span>
+          <div style="display:flex;align-items:center;gap:10px">
+            <span class="table-count" id="users-count"></span>
+            <button onclick="sendEmailToAll()" style="background:#e8503a;color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:13px;font-weight:600;cursor:pointer">📧 Email All</button>
+          </div>
         </div>
         <div style="overflow-x:auto">
           <table>
             <thead>
               <tr>
                 <th>Name</th>
-                <th>Email</th>
-                <th>Tester</th>
                 <th>Gender</th>
                 <th>HSV Type</th>
                 <th>City</th>
@@ -344,25 +347,18 @@ function buildHsvChart(profiles) {
   })
 }
 
-async function toggleTester(id, current) {
-  await sb.from('profiles').update({ is_tester: !current }).eq('id', id)
-  loadUsers()
-}
-
 async function loadUsers() {
   const tbody = el('users-table')
-  tbody.innerHTML = '<tr><td colspan="8" class="loading">Loading...</td></tr>'
+  tbody.innerHTML = '<tr><td colspan="6" class="loading">Loading...</td></tr>'
 
   const { data } = await sb.from('profiles').select('*').order('created_at', { ascending: false })
   el('users-count').textContent = (data?.length || 0) + ' users'
 
-  if (!data || data.length === 0) { tbody.innerHTML = '<tr><td colspan="8" class="loading">No users yet</td></tr>'; return }
+  if (!data || data.length === 0) { tbody.innerHTML = '<tr><td colspan="6" class="loading">No users yet</td></tr>'; return }
 
   tbody.innerHTML = data.map(u => `
     <tr>
       <td>${u.display_name || '—'}</td>
-      <td style="color:#6b6866;font-size:13px">${u.email || '—'}</td>
-      <td><button onclick="toggleTester('${u.id}', ${u.is_tester})" style="padding:4px 10px;border-radius:8px;border:none;font-size:12px;font-weight:600;cursor:pointer;background:${u.is_tester ? '#22c55e' : '#2a2a2a'};color:${u.is_tester ? '#fff' : '#6b6866'}">${u.is_tester ? 'Tester ✓' : 'Set Tester'}</button></td>
       <td>${u.gender ? `<span class="badge ${u.gender === 'Woman' ? 'woman' : 'man'}">${u.gender}</span>` : '—'}</td>
       <td>${u.hsv_type ? `<span class="badge ${u.hsv_type === 'HSV-1' ? 'hsv1' : u.hsv_type === 'HSV-2' ? 'hsv2' : 'both'}">${u.hsv_type}</span>` : '—'}</td>
       <td>${u.city || '—'}</td>

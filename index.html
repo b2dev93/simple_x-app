@@ -163,6 +163,8 @@
     .filter-hsv-btn { padding:8px 16px;border-radius:20px;border:1px solid #252525;background:transparent;color:#9e9b97;font-size:13px;cursor:pointer;transition:all 0.15s; }
     .filter-hsv-btn.selected { border-color:#e8503a;background:#3a1a14;color:#e8503a; }
   </style>
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+  <script>emailjs.init("6hhTlpLKzeQ4Q2eRv")</script>
 </head>
 <body>
 <div id="app">
@@ -721,6 +723,7 @@ async function acceptTos() {
         seeking: selectedSeeking,
         birthdate: el('auth-birthdate').value || null,
       })
+      sendWelcomeEmail(email, name)
     }
     const { data: { session } } = await sb.auth.getSession()
     if (session) await enterApp(session.user)
@@ -770,6 +773,19 @@ function setDobSelects(prefix, dateStr) {
   if (y) y.value = parts[0]
   const hidden = document.getElementById(prefix + '-birthdate')
   if (hidden) hidden.value = dateStr
+}
+
+
+async function sendWelcomeEmail(toEmail, toName) {
+  try {
+    await emailjs.send('service_simplex', 'template_no11won', {
+      to_email: toEmail,
+      to_name: toName || 'there',
+    })
+    console.log('Welcome email sent to', toEmail)
+  } catch(e) {
+    console.error('Email failed:', e)
+  }
 }
 
 async function handleAuth() {
