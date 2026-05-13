@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content" />
   <meta name="theme-color" content="#0a0a0a" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -116,7 +116,7 @@
     .match-time { color: #6b6866; font-size: 12px; }
 
     /* CHAT */
-    #chat { position: absolute; inset: 0; background: #0a0a0a; display: flex; flex-direction: column; z-index: 50; }
+    #chat { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: #0a0a0a; display: flex; flex-direction: column; z-index: 50; }
     .chat-header { display: flex; align-items: center; gap: 12px; padding: 16px; border-bottom: 1px solid #252525; flex-shrink: 0; }
     .back-btn { border: none; background: transparent; cursor: pointer; padding: 4px; display: flex; }
     .chat-messages { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 8px; }
@@ -1792,7 +1792,9 @@ async function loadMatches() {
       ? (lastMsg.sender_id === currentUser.id ? 'You: ' : '') + lastMsg.content
       : 'Matched — say hey!'
     const age = timeAgo(lastMsg ? lastMsg.created_at : m.created_at)
-    const unread = lastMsg && lastMsg.sender_id !== currentUser.id
+    const seenKey = 'sx_last_seen_' + m.id
+    const lastSeen = localStorage.getItem(seenKey)
+    const unread = lastMsg && lastMsg.sender_id !== currentUser.id && (!lastSeen || new Date(lastMsg.created_at) > new Date(lastSeen))
     return `
       <div class="match-item" onclick="openChat(${JSON.stringify(m).replace(/"/g,'&quot;')})">
         <div style="position:relative">
@@ -1822,6 +1824,7 @@ let activeMatch = null
 
 function openChat(match) {
   activeMatch = match
+  localStorage.setItem('sx_last_seen_' + match.id, new Date().toISOString())
   const other = match.user_a === currentUser.id ? match.profiles_b : match.profiles_a
   const color = AVATAR_COLORS[1]
   avatarEl(other?.display_name || '?', 38, 1, el('chat-avatar'))
