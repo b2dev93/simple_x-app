@@ -978,8 +978,76 @@ async function loadCommunity() {
       </div>
       ${p.title ? `<p style="color:#f0ede8;font-size:15px;font-weight:600;margin-bottom:6px">${p.title}</p>` : ''}
       <p style="color:#9e9b97;font-size:14px;line-height:1.6;white-space:pre-wrap">${p.body}</p>
+      <div style="display:flex;gap:12px;margin-top:12px;padding-top:12px;border-top:1px solid #252525">
+        <button onclick="togglePostLike('${p.id}', this)" data-post="${p.id}" style="background:none;border:none;color:#6b6866;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:5px">
+          ❤️ <span id="like-count-${p.id}">0</span>
+        </button>
+        <button onclick="toggleComments('${p.id}')" style="background:none;border:none;color:#6b6866;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:5px">
+          💬 <span id="comment-count-${p.id}">0</span>
+        </button>
+      </div>
+      <div id="comments-${p.id}" style="display:none;margin-top:12px">
+        <div id="comments-list-${p.id}"></div>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <input id="comment-input-${p.id}" placeholder="Add a comment..." style="flex:1;background:#252525;border:none;border-radius:8px;padding:10px 14px;color:#f0ede8;font-size:13px;outline:none">
+          <button onclick="submitComment('${p.id}')" style="background:#e8503a;border:none;border-radius:8px;padding:10px 14px;color:#fff;font-size:13px;cursor:pointer">Post</button>
+        </div>
+      </div>
     </div>`
   }).join('')
+
+  // Load likes and comments counts
+  posts.forEach(p => loadPostStats(p.id))
+}
+
+async function loadPostStats(postId) {
+  const { data: likes } = await sb.from('post_likes').select('user_id').eq('post_id', postId)
+  const { data: comments } = await sb.from('post_comments').select('id, user_id, body, created_at, profiles(display_name)').eq('post_id', postId).order('created_at')
+  
+  const likeEl = document.getElementById('like-count-' + postId)
+  const commentEl = document.getElementById('comment-count-' + postId)
+  const likeBtn = document.querySelector(`[data-post="${postId}"]`)
+  
+  if (likeEl) likeEl.textContent = likes?.length || 0
+  if (commentEl) commentEl.textContent = comments?.length || 0
+  if (likeBtn && likes?.some(l => l.user_id === currentUser?.id)) {
+    likeBtn.style.color = '#e8503a'
+  }
+
+  const listEl = document.getElementById('comments-list-' + postId)
+  if (listEl && comments?.length) {
+    listEl.innerHTML = comments.map(c => `
+      <div style="display:flex;gap:8px;margin-bottom:8px;align-items:flex-start">
+        <span style="color:#e8503a;font-size:13px;font-weight:600;flex-shrink:0">${c.profiles?.display_name || 'Member'}:</span>
+        <span style="color:#9e9b97;font-size:13px">${c.body}</span>
+      </div>`).join('')
+  }
+}
+
+async function togglePostLike(postId, btn) {
+  const { data: existing } = await sb.from('post_likes').select('id').eq('post_id', postId).eq('user_id', currentUser.id).single()
+  if (existing) {
+    await sb.from('post_likes').delete().eq('post_id', postId).eq('user_id', currentUser.id)
+    btn.style.color = '#6b6866'
+  } else {
+    await sb.from('post_likes').insert({ post_id: postId, user_id: currentUser.id })
+    btn.style.color = '#e8503a'
+  }
+  loadPostStats(postId)
+}
+
+function toggleComments(postId) {
+  const el = document.getElementById('comments-' + postId)
+  if (el) el.style.display = el.style.display === 'none' ? '' : 'none'
+}
+
+async function submitComment(postId) {
+  const input = document.getElementById('comment-input-' + postId)
+  const body = input?.value.trim()
+  if (!body) return
+  await sb.from('post_comments').insert({ post_id: postId, user_id: currentUser.id, body })
+  input.value = ''
+  loadPostStats(postId)
 }
 
 function showNewPostModal() {
