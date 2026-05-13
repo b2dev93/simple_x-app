@@ -124,7 +124,7 @@
     .bubble.mine { background: #e8503a; border-radius: 18px 18px 4px 18px; align-self: flex-end; }
     .bubble.theirs { background: #1c1c1c; border-radius: 18px 18px 18px 4px; align-self: flex-start; }
     .bubble-time { font-size: 10px; color: rgba(255,255,255,0.55); margin-top: 4px; text-align: right; }
-    .chat-input-bar { padding: 12px 16px; border-top: 1px solid #252525; display: flex; gap: 10px; flex-shrink: 0; background: #141414; padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
+    .chat-input-bar { padding: 12px 16px; border-top: 1px solid #252525; display: flex; gap: 10px; flex-shrink: 0; background: #141414; padding-bottom: calc(12px + env(safe-area-inset-bottom)); position: sticky; bottom: 0; }
     .chat-input { flex: 1; padding: 12px 16px; border-radius: 24px; border: 1px solid #252525; background: #0a0a0a; color: #f0ede8; font-size: 15px; outline: none; }
     .chat-input::placeholder { color: #6b6866; }
     .send-btn { width: 44px; height: 44px; border-radius: 50%; border: none; background: #e8503a; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: opacity 0.15s; }
@@ -1837,6 +1837,12 @@ function openChat(match) {
     .subscribe()
 
   el('chat-input').onkeydown = e => { if (e.key === 'Enter') sendMessage() }
+  el('chat-input').addEventListener('focus', () => {
+    setTimeout(() => {
+      const msgs = el('chat-messages')
+      if (msgs) msgs.scrollTop = msgs.scrollHeight
+    }, 300)
+  })
 }
 
 function closeChat() {
