@@ -1096,7 +1096,7 @@ async function toggleIncognito(val) {
   if (thumb) thumb.style.transform = val ? 'translateX(20px)' : 'translateX(0)'
   await sb.from('profiles').update({ incognito: val }).eq('id', currentUser.id)
   if (currentProfile) currentProfile.incognito = val
-  showToast(val ? 'Incognito on — you're hidden from Discover' : 'Incognito off — you're visible in Discover')
+  showToast(val ? 'Incognito on — hidden from Discover' : 'Incognito off — visible in Discover')
 }
 
 async function boostProfile() {
