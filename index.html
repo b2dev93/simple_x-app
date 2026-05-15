@@ -335,6 +335,7 @@
       <div style="padding:20px 20px 0;margin-bottom:4px">
         <h2 style="font-size:22px;font-weight:700">Messages</h2>
       </div>
+
       <div id="matches-list"></div>
     </div>
 
@@ -441,7 +442,7 @@
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#e8503a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         <span class="nav-label active" style="color:#e8503a">Discover</span>
       </button>
-      <button class="nav-btn" id="nav-messages" onclick="switchTab2('messages')">
+      <button class="nav-btn" id="nav-messages" onclick="switchTab2('messages')" style="position:relative">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6b6866" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" id="nav-msg-icon"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
         <span class="nav-label">Messages</span>
       </button>
@@ -1249,7 +1250,7 @@ function switchTab2(tab) {
     }
   })
   el('location-pill').style.display = tab === 'discover' ? '' : 'none'
-  if (tab === 'messages') { loadMatches() }
+  if (tab === 'messages') { loadMatches(); loadWinks() }
   if (tab === 'research') loadResearch()
   if (tab === 'community') loadCommunity()
   if (tab === 'profile') renderProfileScreen()
@@ -1749,16 +1750,26 @@ function closeMatchModal() { hide('match-modal') }
 function goToMessages() { hide('match-modal'); switchTab2('messages') }
 
 // ── MESSAGES ──────────────────────────────────────
+async function loadWinks() {
+  // Winks are now rendered inline in the matches list by loadMatches
+}
+
 async function loadMatches() {
   const list = el('matches-list')
   list.innerHTML = '<p style="color:#6b6866;font-size:14px;text-align:center;margin-top:40px">Loading...</p>'
 
-  const { data } = await sb.from('matches')
-    .select('*, profiles_a:profiles!matches_user_a_fkey(*), profiles_b:profiles!matches_user_b_fkey(*)')
-    .or(`user_a.eq.${currentUser.id},user_b.eq.${currentUser.id}`)
-    .order('created_at', { ascending: false })
+  const [{ data }, { data: winks }] = await Promise.all([
+    sb.from('matches')
+      .select('*, profiles_a:profiles!matches_user_a_fkey(*), profiles_b:profiles!matches_user_b_fkey(*)')
+      .or(`user_a.eq.${currentUser.id},user_b.eq.${currentUser.id}`)
+      .order('created_at', { ascending: false }),
+    sb.from('winks')
+      .select('*, sender:profiles!winks_sender_id_fkey(id, display_name, photo_urls, birthdate, hsv_type, city, bio, gender, seeking, hsv_type, lat, lng)')
+      .eq('receiver_id', currentUser.id)
+      .order('created_at', { ascending: false })
+  ])
 
-  if (!data || data.length === 0) {
+  if ((!data || data.length === 0) && (!winks || winks.length === 0)) {
     list.innerHTML = `
       <div class="empty-state" style="margin-top:40px">
         <p class="empty-icon">💬</p>
@@ -1812,6 +1823,36 @@ async function loadMatches() {
         </div>
       </div>`
   }).join('')
+
+  // Append winks at the top if any
+  if (winks && winks.length > 0) {
+    const winkItems = winks.map(w => {
+      const s = w.sender
+      const color = AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)]
+      const initial = (s?.display_name || '?')[0].toUpperCase()
+      const photo = s?.photo_urls?.[0]
+      const seenKey = 'sx_wink_seen_' + w.id
+      const isSeen = localStorage.getItem(seenKey)
+      return `
+        <div class="match-item" onclick="localStorage.setItem('sx_wink_seen_${w.id}','1');showProfilePreview('${s?.id}')" style="border-left:3px solid #f5c518">
+          <div style="position:relative">
+            ${photo
+              ? `<div style="width:50px;height:50px;border-radius:50%;overflow:hidden"><img src="${photo}" style="width:100%;height:100%;object-fit:cover"/></div>`
+              : `<div class="avatar" style="width:50px;height:50px;font-size:18px;background:${color}">${initial}</div>`
+            }
+            ${!isSeen ? '<div style="position:absolute;top:0;right:0;width:12px;height:12px;border-radius:50%;background:#f5c518;border:2px solid #0a0a0a"></div>' : ''}
+          </div>
+          <div class="match-info">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <span class="match-name">${s?.display_name || 'User'}</span>
+              <span class="match-time">${timeAgo(w.created_at)}</span>
+            </div>
+            <p class="match-preview" style="color:#f5c518">😉 winked at you</p>
+          </div>
+        </div>`
+    }).join('')
+    list.innerHTML = winkItems + list.innerHTML
+  }
 }
 
 function timeAgo(ts) {
