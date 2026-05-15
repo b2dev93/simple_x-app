@@ -1716,7 +1716,7 @@ function renderCard() {
       <div class="card-overlay" onclick="if(discoverProfiles[discoverIdx])showProfilePreview(discoverProfiles[discoverIdx].id)" style="cursor:pointer">
         <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:8px">
           <div>
-            <p class="card-name">${p.display_name}${p.birthdate ? ', ' + getAge(p.birthdate) : ''}${p.verified ? ' <span style="color:#3b9eff;font-size:14px">✓</span>' : ''}</p>
+            <p class="card-name">${p.display_name}${p.birthdate ? ', ' + getAge(p.birthdate) : ''}${p.verified ? " ✓" : ""}</p>
             <p class="card-city">${p.city || 'Nearby'}${(userLat && userLng && p.lat && p.lng) ? ' · ' + Math.round(haversineDistance(userLat, userLng, p.lat, p.lng)) + ' mi' : ''}${p.relationship_type ? ' · ' + p.relationship_type : ''}</p>
           </div>
           ${p.hsv_type ? `<span class="card-badge">${p.hsv_type}</span>` : ''}
