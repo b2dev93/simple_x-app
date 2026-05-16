@@ -1989,6 +1989,15 @@ function timeAgo(ts) {
 // ── CHAT ──────────────────────────────────────────
 let activeMatch = null
 
+async function markMessagesRead(matchId) {
+  if (!currentUser) return
+  await sb.from('messages')
+    .update({ read_at: new Date().toISOString() })
+    .eq('match_id', matchId)
+    .neq('sender_id', currentUser.id)
+    .is('read_at', null)
+}
+
 async function openChatById(matchId) {
   const { data: match } = await sb.from('matches')
     .select('*, profiles_a:profiles!matches_user_a_fkey(*), profiles_b:profiles!matches_user_b_fkey(*)')
