@@ -231,7 +231,7 @@
       <input class="input" id="auth-pass" type="password" placeholder="Password" />
       <div class="hidden" id="hsv-picker">
         <p style="color:#6b6866;font-size:12px;margin-bottom:10px">I have</p>
-        <div class="hsv-options" id="hsv-type-options">
+        <div class="hsv-options">
           <button class="hsv-btn" onclick="selectHsv(this,'HSV-1')">HSV-1</button>
           <button class="hsv-btn" onclick="selectHsv(this,'HSV-2')">HSV-2</button>
           <button class="hsv-btn" onclick="selectHsv(this,'Both')">Both</button>
@@ -307,8 +307,7 @@
       </div>
 
       <!-- ONLINE NOW VIEW -->
-      <div id="discover-online-view" style="display:none;position:absolute;top:44px;left:0;right:0;bottom:0;overflow-y:auto">
-        <div style="padding:16px">
+      <div id="discover-online-view" style="display:none;padding:16px">
         <div style="display:flex;gap:8px;margin-bottom:16px;overflow-x:auto;scrollbar-width:none">
           <button onclick="setOnlineSort('recent')" id="sort-recent" style="flex-shrink:0;padding:6px 14px;border-radius:20px;border:1px solid #e8503a;background:#3a1a14;color:#e8503a;font-size:13px;font-weight:600;cursor:pointer">Most Recent</button>
           <button onclick="setOnlineSort('youngest')" id="sort-youngest" style="flex-shrink:0;padding:6px 14px;border-radius:20px;border:1px solid #252525;background:transparent;color:#6b6866;font-size:13px;cursor:pointer">Youngest</button>
@@ -319,16 +318,13 @@
         <div id="online-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:3px">
           <div style="grid-column:1/-1;text-align:center;padding:40px 0"><p style="color:#6b6866;font-size:14px">Loading...</p></div>
         </div>
-        </div>
       </div>
 
       <!-- LIKED RECENTLY VIEW -->
-      <div id="discover-liked-view" style="display:none;position:absolute;top:44px;left:0;right:0;bottom:0;overflow-y:auto">
-        <div style="padding:16px">
+      <div id="discover-liked-view" style="display:none;padding:16px">
         <p style="color:#6b6866;font-size:13px;margin-bottom:16px">People you've liked — tap to view their profile.</p>
         <div id="liked-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:3px">
           <div style="grid-column:1/-1;text-align:center;padding:40px 0"><p style="color:#6b6866;font-size:14px">Loading...</p></div>
-        </div>
         </div>
       </div>
 
@@ -482,7 +478,7 @@
       <button class="nav-btn" id="nav-research" onclick="switchTab2('research');clearResearchBadge()" style="position:relative">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6b6866" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
         <span class="nav-label">Research</span>
-        <span id="research-badge" style="display:none;position:absolute;top:4px;right:18px;background:#e8503a;color:#fff;font-size:10px;font-weight:700;border-radius:50%;width:16px;height:16px;align-items:center;justify-content:center;line-height:1"></span>
+        <span id="research-badge" style="display:none;position:absolute;top:4px;right:18px;background:#e8503a;color:#fff;font-size:10px;font-weight:700;border-radius:50%;width:16px;height:16px;display:flex;align-items:center;justify-content:center;line-height:1"></span>
       </button>
       <button class="nav-btn" id="nav-community" onclick="switchTab2('community')">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6b6866" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
@@ -712,7 +708,7 @@ function switchTab(tab) {
 
 function selectHsv(btn, val) {
   selectedHsv = val
-  document.querySelectorAll('#hsv-type-options .hsv-btn').forEach(b => b.classList.remove('selected'))
+  document.querySelectorAll('#hsv-picker .hsv-btn').forEach(b => b.classList.remove('selected'))
   btn.classList.add('selected')
 }
 
@@ -1302,7 +1298,13 @@ function startRealtimeListeners() {
           const msgsTab = el('messages-content')
           if (msgsTab && msgsTab.style.display !== 'none') loadMatches()
           // Notify recipient
-          sendPush(msg.recipient_id || msg.sender_id, 'New message 💬', `${currentProfile?.display_name || 'Someone'} sent you a message on Simple-x`, 'message')
+          // Get recipient from match
+          sb.from('matches').select('user_a, user_b').eq('id', msg.match_id).single().then(({ data: match }) => {
+            if (match) {
+              const recipientId = match.user_a === currentUser.id ? match.user_b : match.user_a
+              sendPush(recipientId, 'New message 💬', `${currentProfile?.display_name || 'Someone'} sent you a message on Simple-x`, 'message')
+            }
+          })
         }
       }
     })
@@ -1532,7 +1534,6 @@ async function showProfilePreview(userId) {
   const modal = document.createElement('div')
   modal.id = 'profile-preview-modal'
   modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.92);display:flex;align-items:flex-end;justify-content:center;z-index:9999'
-  modal.onclick = (e) => { if (e.target === modal) modal.remove() }
   modal.innerHTML = `
     <div style="background:#141414;border-radius:20px 20px 0 0;width:100%;max-width:480px;border-top:1px solid #252525;overflow:hidden">
       ${photo ? `<img src="${photo}" style="width:100%;height:280px;object-fit:cover">` : `<div style="width:100%;height:280px;background:#252525;display:flex;align-items:center;justify-content:center;font-size:64px;color:#f0ede8">${name.charAt(0).toUpperCase()}</div>`}
@@ -1543,7 +1544,7 @@ async function showProfilePreview(userId) {
           ${isMatched ? `<span style="background:#3a1a14;color:#e8503a;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">✓ Matched</span>` : ''}
         </div>
         ${p.city ? `<p style="color:#6b6866;font-size:14px;margin-bottom:8px">📍 ${p.city}</p>` : ''}
-        ${p.hsv_type ? `<p style="color:#6b6866;font-size:14px;margin-bottom:8px">${p.hsv_type}</p>` : ''}
+        ${p.hsv_type ? `<p style="color:#6b6866;font-size:14px;margin-bottom:8px">HSV-${p.hsv_type}</p>` : ''}
         ${p.bio ? `<p style="color:#9e9b97;font-size:14px;line-height:1.6;margin-bottom:20px">${p.bio}</p>` : '<p style="color:#6b6866;font-size:14px;margin-bottom:20px;font-style:italic">No bio yet.</p>'}
         ${!isMatched && alreadyLiked && !currentProfile?.is_premium ? `
         <div style="background:#1c1c1c;border:1px solid #3a1a14;border-radius:12px;padding:12px 14px;margin-bottom:16px">
@@ -2002,32 +2003,11 @@ function openChat(match) {
   setUnreadDot(false)
   markMessagesRead(match.id)
   const other = match.user_a === currentUser.id ? match.profiles_b : match.profiles_a
-  avatarEl(other?.display_name || '?', 38, 1, el('chat-avatar'), other?.photo_urls?.[0])
+  const color = AVATAR_COLORS[1]
+  avatarEl(other?.display_name || '?', 38, 1, el('chat-avatar'))
   el('chat-name').textContent = other?.display_name || 'User'
   el('chat-city').textContent = other?.city || ''
-
-  const chatEl = el('chat')
-  chatEl.style.display = 'flex'
-  chatEl.style.height = ''
-  chatEl.style.top = ''
-
-  if (window.visualViewport) {
-    const adjustChat = () => {
-      if (chatEl.style.display === 'none') return
-      chatEl.style.height = window.visualViewport.height + 'px'
-      chatEl.style.top = window.visualViewport.offsetTop + 'px'
-      const msgs = el('chat-messages')
-      if (msgs) setTimeout(() => { msgs.scrollTop = msgs.scrollHeight }, 50)
-    }
-    window.visualViewport.addEventListener('resize', adjustChat)
-    window.visualViewport.addEventListener('scroll', adjustChat)
-    chatEl._vpCleanup = () => {
-      window.visualViewport.removeEventListener('resize', adjustChat)
-      window.visualViewport.removeEventListener('scroll', adjustChat)
-    }
-    adjustChat()
-  }
-
+  el('chat').style.display = 'flex'
   loadChatMessages()
 
   if (chatSubscription) sb.removeChannel(chatSubscription)
@@ -2037,25 +2017,17 @@ function openChat(match) {
     .subscribe()
 
   el('chat-input').onkeydown = e => { if (e.key === 'Enter') sendMessage() }
+  el('chat-input').addEventListener('focus', () => {
+    setTimeout(() => {
+      const msgs = el('chat-messages')
+      if (msgs) msgs.scrollTop = msgs.scrollHeight
+    }, 300)
+  })
 }
 
 function closeChat() {
-  const chatEl = el('chat')
-  chatEl.style.display = 'none'
-  chatEl.style.height = ''
-  chatEl.style.top = ''
-  if (chatEl._vpCleanup) { chatEl._vpCleanup(); delete chatEl._vpCleanup }
+  el('chat').style.display = 'none'
   if (chatSubscription) { sb.removeChannel(chatSubscription); chatSubscription = null }
-  activeMatch = null
-  setTimeout(() => checkUnreadOnLoad(), 300)
-}
-
-async function markMessagesRead(matchId) {
-  await sb.from('messages')
-    .update({ read_at: new Date().toISOString() })
-    .eq('match_id', matchId)
-    .neq('sender_id', currentUser.id)
-    .is('read_at', null)
 }
 
 async function loadChatMessages() {
@@ -2698,16 +2670,11 @@ async function checkUpgradeReturn() {
 // ── INIT ──────────────────────────────────────────
 async function init() {
   setTimeout(async () => {
-    try {
-      const { data: { session } } = await sb.auth.getSession()
-      hide('splash')
-      if (session) {
-        await enterApp(session.user)
-      } else {
-        show('auth')
-      }
-    } catch (e) {
-      hide('splash')
+    const { data: { session } } = await sb.auth.getSession()
+    hide('splash')
+    if (session) {
+      await enterApp(session.user)
+    } else {
       show('auth')
     }
   }, 1800)
