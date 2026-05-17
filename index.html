@@ -72,7 +72,7 @@
     .auth-switch a { color: #e8503a; cursor: pointer; }
 
     /* DISCOVER */
-    #discover-content { position: absolute; top: 56px; left: 0; right: 0; bottom: 64px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+    #discover-content { position: absolute; top: 101px; left: 0; right: 0; bottom: 64px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
     .card-stack { position: absolute; inset: 0; }
     .feed-card { background:#0a0a0a; margin-bottom:0; cursor:pointer; }
     .feed-card-photo { width:100%; height:420px; object-fit:cover; display:block; }
@@ -1399,6 +1399,7 @@ function switchTab2(tab) {
     }
   })
   el('location-pill').style.display = tab === 'discover' ? '' : 'none'
+  el('discover-subtabs').style.display = tab === 'discover' ? '' : 'none'
   if (tab === 'messages') { loadMatches(); loadWinks() }
   if (tab === 'research') loadResearch()
   if (tab === 'community') loadCommunity()
