@@ -1,8 +1,7 @@
-// Simple-x Service Worker v1.0
-const CACHE_NAME = 'simplex-v1'
+// Simple-x Service Worker v1.1
+const CACHE_NAME = 'simplex-v' + Date.now()
 const OFFLINE_URL = '/simple_x-app/'
 
-// Assets to pre-cache (offline shell)
 const PRECACHE_ASSETS = [
   '/simple_x-app/',
   '/simple_x-app/index.html',
@@ -29,7 +28,15 @@ self.addEventListener('activate', event => {
           .filter(key => key !== CACHE_NAME)
           .map(key => caches.delete(key))
       )
-    ).then(() => self.clients.claim())
+    ).then(() => {
+      // Take control of all open clients immediately
+      return self.clients.claim()
+    }).then(() => {
+      // Tell all clients to reload so they get the new version
+      return self.clients.matchAll({ type: 'window' }).then(clients => {
+        clients.forEach(client => client.postMessage({ type: 'RELOAD' }))
+      })
+    })
   )
 })
 
@@ -38,30 +45,30 @@ self.addEventListener('fetch', event => {
   const { request } = event
   const url = new URL(request.url)
 
-  // Don't intercept Supabase API calls or external resources
   if (
     url.hostname.includes('supabase.co') ||
     url.hostname.includes('cdn.jsdelivr.net') ||
+    url.hostname.includes('emailjs.com') ||
+    url.hostname.includes('resend.com') ||
     request.method !== 'GET'
   ) {
     return
   }
 
-  // Network-first for HTML (always get fresh app shell)
+  // Always network-first for HTML — never serve stale app shell
   if (request.mode === 'navigate' || request.destination === 'document') {
     event.respondWith(
-      fetch(request)
+      fetch(request, { cache: 'no-store' })
         .catch(() => caches.match(OFFLINE_URL))
     )
     return
   }
 
-  // Cache-first for static assets (icons, manifest)
+  // Cache-first for static assets
   event.respondWith(
     caches.match(request).then(cached => {
       if (cached) return cached
       return fetch(request).then(response => {
-        // Only cache same-origin successful responses
         if (response.ok && url.origin === self.location.origin) {
           const clone = response.clone()
           caches.open(CACHE_NAME).then(cache => cache.put(request, clone))
@@ -76,11 +83,8 @@ self.addEventListener('fetch', event => {
 self.addEventListener('push', event => {
   if (!event.data) return
   let data
-  try {
-    data = event.data.json()
-  } catch {
-    data = { title: 'Simple-x', body: event.data.text() }
-  }
+  try { data = event.data.json() }
+  catch { data = { title: 'Simple-x', body: event.data.text() } }
 
   const options = {
     body: data.body || 'You have a new notification',
@@ -91,7 +95,6 @@ self.addEventListener('push', event => {
     vibrate: [200, 100, 200],
     renotify: true,
   }
-
   event.waitUntil(
     self.registration.showNotification(data.title || 'Simple-x', options)
   )
@@ -103,13 +106,11 @@ self.addEventListener('notificationclick', event => {
   const targetUrl = event.notification.data?.url || '/simple_x-app/'
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
-      // Focus existing window if open
       for (const client of clientList) {
         if (client.url.includes('simple_x-app') && 'focus' in client) {
           return client.focus()
         }
       }
-      // Otherwise open new window
       if (clients.openWindow) return clients.openWindow(targetUrl)
     })
   )

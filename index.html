@@ -2893,6 +2893,16 @@ async function checkUpgradeReturn() {
   }
 }
 
+
+// Auto-reload when service worker updates
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('message', event => {
+    if (event.data?.type === 'RELOAD') {
+      window.location.reload()
+    }
+  })
+}
+
 // ── INIT ──────────────────────────────────────────
 async function init() {
   setTimeout(async () => {
