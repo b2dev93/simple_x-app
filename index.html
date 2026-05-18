@@ -116,10 +116,10 @@
     .match-time { color: #6b6866; font-size: 12px; }
 
     /* CHAT */
-    #chat { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: #0a0a0a; display: flex; flex-direction: column; z-index: 50; }
+    #chat { position: fixed; top: 0; left: 0; right: 0; height: 100%; background: #0a0a0a; display: flex; flex-direction: column; z-index: 50; }
     .chat-header { display: flex; align-items: center; gap: 12px; padding: 16px; border-bottom: 1px solid #252525; flex-shrink: 0; }
     .back-btn { border: none; background: transparent; cursor: pointer; padding: 4px; display: flex; }
-    .chat-messages { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 8px; }
+    .chat-messages { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 8px; overscroll-behavior: none; }
     .bubble { max-width: 75%; padding: 10px 14px; font-size: 15px; line-height: 1.4; color: #fff; }
     .bubble.mine { background: #e8503a; border-radius: 18px 18px 4px 18px; align-self: flex-end; }
     .bubble.theirs { background: #1c1c1c; border-radius: 18px 18px 18px 4px; align-self: flex-start; }
@@ -325,7 +325,11 @@
       <!-- LIKED RECENTLY VIEW -->
       <div id="discover-liked-view" style="display:none;position:absolute;top:44px;left:0;right:0;bottom:0;overflow-y:auto">
         <div style="padding:16px">
-        <p style="color:#6b6866;font-size:13px;margin-bottom:16px">People you've liked — tap to view their profile.</p>
+        <div style="display:flex;gap:8px;margin-bottom:16px;overflow-x:auto;scrollbar-width:none">
+          <button onclick="setLikedSort('recent')" id="liked-sort-recent" style="flex-shrink:0;padding:6px 14px;border-radius:20px;border:1px solid #e8503a;background:#3a1a14;color:#e8503a;font-size:13px;font-weight:600;cursor:pointer">Most Recent</button>
+          <button onclick="setLikedSort('matched')" id="liked-sort-matched" style="flex-shrink:0;padding:6px 14px;border-radius:20px;border:1px solid #252525;background:transparent;color:#6b6866;font-size:13px;cursor:pointer">✓ Matched</button>
+          <button onclick="setLikedSort('pending')" id="liked-sort-pending" style="flex-shrink:0;padding:6px 14px;border-radius:20px;border:1px solid #252525;background:transparent;color:#6b6866;font-size:13px;cursor:pointer">⏳ Pending</button>
+        </div>
         <div id="liked-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:3px">
           <div style="grid-column:1/-1;text-align:center;padding:40px 0"><p style="color:#6b6866;font-size:14px">Loading...</p></div>
         </div>
@@ -442,12 +446,12 @@
         </div>
         <div id="viewers-list" style="display:flex;gap:10px;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch"></div>
       </div>
-      <div class="premium-card" onclick="showUpgradePrompt('Unlock unlimited likes, unlimited conversations, and more with Simple-x Plus.')" style="cursor:pointer">
+      <div id="premium-card" class="premium-card" onclick="showUpgradePrompt('Unlock unlimited likes, unlimited conversations, and more with Simple-x Plus.')" style="cursor:pointer">
         <div>
           <p class="premium-title">Simple-x Plus</p>
-          <p class="premium-sub">Unlimited likes · Unlimited messages</p>
+          <p id="premium-sub-label" class="premium-sub">Unlimited likes · Unlimited messages</p>
         </div>
-        <span class="premium-badge">$10/mo</span>
+        <span id="premium-badge-label" class="premium-badge">$10/mo</span>
       </div>
       <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 0;border-top:1px solid #1e1e1c">
         <div>
@@ -882,6 +886,16 @@ async function handleLogout() {
   window.location.reload()
 }
 
+async function checkPremiumExpiry() {
+  if (!currentProfile?.is_premium) return
+  const expiresAt = currentProfile?.premium_expires_at
+  if (!expiresAt) return
+  if (new Date(expiresAt) > new Date()) return
+  await sb.from('profiles').update({ is_premium: false }).eq('id', currentUser.id)
+  currentProfile.is_premium = false
+  renderProfileScreen()
+}
+
 // ── APP ENTRY ─────────────────────────────────────
 async function enterApp(user) {
   setTimeout(checkResearchBadge, 500)
@@ -901,6 +915,7 @@ async function enterApp(user) {
   checkUnreadOnLoad()
   requestLocation()
   checkUpgradeReturn()
+  checkPremiumExpiry()
   checkProfileComplete()
   registerPushNotifications()
   updateLastSeen()
@@ -998,6 +1013,10 @@ const COMMUNITY_RULES = [
   "Respect privacy — don't share others' personal details.",
 ]
 
+function escapeHtml(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;')
+}
+
 async function loadCommunity() {
   const list = el('community-list')
   list.innerHTML = '<div style="text-align:center;padding:40px 0"><p style="color:#6b6866;font-size:14px">Loading posts...</p></div>'
@@ -1024,7 +1043,7 @@ async function loadCommunity() {
   }
 
   list.innerHTML = posts.map(p => {
-    const name = p.profiles?.display_name || 'Member'
+    const name = escapeHtml(p.profiles?.display_name || 'Member')
     const avatar = p.profiles?.photo_urls?.[0]
     const isOwn = p.user_id === currentUser.id
     const isAdminUser = currentProfile?.is_admin
@@ -1044,8 +1063,8 @@ async function loadCommunity() {
           ${isAdminUser && !isOwn ? 'Remove' : 'Delete'}
         </button>` : ''}
       </div>
-      ${p.title ? `<p style="color:#f0ede8;font-size:15px;font-weight:600;margin-bottom:6px">${p.title}</p>` : ''}
-      <p style="color:#9e9b97;font-size:14px;line-height:1.6;white-space:pre-wrap">${p.body}</p>
+      ${p.title ? `<p style="color:#f0ede8;font-size:15px;font-weight:600;margin-bottom:6px">${escapeHtml(p.title)}</p>` : ''}
+      <p style="color:#9e9b97;font-size:14px;line-height:1.6;white-space:pre-wrap">${escapeHtml(p.body)}</p>
       <div style="display:flex;gap:12px;margin-top:12px;padding-top:12px;border-top:1px solid #252525">
         <button onclick="togglePostLike('${p.id}', this)" data-post="${p.id}" style="background:none;border:none;color:#6b6866;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:5px">
           ❤️ <span id="like-count-${p.id}">0</span>
@@ -1086,8 +1105,8 @@ async function loadPostStats(postId) {
   if (listEl && comments?.length) {
     listEl.innerHTML = comments.map(c => `
       <div style="display:flex;gap:8px;margin-bottom:8px;align-items:flex-start">
-        <span style="color:#e8503a;font-size:13px;font-weight:600;flex-shrink:0">${c.profiles?.display_name || 'Member'}:</span>
-        <span style="color:#9e9b97;font-size:13px">${c.body}</span>
+        <span style="color:#e8503a;font-size:13px;font-weight:600;flex-shrink:0">${escapeHtml(c.profiles?.display_name || 'Member')}:</span>
+        <span style="color:#9e9b97;font-size:13px">${escapeHtml(c.body)}</span>
       </div>`).join('')
   }
 }
@@ -1127,8 +1146,8 @@ async function togglePostLike(postId, btn) {
 }
 
 function toggleComments(postId) {
-  const el = document.getElementById('comments-' + postId)
-  if (el) el.style.display = el.style.display === 'none' ? '' : 'none'
+  const section = document.getElementById('comments-' + postId)
+  if (section) section.style.display = section.style.display === 'none' ? '' : 'none'
 }
 
 async function submitComment(postId) {
@@ -1301,8 +1320,6 @@ function startRealtimeListeners() {
           // Refresh matches list if it's visible
           const msgsTab = el('messages-content')
           if (msgsTab && msgsTab.style.display !== 'none') loadMatches()
-          // Notify current user (recipient) via push for background delivery
-          sendPush(currentUser.id, 'New message 💬', `${currentProfile?.display_name || 'Someone'} sent you a message on Simple-x`, 'message')
         }
       }
     })
@@ -1347,6 +1364,7 @@ function switchTab2(tab) {
 // ── DISCOVER SUB-TABS ─────────────────────────────
 let currentDiscoverTab = 'swipe'
 let currentOnlineSort = 'recent'
+let currentLikedSort = 'recent'
 
 function switchDiscoverTab(tab) {
   currentDiscoverTab = tab
@@ -1378,6 +1396,21 @@ function setOnlineSort(sort) {
     btn.style.fontWeight = isActive ? '600' : '400'
   })
   loadOnlineNow()
+}
+
+function setLikedSort(sort) {
+  currentLikedSort = sort
+  const sorts = ['recent', 'matched', 'pending']
+  sorts.forEach(s => {
+    const btn = el(`liked-sort-${s}`)
+    if (!btn) return
+    const isActive = s === sort
+    btn.style.borderColor = isActive ? '#e8503a' : '#252525'
+    btn.style.background = isActive ? '#3a1a14' : 'transparent'
+    btn.style.color = isActive ? '#e8503a' : '#6b6866'
+    btn.style.fontWeight = isActive ? '600' : '400'
+  })
+  loadLikedRecently()
 }
 
 function renderProfileGrid(profiles, containerId, emptyMsg) {
@@ -1464,11 +1497,53 @@ async function loadLikedRecently() {
   }
 
   const ids = swipes.map(s => s.swiped_id)
-  const { data: profiles } = await sb.from('profiles').select('*').in('id', ids)
-  const profileMap = Object.fromEntries((profiles || []).map(p => [p.id, p]))
-  const ordered = swipes.map(s => profileMap[s.swiped_id]).filter(Boolean)
+  const [{ data: profiles }, { data: matches }] = await Promise.all([
+    sb.from('profiles').select('*').in('id', ids),
+    sb.from('matches')
+      .select('user_a, user_b')
+      .or(`user_a.eq.${currentUser.id},user_b.eq.${currentUser.id}`)
+  ])
 
-  renderProfileGrid(ordered, 'liked-grid', 'No liked profiles found.')
+  const profileMap = Object.fromEntries((profiles || []).map(p => [p.id, p]))
+  const matchedIds = new Set(
+    (matches || []).map(m => m.user_a === currentUser.id ? m.user_b : m.user_a)
+  )
+
+  let ordered = swipes.map(s => profileMap[s.swiped_id]).filter(Boolean)
+
+  if (currentLikedSort === 'matched') {
+    ordered = ordered.filter(p => matchedIds.has(p.id))
+  } else if (currentLikedSort === 'pending') {
+    ordered = ordered.filter(p => !matchedIds.has(p.id))
+  }
+
+  if (ordered.length === 0) {
+    const msg = currentLikedSort === 'matched'
+      ? "No matches yet — keep liking!"
+      : currentLikedSort === 'pending'
+      ? "Everyone you liked has matched with you! 🎉"
+      : "No liked profiles found."
+    grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:60px 20px"><p style="color:#6b6866;font-size:14px">${msg}</p></div>`
+    return
+  }
+
+  grid.innerHTML = ordered.map(p => {
+    const photo = p.photo_urls?.[0]
+    const name = p.display_name || 'Member'
+    const isOnline = p.last_seen && (Date.now() - new Date(p.last_seen).getTime()) < 15 * 60 * 1000
+    const isMatch = matchedIds.has(p.id)
+    return `
+    <div onclick="showProfilePreview('${p.id}')" style="cursor:pointer;position:relative;aspect-ratio:1;background:#1c1c1c;overflow:hidden">
+      ${photo
+        ? `<img src="${photo}" style="width:100%;height:100%;object-fit:cover">`
+        : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:32px;color:#f0ede8;font-weight:700">${name.charAt(0).toUpperCase()}</div>`}
+      ${isOnline ? `<span style="position:absolute;top:6px;right:6px;width:10px;height:10px;background:#2ecc71;border-radius:50%;border:2px solid #0a0a0a"></span>` : ''}
+      ${isMatch ? `<span style="position:absolute;top:6px;left:6px;background:#e8503a;border-radius:20px;padding:2px 6px;font-size:10px;font-weight:700;color:#fff">✓</span>` : ''}
+      <div style="position:absolute;bottom:0;left:0;right:0;background:linear-gradient(transparent,rgba(0,0,0,0.75));padding:16px 8px 6px">
+        <p style="color:#fff;font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${name.split(' ')[0]}</p>
+      </div>
+    </div>`
+  }).join('')
 }
 
 async function showProfilePreview(userId) {
@@ -1862,7 +1937,7 @@ async function loadMatches() {
       .or(`user_a.eq.${currentUser.id},user_b.eq.${currentUser.id}`)
       .order('created_at', { ascending: false }),
     sb.from('winks')
-      .select('*, sender:profiles!winks_sender_id_fkey(id, display_name, photo_urls, birthdate, hsv_type, city, bio, gender, seeking, hsv_type, lat, lng)')
+      .select('*, sender:profiles!winks_sender_id_fkey(id, display_name, photo_urls, birthdate, hsv_type, city, bio, gender, seeking, lat, lng)')
       .eq('receiver_id', currentUser.id)
       .order('created_at', { ascending: false })
   ])
@@ -1994,7 +2069,7 @@ function openChat(match) {
       chatEl.style.height = window.visualViewport.height + 'px'
       chatEl.style.top = window.visualViewport.offsetTop + 'px'
       const msgs = el('chat-messages')
-      if (msgs) setTimeout(() => { msgs.scrollTop = msgs.scrollHeight }, 50)
+      if (msgs) setTimeout(() => { msgs.scrollTop = msgs.scrollHeight }, 100)
     }
     window.visualViewport.addEventListener('resize', adjustChat)
     window.visualViewport.addEventListener('scroll', adjustChat)
@@ -2138,6 +2213,14 @@ async function sendMessage() {
   if (!(await checkMessageLimit())) return
   input.value = ''
   await sb.from('messages').insert({ match_id: activeMatch.id, sender_id: currentUser.id, content })
+  // Push from sender's device so delivery works even when recipient's app is closed
+  const recipientId = activeMatch.user_a === currentUser.id ? activeMatch.user_b : activeMatch.user_a
+  sendPush(
+    recipientId,
+    currentProfile?.display_name || 'New message',
+    content.length > 100 ? content.substring(0, 97) + '…' : content,
+    'message'
+  )
 }
 
 // ── PROFILE ───────────────────────────────────────
@@ -2209,6 +2292,26 @@ function renderProfileScreen() {
   el('profile-fields').innerHTML = fields.map(([l, v]) =>
     `<div class="profile-field"><span class="field-label">${l}</span><span class="field-value" style="max-width:60%;text-align:right">${v}</span></div>`
   ).join('')
+  const premiumCard = document.getElementById('premium-card')
+  const premiumSub = document.getElementById('premium-sub-label')
+  const premiumBadge = document.getElementById('premium-badge-label')
+  if (premiumCard && premiumSub && premiumBadge) {
+    if (p.is_premium) {
+      premiumCard.onclick = null
+      premiumCard.style.cursor = 'default'
+      premiumBadge.textContent = '✓ Active'
+      premiumBadge.style.background = '#2ecc71'
+      premiumSub.textContent = p.premium_expires_at
+        ? 'Active until ' + new Date(p.premium_expires_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+        : 'Unlimited likes · Unlimited messages'
+    } else {
+      premiumCard.onclick = () => showUpgradePrompt('Unlock unlimited likes, unlimited conversations, and more with Simple-x Plus.')
+      premiumCard.style.cursor = 'pointer'
+      premiumSub.textContent = 'Unlimited likes · Unlimited messages'
+      premiumBadge.textContent = '$10/mo'
+      premiumBadge.style.background = '#e8503a'
+    }
+  }
   renderPhotoGrid()
 }
 
@@ -2605,17 +2708,40 @@ function showToast(msg) {
 }
 
 // ── UPGRADE PROMPT ───────────────────────────────
+let selectedPlan = '1mo'
+
+function selectPlan(plan) {
+  selectedPlan = plan
+  const prices = { '1mo': '$10/mo', '6mo': '$50', '12mo': '$90' }
+  ;['1mo', '6mo', '12mo'].forEach(p => {
+    const btn = document.getElementById('plan-' + p)
+    if (!btn) return
+    const active = p === plan
+    btn.style.border = active ? '2px solid #e8503a' : '1px solid #252525'
+    btn.style.background = active ? '#3a1a14' : 'transparent'
+    btn.style.color = active ? '#e8503a' : '#9e9b97'
+  })
+  const upgradeBtn = document.getElementById('upgrade-btn')
+  if (upgradeBtn) upgradeBtn.textContent = 'Upgrade — ' + prices[plan]
+}
+
 function showUpgradePrompt(msg) {
   const existing = document.getElementById('upgrade-modal')
   if (existing) existing.remove()
+  selectedPlan = '1mo'
   const modal = document.createElement('div')
   modal.id = 'upgrade-modal'
   modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.88);display:flex;align-items:center;justify-content:center;z-index:200;padding:32px'
   modal.innerHTML = `
-    <div style="background:#1c1c1c;border-radius:24px;padding:36px 28px;text-align:center;border:1px solid #252525;width:100%">
-      <p style="font-size:36px;margin-bottom:16px">⭐</p>
-      <h2 style="color:#f0ede8;font-size:20px;font-weight:700;margin-bottom:12px">Upgrade to Plus</h2>
-      <p style="color:#6b6866;font-size:14px;margin-bottom:28px;line-height:1.6">${msg}</p>
+    <div style="background:#1c1c1c;border-radius:24px;padding:32px 24px;text-align:center;border:1px solid #252525;width:100%">
+      <p style="font-size:36px;margin-bottom:12px">⭐</p>
+      <h2 style="color:#f0ede8;font-size:20px;font-weight:700;margin-bottom:10px">Upgrade to Plus</h2>
+      <p style="color:#6b6866;font-size:14px;margin-bottom:20px;line-height:1.6">${msg}</p>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px">
+        <button id="plan-1mo" onclick="selectPlan('1mo')" style="padding:13px 16px;border-radius:12px;border:2px solid #e8503a;background:#3a1a14;color:#e8503a;font-size:14px;font-weight:600;cursor:pointer;display:flex;justify-content:space-between;align-items:center"><span>1 month</span><span>$10</span></button>
+        <button id="plan-6mo" onclick="selectPlan('6mo')" style="padding:13px 16px;border-radius:12px;border:1px solid #252525;background:transparent;color:#9e9b97;font-size:14px;cursor:pointer;display:flex;justify-content:space-between;align-items:center"><span>6 months <span style="font-size:11px;color:#2ecc71;margin-left:6px">Save 17%</span></span><span>$50</span></button>
+        <button id="plan-12mo" onclick="selectPlan('12mo')" style="padding:13px 16px;border-radius:12px;border:1px solid #252525;background:transparent;color:#9e9b97;font-size:14px;cursor:pointer;display:flex;justify-content:space-between;align-items:center"><span>12 months <span style="font-size:11px;color:#2ecc71;margin-left:6px">Save 25%</span></span><span>$90</span></button>
+      </div>
       <div style="display:flex;gap:12px">
         <button onclick="document.getElementById('upgrade-modal').remove()" style="flex:1;padding:14px;border-radius:12px;border:1px solid #252525;background:transparent;color:#9e9b97;font-size:15px;cursor:pointer">Not now</button>
         <button id="upgrade-btn" onclick="startCheckout()" style="flex:1;padding:14px;border-radius:12px;border:none;background:#e8503a;color:#fff;font-size:15px;font-weight:600;cursor:pointer">Upgrade — $10/mo</button>
@@ -2641,6 +2767,7 @@ async function startCheckout() {
       body: JSON.stringify({
         user_id: currentUser.id,
         email: currentUser.email,
+        plan: selectedPlan,
       }),
     })
 
