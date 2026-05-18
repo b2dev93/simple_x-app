@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content" />
   <meta name="theme-color" content="#0a0a0a" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -72,22 +72,8 @@
     .auth-switch a { color: #e8503a; cursor: pointer; }
 
     /* DISCOVER */
-    #discover-content { position: absolute; top: 101px; left: 0; right: 0; bottom: 64px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
-    #discover-subtabs { position: fixed; top: 56px; left: 0; right: 0; height: 45px; background: #0a0a0a; border-bottom: 1px solid #1c1c1c; z-index: 40; display: none; }
-    #discover-subtabs.visible { display: flex; }
+    #discover-content { position: absolute; top: 56px; left: 0; right: 0; bottom: 64px; }
     .card-stack { position: absolute; inset: 0; }
-    .feed-card { background:#0a0a0a; margin-bottom:0; cursor:pointer; }
-    .feed-card-photo { width:100%; height:420px; object-fit:cover; display:block; }
-    .feed-card-photo-placeholder { width:100%; height:420px; background:#1c1c1c; display:flex; align-items:center; justify-content:center; font-size:80px; color:#f0ede8; }
-    .feed-card-info { padding:16px 20px; border-bottom:1px solid #1a1a1a; }
-    .feed-card-divider { display:flex; align-items:center; justify-content:center; padding:12px 0; }
-    .feed-card-divider::before, .feed-card-divider::after { content:''; flex:1; height:1px; background:#1e1e1c; }
-    .feed-card-divider span { margin:0 12px; color:#333; font-size:18px; }
-    .feed-card-actions { display:flex; gap:0; border-bottom:2px solid #111; }
-    .feed-action-btn { flex:1; padding:14px; border:none; background:transparent; color:#6b6866; font-size:20px; cursor:pointer; border-right:1px solid #1a1a1a; }
-    .feed-action-btn:last-child { border-right:none; }
-    .feed-action-btn.like { color:#e8503a; }
-    .feed-action-btn.wink { color:#f5c518; }
     .profile-card {
       position: absolute; inset: 12px 12px 80px;
       border-radius: 20px; overflow: hidden;
@@ -245,7 +231,7 @@
       <input class="input" id="auth-pass" type="password" placeholder="Password" />
       <div class="hidden" id="hsv-picker">
         <p style="color:#6b6866;font-size:12px;margin-bottom:10px">I have</p>
-        <div class="hsv-options">
+        <div class="hsv-options" id="hsv-type-options">
           <button class="hsv-btn" onclick="selectHsv(this,'HSV-1')">HSV-1</button>
           <button class="hsv-btn" onclick="selectHsv(this,'HSV-2')">HSV-2</button>
           <button class="hsv-btn" onclick="selectHsv(this,'Both')">Both</button>
@@ -305,25 +291,24 @@
       </button>
     </div>
 
-    <!-- DISCOVER SUB-TAB BAR - fixed position -->
-    <div id="discover-subtabs">
-      <button id="sub-tab-swipe" onclick="switchDiscoverTab('swipe')" style="flex:1;padding:12px;border:none;background:transparent;color:#e8503a;font-size:14px;font-weight:600;cursor:pointer;border-bottom:2px solid #e8503a">Discover</button>
-      <button id="sub-tab-online" onclick="switchDiscoverTab('online')" style="flex:1;padding:12px;border:none;background:transparent;color:#6b6866;font-size:14px;font-weight:600;cursor:pointer;border-bottom:2px solid transparent">● Online</button>
-      <button id="sub-tab-liked" onclick="switchDiscoverTab('liked')" style="flex:1;padding:12px;border:none;background:transparent;color:#6b6866;font-size:14px;font-weight:600;cursor:pointer;border-bottom:2px solid transparent">❤️ Liked</button>
-    </div>
-
     <!-- DISCOVER TAB -->
     <div id="discover-content">
 
-
+      <!-- SUB-TAB BAR -->
+      <div style="display:flex;border-bottom:1px solid #1c1c1c;background:#0a0a0a;position:sticky;top:56px;z-index:10">
+        <button id="sub-tab-swipe" onclick="switchDiscoverTab('swipe')" style="flex:1;padding:12px;border:none;background:transparent;color:#e8503a;font-size:14px;font-weight:600;cursor:pointer;border-bottom:2px solid #e8503a">Discover</button>
+        <button id="sub-tab-online" onclick="switchDiscoverTab('online')" style="flex:1;padding:12px;border:none;background:transparent;color:#6b6866;font-size:14px;font-weight:600;cursor:pointer;border-bottom:2px solid transparent">● Online</button>
+        <button id="sub-tab-liked" onclick="switchDiscoverTab('liked')" style="flex:1;padding:12px;border:none;background:transparent;color:#6b6866;font-size:14px;font-weight:600;cursor:pointer;border-bottom:2px solid transparent">❤️ Liked</button>
+      </div>
 
       <!-- SWIPE VIEW -->
-      <div id="discover-swipe-view">
+      <div id="discover-swipe-view" style="position:absolute;top:44px;left:0;right:0;bottom:0">
         <div class="card-stack" id="card-stack"></div>
       </div>
 
       <!-- ONLINE NOW VIEW -->
-      <div id="discover-online-view" style="display:none;padding:16px">
+      <div id="discover-online-view" style="display:none;position:absolute;top:44px;left:0;right:0;bottom:0;overflow-y:auto">
+        <div style="padding:16px">
         <div style="display:flex;gap:8px;margin-bottom:16px;overflow-x:auto;scrollbar-width:none">
           <button onclick="setOnlineSort('recent')" id="sort-recent" style="flex-shrink:0;padding:6px 14px;border-radius:20px;border:1px solid #e8503a;background:#3a1a14;color:#e8503a;font-size:13px;font-weight:600;cursor:pointer">Most Recent</button>
           <button onclick="setOnlineSort('youngest')" id="sort-youngest" style="flex-shrink:0;padding:6px 14px;border-radius:20px;border:1px solid #252525;background:transparent;color:#6b6866;font-size:13px;cursor:pointer">Youngest</button>
@@ -331,16 +316,19 @@
           <button onclick="setOnlineSort('newest')" id="sort-newest" style="flex-shrink:0;padding:6px 14px;border-radius:20px;border:1px solid #252525;background:transparent;color:#6b6866;font-size:13px;cursor:pointer">Newest Profiles</button>
           <button onclick="setOnlineSort('closest')" id="sort-closest" style="flex-shrink:0;padding:6px 14px;border-radius:20px;border:1px solid #252525;background:transparent;color:#6b6866;font-size:13px;cursor:pointer">Closest</button>
         </div>
-        <div id="online-grid">
+        <div id="online-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:3px">
           <div style="grid-column:1/-1;text-align:center;padding:40px 0"><p style="color:#6b6866;font-size:14px">Loading...</p></div>
+        </div>
         </div>
       </div>
 
       <!-- LIKED RECENTLY VIEW -->
-      <div id="discover-liked-view" style="display:none;padding:16px">
+      <div id="discover-liked-view" style="display:none;position:absolute;top:44px;left:0;right:0;bottom:0;overflow-y:auto">
+        <div style="padding:16px">
         <p style="color:#6b6866;font-size:13px;margin-bottom:16px">People you've liked — tap to view their profile.</p>
         <div id="liked-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:3px">
           <div style="grid-column:1/-1;text-align:center;padding:40px 0"><p style="color:#6b6866;font-size:14px">Loading...</p></div>
+        </div>
         </div>
       </div>
 
@@ -418,7 +406,7 @@
             <button class="hsv-btn" onclick="selectEditSeeking(this,'Women')">Women</button>
             <button class="hsv-btn" onclick="selectEditSeeking(this,'Everyone')">Everyone</button>
           </div>
-          <p style="color:#6b6866;font-size:12px;margin:14px 0 10px">Looking for</p>
+          <p style="color:#6b6866;font-size:12px;margin:14px 0 10px">Relationship type</p>
           <div class="hsv-options" id="edit-rel-type-options">
             <button class="hsv-btn" onclick="selectEditRelType(this,'Serious')">Serious</button>
             <button class="hsv-btn" onclick="selectEditRelType(this,'Casual')">Casual</button>
@@ -494,7 +482,7 @@
       <button class="nav-btn" id="nav-research" onclick="switchTab2('research');clearResearchBadge()" style="position:relative">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6b6866" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
         <span class="nav-label">Research</span>
-        <span id="research-badge" style="display:none;position:absolute;top:4px;right:18px;background:#e8503a;color:#fff;font-size:10px;font-weight:700;border-radius:50%;width:16px;height:16px;display:flex;align-items:center;justify-content:center;line-height:1"></span>
+        <span id="research-badge" style="display:none;position:absolute;top:4px;right:18px;background:#e8503a;color:#fff;font-size:10px;font-weight:700;border-radius:50%;width:16px;height:16px;align-items:center;justify-content:center;line-height:1"></span>
       </button>
       <button class="nav-btn" id="nav-community" onclick="switchTab2('community')">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6b6866" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
@@ -562,66 +550,41 @@
 
   <!-- FILTER PANEL -->
   <div id="filter-panel" class="hidden" style="position:fixed;inset:0;background:rgba(0,0,0,0.88);display:flex;align-items:flex-end;z-index:150">
-    <div style="background:#141414;border-radius:24px 24px 0 0;width:100%;max-height:90vh;overflow-y:auto;padding:28px 24px 40px;border-top:1px solid #252525">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px">
-        <h2 style="font-size:18px;font-weight:700">Preferences for My Matches</h2>
-        <button onclick="hide('filter-panel')" style="border:none;background:transparent;color:#6b6866;font-size:22px;cursor:pointer;line-height:1">×</button>
+    <div style="background:#141414;border-radius:24px 24px 0 0;width:100%;padding:28px 24px 40px;border-top:1px solid #252525">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:28px">
+        <h2 style="font-size:18px;font-weight:700">Filters</h2>
+        <button onclick="hide('filter-panel')" style="border:none;background:transparent;color:#6b6866;font-size:15px;cursor:pointer">Done</button>
       </div>
 
-      <!-- Interested in -->
-      <div style="margin-bottom:24px">
-        <p style="color:#9e9b97;font-size:14px;margin:0 0 12px">I'm interested in</p>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-          <button class="filter-seeking-btn selected" onclick="toggleFilterSeeking(this,'Women')" data-val="Women" style="padding:14px;border:1px solid #333;border-radius:8px;background:#1e1e1e;color:#f0ede8;font-size:15px;cursor:pointer">Women</button>
-          <button class="filter-seeking-btn" onclick="toggleFilterSeeking(this,'Men')" data-val="Men" style="padding:14px;border:1px solid #252525;border-radius:8px;background:#141414;color:#9e9b97;font-size:15px;cursor:pointer">Men</button>
-          <button class="filter-seeking-btn" onclick="toggleFilterSeeking(this,'Everyone')" data-val="Everyone" style="padding:14px;border:1px solid #252525;border-radius:8px;background:#141414;color:#9e9b97;font-size:15px;cursor:pointer">Everyone</button>
+      <!-- Distance -->
+      <div style="margin-bottom:28px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:12px">
+          <span style="color:#9e9b97;font-size:14px">Distance</span>
+          <span style="color:#f0ede8;font-size:14px;font-weight:600" id="distance-label">Worldwide</span>
+        </div>
+        <input type="range" id="filter-distance" min="0" max="7" value="7" step="1" style="width:100%" oninput="updateDistanceLabel(this.value)" />
+        <div style="display:flex;justify-content:space-between;margin-top:6px">
+          <span style="color:#6b6866;font-size:11px">5 mi</span>
+          <span style="color:#6b6866;font-size:11px">Worldwide</span>
         </div>
       </div>
 
       <!-- Age Range -->
-      <div style="margin-bottom:24px">
+      <div style="margin-bottom:28px">
         <div style="display:flex;justify-content:space-between;margin-bottom:12px">
-          <p style="color:#9e9b97;font-size:14px;margin:0">Age range</p>
-          <span style="color:#f0ede8;font-size:14px;font-weight:600" id="age-range-label">18 — 65+</span>
+          <span style="color:#9e9b97;font-size:14px">Maximum age</span>
+          <span style="color:#f0ede8;font-size:14px;font-weight:600" id="age-range-label">65+</span>
         </div>
-        <input type="range" id="filter-age-max" min="18" max="65" value="65" step="1" style="width:100%;accent-color:#e8503a" oninput="updateAgeLabel()" />
-        <div style="display:flex;justify-content:space-between;margin-top:4px">
+        <input type="range" id="filter-age-max" min="18" max="65" value="65" step="1" style="width:100%" oninput="updateAgeLabel()" />
+        <div style="display:flex;justify-content:space-between;margin-top:6px">
           <span style="color:#6b6866;font-size:11px">18</span>
           <span style="color:#6b6866;font-size:11px">65+</span>
         </div>
       </div>
 
-      <!-- Search area -->
-      <div style="margin-bottom:24px">
-        <p style="color:#9e9b97;font-size:14px;margin:0 0 14px">Search area</p>
-        <div style="display:flex;flex-direction:column;gap:12px">
-          <label style="display:flex;align-items:center;gap:12px;cursor:pointer">
-            <input type="radio" name="dist-filter" value="null" checked onchange="setDistanceFilter(null)" style="accent-color:#e8503a;width:18px;height:18px"> <span style="color:#f0ede8;font-size:15px">Any distance</span>
-          </label>
-          <label style="display:flex;align-items:center;gap:12px;cursor:pointer">
-            <input type="radio" name="dist-filter" value="50" onchange="setDistanceFilter(50)" style="accent-color:#e8503a;width:18px;height:18px"> <span style="color:#f0ede8;font-size:15px">50 miles</span>
-          </label>
-          <label style="display:flex;align-items:center;gap:12px;cursor:pointer">
-            <input type="radio" name="dist-filter" value="100" onchange="setDistanceFilter(100)" style="accent-color:#e8503a;width:18px;height:18px"> <span style="color:#f0ede8;font-size:15px">100 miles</span>
-          </label>
-          <label style="display:flex;align-items:center;gap:12px;cursor:pointer">
-            <input type="radio" name="dist-filter" value="200" onchange="setDistanceFilter(200)" style="accent-color:#e8503a;width:18px;height:18px"> <span style="color:#f0ede8;font-size:15px">200 miles</span>
-          </label>
-          <label style="display:flex;align-items:center;gap:12px;cursor:pointer">
-            <input type="radio" name="dist-filter" value="500" onchange="setDistanceFilter(500)" style="accent-color:#e8503a;width:18px;height:18px"> <span style="color:#f0ede8;font-size:15px">500 miles</span>
-          </label>
-          <label style="display:flex;align-items:center;gap:12px;cursor:pointer">
-            <input type="radio" name="dist-filter" value="1000" onchange="setDistanceFilter(1000)" style="accent-color:#e8503a;width:18px;height:18px"> <span style="color:#f0ede8;font-size:15px">1,000 miles</span>
-          </label>
-          <label style="display:flex;align-items:center;gap:12px;cursor:pointer">
-            <input type="radio" name="dist-filter" value="10000" onchange="setDistanceFilter(10000)" style="accent-color:#e8503a;width:18px;height:18px"> <span style="color:#f0ede8;font-size:15px">10,000 miles</span>
-          </label>
-        </div>
-      </div>
-
-      <!-- Match lives with -->
-      <div style="margin-bottom:24px">
-        <p style="color:#9e9b97;font-size:14px;margin:0 0 12px">HSV type</p>
+      <!-- HSV Type -->
+      <div style="margin-bottom:28px">
+        <span style="color:#9e9b97;font-size:14px;display:block;margin-bottom:12px">HSV type</span>
         <div style="display:flex;gap:8px">
           <button class="filter-hsv-btn selected" onclick="toggleFilterHsv(this,'all')" data-val="all">All</button>
           <button class="filter-hsv-btn" onclick="toggleFilterHsv(this,'HSV-1')" data-val="HSV-1">HSV-1</button>
@@ -630,29 +593,7 @@
         </div>
       </div>
 
-      <!-- Willing to fly -->
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;padding:16px;background:#1a1a1a;border-radius:12px">
-        <div>
-          <p style="color:#f0ede8;font-size:15px;font-weight:600;margin:0 0 4px">Willing to fly to meet</p>
-          <p style="color:#6b6866;font-size:12px;margin:0">Show people open to flying</p>
-        </div>
-        <label style="position:relative;display:inline-block;width:44px;height:24px;cursor:pointer;flex-shrink:0">
-          <input type="checkbox" id="filter-fly" style="opacity:0;width:0;height:0" onchange="filterFlyToggle(this.checked)">
-          <span id="fly-slider" style="position:absolute;inset:0;background:#2a2a2a;border-radius:24px;transition:0.2s"></span>
-          <span id="fly-thumb" style="position:absolute;left:3px;top:3px;width:18px;height:18px;background:#fff;border-radius:50%;transition:0.2s"></span>
-        </label>
-      </div>
-
-      <!-- Reset passed -->
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:28px;padding-bottom:20px;border-bottom:1px solid #1e1e1c">
-        <div>
-          <p style="color:#f0ede8;font-size:15px;font-weight:600;margin:0 0 4px">Reset passed profiles</p>
-          <p style="color:#6b6866;font-size:12px;margin:0">You'll see passed profiles again</p>
-        </div>
-        <button onclick="resetPassedProfiles()" style="border:1px solid #333;background:transparent;color:#f0ede8;padding:8px 16px;border-radius:8px;font-size:14px;cursor:pointer">Reset</button>
-      </div>
-
-      <button onclick="applyFilters()" class="btn-primary">APPLY</button>
+      <button onclick="applyFilters()" class="btn-primary">Apply filters</button>
     </div>
   </div>
 
@@ -771,7 +712,7 @@ function switchTab(tab) {
 
 function selectHsv(btn, val) {
   selectedHsv = val
-  document.querySelectorAll('#hsv-picker .hsv-btn').forEach(b => b.classList.remove('selected'))
+  document.querySelectorAll('#hsv-type-options .hsv-btn').forEach(b => b.classList.remove('selected'))
   btn.classList.add('selected')
 }
 
@@ -866,8 +807,8 @@ function syncDobInput(prefix) {
 }
 ['auth','edit'].forEach(prefix => {
   ['month','day','year'].forEach(part => {
-    const el = document.getElementById(prefix + '-dob-' + part)
-    if (el) el.addEventListener('change', () => syncDobInput(prefix))
+    const input = document.getElementById(prefix + '-dob-' + part)
+    if (input) input.addEventListener('change', () => syncDobInput(prefix))
   })
 })
 
@@ -954,7 +895,6 @@ async function enterApp(user) {
   }
   hide('auth')
   show('app-shell')
-  switchTab2('discover')
   loadDiscover()
   renderProfileScreen()
   startRealtimeListeners()
@@ -1092,7 +1032,7 @@ async function loadCommunity() {
     return `
     <div style="background:#1c1c1c;border-radius:16px;border:1px solid #252525;padding:16px;margin-bottom:14px">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
-        <div class="avatar" style="width:36px;height:36px;font-size:13px;flex-shrink:0">
+        <div class="avatar" style="width:36px;height:36px;font-size:13px;flex-shrink:0;background:${avatar ? 'none' : AVATAR_COLORS[Math.abs(name.charCodeAt(0)) % AVATAR_COLORS.length]}">
           ${avatar ? `<img src="${avatar}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">` : name.charAt(0).toUpperCase()}
         </div>
         <div style="flex:1">
@@ -1212,7 +1152,6 @@ function showNewPostModal() {
   const modal = document.createElement('div')
   modal.id = 'new-post-modal'
   modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.92);display:flex;align-items:flex-end;justify-content:center;z-index:9999'
-  modal.onclick = (e) => { if (e.target === modal) modal.remove() }
   modal.innerHTML = `
     <div style="background:#141414;border-radius:20px 20px 0 0;padding:24px;width:100%;max-width:480px;border-top:1px solid #252525;max-height:90vh;overflow-y:auto">
       <h2 style="color:#f0ede8;font-size:18px;font-weight:700;margin-bottom:16px">New Post</h2>
@@ -1362,14 +1301,8 @@ function startRealtimeListeners() {
           // Refresh matches list if it's visible
           const msgsTab = el('messages-content')
           if (msgsTab && msgsTab.style.display !== 'none') loadMatches()
-          // Notify recipient
-          // Get recipient from match
-          sb.from('matches').select('user_a, user_b').eq('id', msg.match_id).single().then(({ data: match }) => {
-            if (match) {
-              const recipientId = match.user_a === currentUser.id ? match.user_b : match.user_a
-              sendPush(recipientId, 'New message 💬', `${currentProfile?.display_name || 'Someone'} sent you a message on Simple-x`, 'message')
-            }
-          })
+          // Notify current user (recipient) via push for background delivery
+          sendPush(currentUser.id, 'New message 💬', `${currentProfile?.display_name || 'Someone'} sent you a message on Simple-x`, 'message')
         }
       }
     })
@@ -1404,7 +1337,6 @@ function switchTab2(tab) {
     }
   })
   el('location-pill').style.display = tab === 'discover' ? '' : 'none'
-  const subtabs = el('discover-subtabs'); if (subtabs) { if (tab === 'discover') subtabs.classList.add('visible'); else subtabs.classList.remove('visible'); }
   if (tab === 'messages') { loadMatches(); loadWinks() }
   if (tab === 'research') loadResearch()
   if (tab === 'community') loadCommunity()
@@ -1475,7 +1407,7 @@ async function loadOnlineNow() {
   const grid = el('online-grid')
   grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:40px 0"><p style="color:#6b6866;font-size:14px">Loading...</p></div>`
 
-  let query = sb.from('profiles').select('*').neq('id', currentUser.id).limit(60)
+  let query = sb.from('profiles').select('*').neq('id', currentUser.id).or('incognito.is.null,incognito.eq.false').limit(60)
 
   // Auto-filter by seeking
   if (currentProfile?.seeking && currentProfile.seeking !== 'Everyone') {
@@ -1512,48 +1444,7 @@ async function loadOnlineNow() {
       .sort((a, b) => haversineDistance(userLat, userLng, a.lat, a.lng) - haversineDistance(userLat, userLng, b.lat, b.lng))
   }
 
-  renderOnlineFeed(filtered)
-}
-
-
-function renderOnlineFeed(profiles) {
-  const container = el('online-grid')
-  if (!profiles || !profiles.length) {
-    container.innerHTML = '<div style="text-align:center;padding:60px 20px"><p style="color:#6b6866;font-size:14px">No profiles found.</p></div>'
-    return
-  }
-
-  container.innerHTML = profiles.map(p => {
-    const photo = p.photo_urls?.[0]
-    const age = p.birthdate ? Math.floor((Date.now() - new Date(p.birthdate)) / (365.25 * 24 * 3600 * 1000)) : ''
-    const dist = (userLat && userLng && p.lat && p.lng) ? Math.round(haversineDistance(userLat, userLng, p.lat, p.lng)) + ' mi' : ''
-    const isOnline = p.last_seen && (Date.now() - new Date(p.last_seen).getTime()) < 15 * 60 * 1000
-    const photoCount = p.photo_urls?.length || 0
-
-    return `
-    <div class="feed-card" onclick="showProfilePreview('${p.id}')">
-      <div style="position:relative">
-        ${photo
-          ? `<img class="feed-card-photo" src="${photo}" alt="" style="width:100%;height:420px;object-fit:cover;display:block">`
-          : `<div style="width:100%;height:420px;background:#1c1c1c;display:flex;align-items:center;justify-content:center;font-size:80px;color:#f0ede8">${(p.display_name||'?')[0].toUpperCase()}</div>`
-        }
-        ${isOnline ? '<div style="position:absolute;top:12px;left:12px;background:#0d2e1a;color:#2ecc71;font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px">● Online</div>' : ''}
-        ${photoCount > 1 ? `<div style="position:absolute;top:12px;right:12px;background:rgba(0,0,0,0.6);border-radius:20px;padding:3px 10px;font-size:12px;color:#fff">📷 ${photoCount}</div>` : ''}
-      </div>
-      <div class="feed-card-info" style="padding:16px 20px;border-bottom:1px solid #1a1a1a">
-        <h3 style="color:#f0ede8;font-size:20px;font-weight:700;margin:0 0 4px;text-transform:uppercase">${p.display_name || 'Member'}${age ? ', ' + age : ''}${p.verified ? ' <span style="color:#3b9eff">✓</span>' : ''}</h3>
-        ${p.city ? `<p style="color:#9e9b97;font-size:14px;margin:0 0 2px">${p.city}${dist ? ' · ' + dist : ''}</p>` : ''}
-        ${p.hsv_type ? `<p style="color:#9e9b97;font-size:14px;margin:0 0 2px">${p.hsv_type}</p>` : ''}
-        ${p.bio ? `<p style="color:#9e9b97;font-size:14px;margin:8px 0 0;line-height:1.5;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden">${p.bio}</p>` : ''}
-      </div>
-      <div class="feed-card-actions" style="display:flex;border-bottom:2px solid #111" onclick="event.stopPropagation()">
-        <button style="flex:1;padding:14px;border:none;background:transparent;color:#f5c518;font-size:15px;cursor:pointer;border-right:1px solid #1a1a1a" onclick="sendWink('${p.id}','${(p.display_name||'').split(' ')[0]}')">😉 Wink</button>
-        <button style="flex:1;padding:14px;border:none;background:transparent;color:#e8503a;font-size:15px;cursor:pointer;border-right:1px solid #1a1a1a" onclick="feedLike('${p.id}', this)">❤️ Like</button>
-        <button style="flex:1;padding:14px;border:none;background:transparent;color:#9e9b97;font-size:15px;cursor:pointer" onclick="showProfilePreview('${p.id}')">👤 View</button>
-      </div>
-    </div>
-    <div style="display:flex;align-items:center;justify-content:center;padding:12px 0"><div style="flex:1;height:1px;background:#1e1e1c"></div><span style="margin:0 12px;color:#333;font-size:18px">✦</span><div style="flex:1;height:1px;background:#1e1e1c"></div></div>`
-  }).join('')
+  renderProfileGrid(filtered, 'online-grid', 'No profiles found. Try a different filter.')
 }
 
 async function loadLikedRecently() {
@@ -1588,125 +1479,87 @@ async function showProfilePreview(userId) {
   const { data: p } = await sb.from('profiles').select('*').eq('id', userId).single()
   if (!p) return
 
-  document.getElementById('profile-full-page')?.remove()
+  const existing = document.getElementById('profile-preview-modal')
+  if (existing) existing.remove()
 
-  const photos = p.photo_urls || []
-  const photo = photos[0]
+  const photo = p.photo_urls?.[0]
   const name = p.display_name || 'Member'
   const age = p.birthdate ? Math.floor((Date.now() - new Date(p.birthdate)) / (365.25 * 24 * 3600 * 1000)) : ''
   const isOnline = p.last_seen && (Date.now() - new Date(p.last_seen).getTime()) < 15 * 60 * 1000
 
+  // Check if matched
   const { data: match } = await sb.from('matches')
     .select('id')
     .or(`and(user_a.eq.${currentUser.id},user_b.eq.${p.id}),and(user_a.eq.${p.id},user_b.eq.${currentUser.id})`)
     .single()
 
+  // Check if already liked
   const { data: existingSwipe } = await sb.from('swipes')
-    .select('id').eq('swiper_id', currentUser.id).eq('swiped_id', p.id)
-    .in('direction', ['like', 'super']).single()
+    .select('id')
+    .eq('swiper_id', currentUser.id)
+    .eq('swiped_id', p.id)
+    .in('direction', ['like', 'super'])
+    .single()
 
   const isMatched = !!match
   const alreadyLiked = !!existingSwipe
-  const canMessage = isMatched || currentProfile?.is_premium || currentProfile?.is_admin
 
-  // Build full-page profile
-  const page = document.createElement('div')
-  page.id = 'profile-full-page'
-  page.style.cssText = 'position:fixed;inset:0;background:#0a0a0a;z-index:9999;overflow-y:auto;-webkit-overflow-scrolling:touch'
-
-  // Photo gallery (show all photos, scrollable horizontally)
-  const photoHtml = photos.length > 0
-    ? `<div style="position:relative;width:100%;height:360px;overflow:hidden">
-        <img src="${photos[0]}" id="pfp-main-img" style="width:100%;height:360px;object-fit:cover;display:block">
-        ${photos.length > 1 ? `<div style="position:absolute;bottom:12px;left:50%;transform:translateX(-50%);display:flex;gap:6px">
-          ${photos.map((_,i) => `<div class="pfp-dot" data-idx="${i}" onclick="pfpShowPhoto(${i})" style="width:${i===0?'20':'8'}px;height:8px;border-radius:20px;background:${i===0?'#e8503a':'rgba(255,255,255,0.5)'}"></div>`).join('')}
+  const modal = document.createElement('div')
+  modal.id = 'profile-preview-modal'
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.92);display:flex;align-items:flex-end;justify-content:center;z-index:9999'
+  modal.onclick = (e) => { if (e.target === modal) modal.remove() }
+  modal.innerHTML = `
+    <div style="background:#141414;border-radius:20px 20px 0 0;width:100%;max-width:480px;border-top:1px solid #252525;overflow:hidden">
+      ${photo ? `<img src="${photo}" style="width:100%;height:280px;object-fit:cover">` : `<div style="width:100%;height:280px;background:#252525;display:flex;align-items:center;justify-content:center;font-size:64px;color:#f0ede8">${name.charAt(0).toUpperCase()}</div>`}
+      <div style="padding:20px 24px 32px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <h2 style="color:#f0ede8;font-size:22px;font-weight:700">${name}${age ? `, ${age}` : ''}</h2>
+          ${isOnline ? `<span style="background:#0d2e1a;color:#2ecc71;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">● Online</span>` : ''}
+          ${isMatched ? `<span style="background:#3a1a14;color:#e8503a;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">✓ Matched</span>` : ''}
         </div>
-        <div style="position:absolute;bottom:12px;right:16px;background:rgba(0,0,0,0.5);border-radius:20px;padding:3px 10px;font-size:12px;color:#fff">
-          📷 ${photos.length}
+        ${p.city ? `<p style="color:#6b6866;font-size:14px;margin-bottom:8px">📍 ${p.city}</p>` : ''}
+        ${p.hsv_type ? `<p style="color:#6b6866;font-size:14px;margin-bottom:8px">${p.hsv_type}</p>` : ''}
+        ${p.bio ? `<p style="color:#9e9b97;font-size:14px;line-height:1.6;margin-bottom:20px">${p.bio}</p>` : '<p style="color:#6b6866;font-size:14px;margin-bottom:20px;font-style:italic">No bio yet.</p>'}
+        ${!isMatched && alreadyLiked && !currentProfile?.is_premium ? `
+        <div style="background:#1c1c1c;border:1px solid #3a1a14;border-radius:12px;padding:12px 14px;margin-bottom:16px">
+          <p style="color:#e8503a;font-size:13px;font-weight:600;margin-bottom:4px">⭐ You already liked ${name.split(' ')[0]}</p>
+          <p style="color:#6b6866;font-size:12px;line-height:1.5">Upgrade to Plus to send a message directly — don't wait for a match.</p>
         </div>` : ''}
-      </div>`
-    : `<div style="width:100%;height:360px;background:#1c1c1c;display:flex;align-items:center;justify-content:center;font-size:80px;color:#f0ede8">${name.charAt(0)}</div>`
-
-  page.innerHTML = `
-    <!-- Header -->
-    <div style="position:sticky;top:0;z-index:10;background:#0a0a0a;display:flex;align-items:center;padding:14px 16px;border-bottom:1px solid #1a1a1a">
-      <button onclick="document.getElementById('profile-full-page').remove()" style="background:none;border:none;color:#f0ede8;font-size:22px;cursor:pointer;padding:4px 8px 4px 0;line-height:1">←</button>
-      <h2 style="color:#f0ede8;font-size:17px;font-weight:700;flex:1;text-align:center;margin-right:32px">${name.toUpperCase()}</h2>
-    </div>
-
-    ${photoHtml}
-
-    <!-- Info section -->
-    <div style="padding:20px 20px 120px">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:wrap">
-        <h2 style="color:#f0ede8;font-size:24px;font-weight:700;margin:0">${name}</h2>
-        ${p.verified ? '<span style="color:#3b9eff;font-size:18px">✓</span>' : ''}
-        ${currentProfile?.is_premium ? '<span style="border:1px solid #e8503a;color:#e8503a;font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px">PLUS</span>' : ''}
-        ${isOnline ? '<span style="width:10px;height:10px;border-radius:50%;background:#2ecc71;display:inline-block"></span>' : ''}
+        <div id="preview-action-btns" style="display:flex;gap:10px"></div>
       </div>
-      <p style="color:#6b6866;font-size:15px;margin:0 0 4px">${age ? age + (p.gender ? ', ' + p.gender.charAt(0) : '') + (p.city ? ', ' + p.city : '') : (p.city || '')}</p>
-      ${p.hsv_type ? `<p style="color:#6b6866;font-size:15px;margin:0 0 16px">${p.hsv_type}</p>` : '<div style="height:16px"></div>'}
-      ${p.relationship_type ? `<p style="color:#6b6866;font-size:14px;margin:0 0 16px">Looking for: ${p.relationship_type}</p>` : ''}
-
-      ${p.bio ? `
-      <div style="text-align:center;margin:8px 0 20px">
-        <p style="color:#f0ede8;font-size:16px;font-weight:600;font-style:italic;line-height:1.5">"${p.bio}"</p>
-      </div>` : ''}
-
-      <div style="height:1px;background:#1e1e1c;margin:16px 0"></div>
-
-      <!-- About Me card -->
-      <div style="background:#141414;border:1px solid #1e1e1c;border-radius:16px;padding:18px;margin-bottom:14px">
-        <h3 style="color:#f0ede8;font-size:16px;font-weight:700;margin:0 0 12px">About Me</h3>
-        <p style="color:#9e9b97;font-size:14px;line-height:1.7;margin:0">${p.bio || 'No bio yet.'}</p>
-      </div>
-
-      <!-- My Basics card -->
-      <div style="background:#141414;border:1px solid #1e1e1c;border-radius:16px;padding:18px;margin-bottom:14px">
-        <h3 style="color:#f0ede8;font-size:16px;font-weight:700;margin:0 0 12px">My Basics</h3>
-        <ul style="color:#9e9b97;font-size:14px;line-height:1.8;margin:0;padding-left:20px">
-          ${p.hsv_type ? `<li>Living with ${p.hsv_type}</li>` : ''}
-          ${p.city ? `<li>${p.city}</li>` : ''}
-          ${p.gender ? `<li>${p.gender}</li>` : ''}
-          ${p.seeking ? `<li>Seeking: ${p.seeking}</li>` : ''}
-          ${p.relationship_type ? `<li>Looking for: ${p.relationship_type}</li>` : ''}
-        </ul>
-      </div>
-
-      ${isMatched ? `<div style="background:#0d2e1a;border:1px solid #1a4a2a;border-radius:16px;padding:14px;margin-bottom:14px;text-align:center">
-        <p style="color:#2ecc71;font-size:14px;font-weight:600;margin:0">✓ You're matched with ${name.split(' ')[0]}!</p>
-      </div>` : ''}
-    </div>
-
-    <!-- Fixed action bar -->
-    <div style="position:fixed;bottom:0;left:0;right:0;padding:16px 20px calc(16px + env(safe-area-inset-bottom));background:#0a0a0a;border-top:1px solid #1e1e1c;display:flex;gap:10px;z-index:10">
-      <button id="pfp-wink-btn" style="flex:1;padding:14px;border-radius:12px;border:1px solid #333;background:transparent;color:#f5c518;font-size:20px;cursor:pointer">😉</button>
-      ${!alreadyLiked && !isMatched ? `<button id="pfp-like-btn" style="flex:2;padding:14px;border-radius:12px;border:none;background:#252525;color:#f0ede8;font-size:15px;font-weight:600;cursor:pointer">❤️ Like</button>` : ''}
-      <button id="pfp-msg-btn" style="flex:2;padding:14px;border-radius:12px;border:none;background:#e8503a;color:#fff;font-size:15px;font-weight:600;cursor:pointer">💬 Message</button>
     </div>
   `
+  document.body.appendChild(modal)
 
-  document.body.appendChild(page)
+  // Set buttons after modal is in DOM
+  const btnsContainer = document.getElementById('preview-action-btns')
+  if (btnsContainer) {
+    const winkB = document.createElement('button')
+    winkB.style.cssText = 'flex:1;padding:14px;border-radius:12px;border:1px solid #252525;background:transparent;color:#f5c518;font-size:20px;cursor:pointer'
+    winkB.textContent = '😉'
+    winkB.onclick = () => sendWink(p.id, name.split(' ')[0])
 
-  // Wire up photo dots
-  window.pfpPhotos = photos
-  window.pfpShowPhoto = function(idx) {
-    const img = document.getElementById('pfp-main-img')
-    if (img && window.pfpPhotos[idx]) img.src = window.pfpPhotos[idx]
-    document.querySelectorAll('.pfp-dot').forEach((d, i) => {
-      d.style.width = i === idx ? '20px' : '8px'
-      d.style.background = i === idx ? '#e8503a' : 'rgba(255,255,255,0.5)'
-    })
-  }
+    const msgB = document.createElement('button')
+    msgB.style.cssText = 'flex:2;padding:14px;border-radius:12px;border:none;background:#e8503a;color:#fff;font-size:15px;font-weight:600;cursor:pointer'
+    msgB.textContent = '💬 Message'
+    if (isMatched || currentProfile?.is_premium || currentProfile?.is_admin) {
+      msgB.onclick = () => { document.getElementById('profile-preview-modal')?.remove(); openDirectMessage(p.id) }
+    } else {
+      msgB.onclick = () => { document.getElementById('profile-preview-modal')?.remove(); showUpgradePrompt('Upgrade to Plus to message anyone directly — no match required.') }
+    }
 
-  // Wire up action buttons
-  document.getElementById('pfp-wink-btn').onclick = () => sendWink(p.id, name.split(' ')[0])
-  const likeBtn = document.getElementById('pfp-like-btn')
-  if (likeBtn) likeBtn.onclick = () => { page.remove(); likeFromPreview(p.id) }
-  document.getElementById('pfp-msg-btn').onclick = () => {
-    page.remove()
-    if (canMessage) openDirectMessage(p.id)
-    else showUpgradePrompt('Upgrade to Plus to message anyone directly — no match required.')
+    if (!alreadyLiked && !isMatched) {
+      const likeB = document.createElement('button')
+      likeB.style.cssText = 'flex:2;padding:14px;border-radius:12px;border:none;background:#252525;color:#f0ede8;font-size:15px;font-weight:600;cursor:pointer'
+      likeB.textContent = '❤️ Like'
+      likeB.onclick = () => { document.getElementById('profile-preview-modal')?.remove(); likeFromPreview(p.id) }
+      btnsContainer.appendChild(winkB)
+      btnsContainer.appendChild(likeB)
+      btnsContainer.appendChild(msgB)
+    } else {
+      btnsContainer.appendChild(winkB)
+      btnsContainer.appendChild(msgB)
+    }
   }
 }
 
@@ -1730,7 +1583,7 @@ async function openDirectMessage(userId) {
     match = newMatch
   }
 
-  if (!match) { showToast('Could not open conversation. Make sure you are matched or have Plus.'); return }
+  if (!match) { showToast('Could not open conversation. Please try again.'); return }
 
   switchTab2('messages')
   setTimeout(() => openChat(match), 150)
@@ -1777,7 +1630,7 @@ async function loadDiscover() {
   const swipedIds = (swipes || []).map(s => s.swiped_id)
   swipedIds.push(currentUser.id)
 
-  let query = sb.from('profiles').select('*').limit(20)
+  let query = sb.from('profiles').select('*').or('incognito.is.null,incognito.eq.false').limit(20)
   if (swipedIds.length > 0) query = query.not('id', 'in', `(${swipedIds.join(',')})`)
   // Filter by gender/seeking
   if (currentProfile?.seeking && currentProfile.seeking !== 'Everyone') {
@@ -1809,73 +1662,6 @@ async function loadDiscover() {
   discoverProfiles = data || []
   discoverIdx = 0
   renderCard()
-}
-
-function renderDiscoverFeed() {
-  const feed = el('discover-feed')
-  if (!feed) { renderCard(); return }
-
-  if (!discoverProfiles.length) {
-    feed.innerHTML = `<div class="empty-state" style="margin-top:60px">
-      <p class="empty-icon">🌿</p>
-      <p class="empty-title">All caught up</p>
-      <p class="empty-sub">Check back soon — new people join every day</p>
-      <button class="btn-ghost" style="margin-top:16px;width:auto;padding:12px 28px" onclick="loadDiscover()">Refresh</button>
-    </div>`
-    return
-  }
-
-  feed.innerHTML = discoverProfiles.map((p, idx) => {
-    const photo = p.photo_urls?.[0]
-    const age = p.birthdate ? Math.floor((Date.now() - new Date(p.birthdate)) / (365.25 * 24 * 3600 * 1000)) : ''
-    const dist = (userLat && userLng && p.lat && p.lng) ? Math.round(haversineDistance(userLat, userLng, p.lat, p.lng)) + ' mi' : ''
-    const photoCount = p.photo_urls?.length || 0
-
-    return `
-    <div class="feed-card" onclick="showProfilePreview('${p.id}')">
-      <div style="position:relative">
-        ${photo
-          ? `<img class="feed-card-photo" src="${photo}" alt="" onclick="event.stopPropagation();showProfilePreview('${p.id}')">`
-          : `<div class="feed-card-photo-placeholder">${(p.display_name||'?')[0].toUpperCase()}</div>`
-        }
-        ${photoCount > 1 ? `<div style="position:absolute;top:12px;right:12px;background:rgba(0,0,0,0.6);border-radius:20px;padding:3px 10px;font-size:12px;color:#fff">📷 ${photoCount}</div>` : ''}
-      </div>
-      <div class="feed-card-info" onclick="event.stopPropagation();showProfilePreview('${p.id}')">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start">
-          <div>
-            <h3 style="color:#f0ede8;font-size:20px;font-weight:700;margin:0 0 4px;text-transform:uppercase">${p.display_name || 'Member'}${age ? ', ' + age : ''}${p.verified ? ' <span style="color:#3b9eff">✓</span>' : ''}</h3>
-            ${p.city ? `<p style="color:#9e9b97;font-size:14px;margin:0 0 2px">${p.city}${dist ? ' · ' + dist : ''}</p>` : ''}
-            ${p.hsv_type ? `<p style="color:#9e9b97;font-size:14px;margin:0 0 2px">${p.hsv_type}</p>` : ''}
-            ${p.relationship_type ? `<p style="color:#9e9b97;font-size:14px;margin:0">${p.relationship_type}</p>` : ''}
-          </div>
-        </div>
-        ${p.bio ? `<p style="color:#9e9b97;font-size:14px;margin:10px 0 0;line-height:1.5;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden">${p.bio}</p>` : ''}
-      </div>
-      <div class="feed-card-actions" onclick="event.stopPropagation()">
-        <button class="feed-action-btn wink" onclick="sendWink('${p.id}','${(p.display_name||'').split(' ')[0]}')">😉 Wink</button>
-        <button class="feed-action-btn like" onclick="feedLike('${p.id}', this)">❤️ Like</button>
-        <button class="feed-action-btn" onclick="showProfilePreview('${p.id}')">👤 View</button>
-      </div>
-    </div>
-    <div class="feed-card-divider"><span>✦</span></div>`
-  }).join('')
-}
-
-async function feedLike(userId, btn) {
-  if (!(await checkLikeLimit())) return
-  btn.textContent = '✓ Liked'
-  btn.disabled = true
-  btn.style.color = '#2ecc71'
-  await sb.from('swipes').upsert({ swiper_id: currentUser.id, swiped_id: userId, direction: 'like' }, { onConflict: 'swiper_id,swiped_id' })
-  // Check for match
-  const { data: theirSwipe } = await sb.from('swipes').select('id').eq('swiper_id', userId).eq('swiped_id', currentUser.id).in('direction', ['like','super']).single()
-  if (theirSwipe) {
-    const { data: existingMatch } = await sb.from('matches').select('id').or(`and(user_a.eq.${currentUser.id},user_b.eq.${userId}),and(user_a.eq.${userId},user_b.eq.${currentUser.id})`).single()
-    if (!existingMatch) {
-      const { data: newMatch } = await sb.from('matches').insert({ user_a: currentUser.id, user_b: userId }).select('*, profiles_a:profiles!matches_user_a_fkey(*), profiles_b:profiles!matches_user_b_fkey(*)').single()
-      if (newMatch) showMatchModal(newMatch)
-    }
-  }
 }
 
 function renderCard() {
@@ -2092,7 +1878,7 @@ async function loadMatches() {
   }
 
   // Fetch last message for each match
-  const matchIds = data.map(m => m.id)
+  const matchIds = (data || []).map(m => m.id)
   const { data: lastMsgs } = await sb.from('messages')
     .select('match_id, content, sender_id, created_at')
     .in('match_id', matchIds)
@@ -2106,7 +1892,7 @@ async function loadMatches() {
     })
   }
 
-  list.innerHTML = data.map((m, i) => {
+  list.innerHTML = (data || []).map((m, i) => {
     const other = m.user_a === currentUser.id ? m.profiles_b : m.profiles_a
     const color = AVATAR_COLORS[i % AVATAR_COLORS.length]
     const initial = (other?.display_name || '?')[0].toUpperCase()
@@ -2177,15 +1963,6 @@ function timeAgo(ts) {
 // ── CHAT ──────────────────────────────────────────
 let activeMatch = null
 
-async function markMessagesRead(matchId) {
-  if (!currentUser) return
-  await sb.from('messages')
-    .update({ read_at: new Date().toISOString() })
-    .eq('match_id', matchId)
-    .neq('sender_id', currentUser.id)
-    .is('read_at', null)
-}
-
 async function openChatById(matchId) {
   const { data: match } = await sb.from('matches')
     .select('*, profiles_a:profiles!matches_user_a_fkey(*), profiles_b:profiles!matches_user_b_fkey(*)')
@@ -2200,11 +1977,34 @@ function openChat(match) {
   setUnreadDot(false)
   markMessagesRead(match.id)
   const other = match.user_a === currentUser.id ? match.profiles_b : match.profiles_a
-  const color = AVATAR_COLORS[1]
-  avatarEl(other?.display_name || '?', 38, 1, el('chat-avatar'))
+  avatarEl(other?.display_name || '?', 38, 1, el('chat-avatar'), other?.photo_urls?.[0])
   el('chat-name').textContent = other?.display_name || 'User'
   el('chat-city').textContent = other?.city || ''
-  el('chat').style.display = 'flex'
+
+  const chatEl = el('chat')
+  chatEl.style.display = 'flex'
+  chatEl.style.height = ''
+  chatEl.style.top = ''
+
+  if (chatEl._vpCleanup) { chatEl._vpCleanup(); delete chatEl._vpCleanup }
+
+  if (window.visualViewport) {
+    const adjustChat = () => {
+      if (chatEl.style.display === 'none') return
+      chatEl.style.height = window.visualViewport.height + 'px'
+      chatEl.style.top = window.visualViewport.offsetTop + 'px'
+      const msgs = el('chat-messages')
+      if (msgs) setTimeout(() => { msgs.scrollTop = msgs.scrollHeight }, 50)
+    }
+    window.visualViewport.addEventListener('resize', adjustChat)
+    window.visualViewport.addEventListener('scroll', adjustChat)
+    chatEl._vpCleanup = () => {
+      window.visualViewport.removeEventListener('resize', adjustChat)
+      window.visualViewport.removeEventListener('scroll', adjustChat)
+    }
+    adjustChat()
+  }
+
   loadChatMessages()
 
   if (chatSubscription) sb.removeChannel(chatSubscription)
@@ -2213,18 +2013,26 @@ function openChat(match) {
       payload => appendMessage(payload.new))
     .subscribe()
 
-  el('chat-input').onkeydown = e => { if (e.key === 'Enter') sendMessage() }
-  el('chat-input').addEventListener('focus', () => {
-    setTimeout(() => {
-      const msgs = el('chat-messages')
-      if (msgs) msgs.scrollTop = msgs.scrollHeight
-    }, 300)
-  })
+  el('chat-input').onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); sendMessage() } }
 }
 
 function closeChat() {
-  el('chat').style.display = 'none'
+  const chatEl = el('chat')
+  chatEl.style.display = 'none'
+  chatEl.style.height = ''
+  chatEl.style.top = ''
+  if (chatEl._vpCleanup) { chatEl._vpCleanup(); delete chatEl._vpCleanup }
   if (chatSubscription) { sb.removeChannel(chatSubscription); chatSubscription = null }
+  activeMatch = null
+  setTimeout(() => checkUnreadOnLoad(), 300)
+}
+
+async function markMessagesRead(matchId) {
+  await sb.from('messages')
+    .update({ read_at: new Date().toISOString() })
+    .eq('match_id', matchId)
+    .neq('sender_id', currentUser.id)
+    .is('read_at', null)
 }
 
 async function loadChatMessages() {
@@ -2486,6 +2294,7 @@ async function saveProfile() {
     hsv_type: editHsv || currentProfile?.hsv_type,
     gender: editGender || currentProfile?.gender,
     seeking: editSeeking || currentProfile?.seeking,
+    relationship_type: editRelType || currentProfile?.relationship_type || null,
     birthdate: el('edit-birthdate').value || currentProfile?.birthdate || null,
   }
   await sb.from('profiles').upsert(updates)
@@ -2684,49 +2493,16 @@ let filterAgeMin = 18
 let filterAgeMax = 65
 let filterHsv = 'all'
 
-function setDistanceFilter(val) {
-  filterDistance = val === null ? null : parseInt(val)
-  const label = val === null ? 'Worldwide' : val + ' mi'
-  el('location-pill-label').textContent = label
-}
-
-function filterFlyToggle(val) {
-  const slider = document.getElementById('fly-slider')
-  const thumb = document.getElementById('fly-thumb')
-  if (slider) slider.style.background = val ? '#e8503a' : '#2a2a2a'
-  if (thumb) thumb.style.transform = val ? 'translateX(20px)' : 'translateX(0)'
-}
-
-function toggleFilterSeeking(btn, val) {
-  document.querySelectorAll('.filter-seeking-btn').forEach(b => {
-    b.style.border = '1px solid #252525'
-    b.style.background = '#141414'
-    b.style.color = '#9e9b97'
-  })
-  btn.style.border = '1px solid #e8503a'
-  btn.style.background = '#3a1a14'
-  btn.style.color = '#e8503a'
-}
-
-async function resetPassedProfiles() {
-  if (!confirm('Reset all passed profiles? You will see them again in Discover.')) return
-  await sb.from('swipes').delete().eq('swiper_id', currentUser.id).eq('direction', 'pass')
-  showToast('Passed profiles reset!')
-  loadDiscover()
-}
-
 function updateDistanceLabel(val) {
   const step = DISTANCE_STEPS[parseInt(val)]
   const label = step === null ? 'Worldwide' : step + ' mi'
-  const distLabel = document.getElementById('distance-label')
-  if (distLabel) distLabel.textContent = label
+  el('distance-label').textContent = label
   el('location-pill-label').textContent = label
 }
 
 function updateAgeLabel() {
   const max = parseInt(el('filter-age-max').value)
-  const label = document.getElementById('age-range-label')
-  if (label) label.textContent = '18 — ' + (max >= 65 ? '65+' : max)
+  el('age-range-label').textContent = max >= 65 ? '65+' : max
 }
 
 function toggleFilterHsv(btn, val) {
@@ -2897,24 +2673,19 @@ async function checkUpgradeReturn() {
   }
 }
 
-
-// Auto-reload when service worker updates
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.addEventListener('message', event => {
-    if (event.data?.type === 'RELOAD') {
-      window.location.reload()
-    }
-  })
-}
-
 // ── INIT ──────────────────────────────────────────
 async function init() {
   setTimeout(async () => {
-    const { data: { session } } = await sb.auth.getSession()
-    hide('splash')
-    if (session) {
-      await enterApp(session.user)
-    } else {
+    try {
+      const { data: { session } } = await sb.auth.getSession()
+      hide('splash')
+      if (session) {
+        await enterApp(session.user)
+      } else {
+        show('auth')
+      }
+    } catch (e) {
+      hide('splash')
       show('auth')
     }
   }, 1800)
