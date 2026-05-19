@@ -289,6 +289,9 @@
         <span id="location-pill-label">Worldwide</span>
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#6b6866" stroke-width="2" stroke-linecap="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>
       </button>
+      <button id="settings-gear-btn" onclick="openSettings()" style="display:none;background:transparent;border:none;cursor:pointer;padding:8px;line-height:0">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#9e9b97" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </button>
     </div>
 
     <!-- DISCOVER TAB -->
@@ -611,6 +614,92 @@
         <button class="btn-ghost" onclick="closeMatchModal()">Keep swiping</button>
         <button class="btn-primary" onclick="goToMessages()" style="border-radius:12px">Say hey</button>
       </div>
+    </div>
+  </div>
+
+  <!-- SETTINGS PAGE -->
+  <div id="settings-page" style="display:none;position:fixed;inset:0;background:#0a0a0a;flex-direction:column;z-index:200">
+    <div style="display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid #252525;flex-shrink:0">
+      <button class="back-btn" onclick="closeSettings()">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#9e9b97" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <h1 style="color:#f0ede8;font-size:18px;font-weight:700">Settings</h1>
+    </div>
+    <div style="flex:1;overflow-y:auto;padding-bottom:40px">
+
+      <!-- Notifications -->
+      <div style="padding:20px 24px;border-bottom:1px solid #1e1e1c">
+        <h2 style="color:#9e9b97;font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:16px">Notifications</h2>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #252525">
+          <div>
+            <p style="color:#f0ede8;font-size:15px">Push notifications</p>
+            <p style="color:#6b6866;font-size:12px;margin-top:2px">Matches, messages, and winks</p>
+          </div>
+          <label style="position:relative;display:inline-block;width:44px;height:24px;cursor:pointer;flex-shrink:0">
+            <input type="checkbox" id="notif-toggle" onchange="toggleNotifications(this.checked)" style="opacity:0;width:0;height:0">
+            <span id="notif-slider" style="position:absolute;inset:0;background:#2a2a2a;border-radius:24px;transition:0.2s"></span>
+            <span id="notif-thumb" style="position:absolute;left:3px;top:3px;width:18px;height:18px;background:#fff;border-radius:50%;transition:0.2s"></span>
+          </label>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0">
+          <div>
+            <p style="color:#f0ede8;font-size:15px">In-app sounds</p>
+            <p style="color:#6b6866;font-size:12px;margin-top:2px">Sound effects within the app</p>
+          </div>
+          <label style="position:relative;display:inline-block;width:44px;height:24px;cursor:pointer;flex-shrink:0">
+            <input type="checkbox" id="sounds-toggle" onchange="toggleSounds(this.checked)" style="opacity:0;width:0;height:0">
+            <span id="sounds-slider" style="position:absolute;inset:0;background:#2a2a2a;border-radius:24px;transition:0.2s"></span>
+            <span id="sounds-thumb" style="position:absolute;left:3px;top:3px;width:18px;height:18px;background:#fff;border-radius:50%;transition:0.2s"></span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Blocked Members -->
+      <div style="padding:20px 24px;border-bottom:1px solid #1e1e1c">
+        <h2 style="color:#9e9b97;font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:16px">Blocked Members</h2>
+        <div id="blocked-list"><p style="color:#6b6866;font-size:14px">Loading...</p></div>
+      </div>
+
+      <!-- Legal -->
+      <div style="padding:20px 24px;border-bottom:1px solid #1e1e1c">
+        <h2 style="color:#9e9b97;font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:4px">Legal</h2>
+        <a href="https://b2dev93.github.io/simple_x-app/privacy.html" target="_blank" rel="noopener" style="display:flex;justify-content:space-between;align-items:center;padding:14px 0;border-bottom:1px solid #252525;text-decoration:none">
+          <span style="color:#f0ede8;font-size:15px">Privacy Policy</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b6866" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+        </a>
+        <a href="https://b2dev93.github.io/simple_x-app/privacy.html" target="_blank" rel="noopener" style="display:flex;justify-content:space-between;align-items:center;padding:14px 0;border-bottom:1px solid #252525;text-decoration:none">
+          <span style="color:#f0ede8;font-size:15px">Terms of Service</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b6866" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+        </a>
+        <a href="https://b2dev93.github.io/simple_x-app/child-safety.html" target="_blank" rel="noopener" style="display:flex;justify-content:space-between;align-items:center;padding:14px 0;text-decoration:none">
+          <span style="color:#f0ede8;font-size:15px">Child Safety Standards</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b6866" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+        </a>
+      </div>
+
+      <!-- Feedback & Support -->
+      <div style="padding:20px 24px;border-bottom:1px solid #1e1e1c">
+        <h2 style="color:#9e9b97;font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:16px">Feedback & Support</h2>
+        <textarea id="feedback-textarea" class="input" placeholder="Share your feedback or describe an issue..." rows="4" style="resize:none;margin-bottom:12px"></textarea>
+        <button id="feedback-send-btn" onclick="sendFeedback()" class="btn-primary" style="margin-bottom:16px">Send</button>
+        <p style="color:#6b6866;font-size:13px">Or email us: <a href="mailto:mostvaluedplanter@gmail.com" style="color:#e8503a;text-decoration:none">mostvaluedplanter@gmail.com</a></p>
+      </div>
+
+      <!-- App Updates -->
+      <div style="padding:20px 24px;border-bottom:1px solid #1e1e1c">
+        <h2 style="color:#9e9b97;font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:8px">App Updates</h2>
+        <p style="color:#6b6866;font-size:13px;margin-bottom:14px">Get the latest version of Simple-x.</p>
+        <a href="https://play.google.com/apps/testing/com.simplexlabs.simplex" target="_blank" rel="noopener" style="text-decoration:none;display:block">
+          <button class="btn-primary">Get Latest Version on Google Play</button>
+        </a>
+      </div>
+
+      <!-- Account -->
+      <div style="padding:20px 24px">
+        <h2 style="color:#9e9b97;font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:16px">Account</h2>
+        <button class="btn-ghost" onclick="closeSettings();showDeleteAccountModal()" style="color:#e8503a;border-color:#3a1a14">Delete account</button>
+      </div>
+
     </div>
   </div>
 
@@ -1354,6 +1443,7 @@ function switchTab2(tab) {
     }
   })
   el('location-pill').style.display = tab === 'discover' ? '' : 'none'
+  el('settings-gear-btn').style.display = tab === 'profile' ? '' : 'none'
   if (tab === 'messages') { loadMatches(); loadWinks() }
   if (tab === 'research') loadResearch()
   if (tab === 'community') loadCommunity()
@@ -2798,6 +2888,108 @@ async function checkUpgradeReturn() {
     }
     showToast('🎉 Welcome to Simple-x Plus! Enjoy unlimited likes and messages.')
   }
+}
+
+// ── SETTINGS ─────────────────────────────────────
+function openSettings() {
+  const page = el('settings-page')
+  page.style.display = 'flex'
+
+  const notifEnabled = currentProfile?.notifications_enabled !== false
+  const sl = el('notif-slider'), th = el('notif-thumb'), tog = el('notif-toggle')
+  if (tog) tog.checked = notifEnabled
+  if (sl) sl.style.background = notifEnabled ? '#e8503a' : '#2a2a2a'
+  if (th) th.style.transform = notifEnabled ? 'translateX(20px)' : 'translateX(0)'
+
+  const soundsEnabled = localStorage.getItem('sx_sounds') !== 'false'
+  const ssl = el('sounds-slider'), sth = el('sounds-thumb'), stog = el('sounds-toggle')
+  if (stog) stog.checked = soundsEnabled
+  if (ssl) ssl.style.background = soundsEnabled ? '#e8503a' : '#2a2a2a'
+  if (sth) sth.style.transform = soundsEnabled ? 'translateX(20px)' : 'translateX(0)'
+
+  loadBlockedMembers()
+}
+
+function closeSettings() {
+  el('settings-page').style.display = 'none'
+}
+
+async function toggleNotifications(val) {
+  const sl = el('notif-slider'), th = el('notif-thumb')
+  if (sl) sl.style.background = val ? '#e8503a' : '#2a2a2a'
+  if (th) th.style.transform = val ? 'translateX(20px)' : 'translateX(0)'
+  await sb.from('profiles').update({ notifications_enabled: val }).eq('id', currentUser.id)
+  if (currentProfile) currentProfile.notifications_enabled = val
+  showToast(val ? 'Push notifications on' : 'Push notifications off')
+}
+
+function toggleSounds(val) {
+  const sl = el('sounds-slider'), th = el('sounds-thumb')
+  if (sl) sl.style.background = val ? '#e8503a' : '#2a2a2a'
+  if (th) th.style.transform = val ? 'translateX(20px)' : 'translateX(0)'
+  localStorage.setItem('sx_sounds', val ? 'true' : 'false')
+  showToast(val ? 'Sounds on' : 'Sounds off')
+}
+
+async function loadBlockedMembers() {
+  const list = el('blocked-list')
+  if (!list) return
+  list.innerHTML = '<p style="color:#6b6866;font-size:14px">Loading...</p>'
+
+  const { data: blocks } = await sb.from('blocks')
+    .select('blocked_id, blocked:profiles!blocks_blocked_id_fkey(id, display_name, photo_urls)')
+    .eq('blocker_id', currentUser.id)
+    .order('created_at', { ascending: false })
+
+  if (!blocks || blocks.length === 0) {
+    list.innerHTML = '<p style="color:#6b6866;font-size:14px">No blocked members.</p>'
+    return
+  }
+
+  list.innerHTML = blocks.map(b => {
+    const p = b.blocked
+    const photo = p?.photo_urls?.[0]
+    const name = escapeHtml(p?.display_name || 'User')
+    const color = AVATAR_COLORS[0]
+    return `
+    <div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid #252525">
+      <div class="avatar" style="width:40px;height:40px;font-size:14px;background:${color};flex-shrink:0">
+        ${photo ? `<img src="${photo}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">` : name.charAt(0).toUpperCase()}
+      </div>
+      <span style="flex:1;color:#f0ede8;font-size:14px">${name}</span>
+      <button onclick="unblockMember('${b.blocked_id}','${name}')" style="padding:8px 16px;border-radius:20px;border:1px solid #252525;background:transparent;color:#9e9b97;font-size:13px;cursor:pointer">Unblock</button>
+    </div>`
+  }).join('')
+}
+
+async function unblockMember(blockedId, name) {
+  await sb.from('blocks').delete().eq('blocker_id', currentUser.id).eq('blocked_id', blockedId)
+  showToast(`${name} has been unblocked.`)
+  loadBlockedMembers()
+}
+
+async function sendFeedback() {
+  const textarea = el('feedback-textarea')
+  const btn = el('feedback-send-btn')
+  const text = textarea?.value.trim()
+  if (!text) { showToast('Please write something before sending.'); return }
+  btn.textContent = 'Sending...'
+  btn.disabled = true
+  try {
+    await emailjs.send('simplex_service', 'template_no11won', {
+      to_email: 'mostvaluedplanter@gmail.com',
+      to_name: 'Simple-x Support',
+      message: text,
+      from_name: currentProfile?.display_name || 'User',
+      reply_to: currentUser?.email || '',
+    })
+    textarea.value = ''
+    showToast('Feedback sent. Thank you!')
+  } catch(e) {
+    showToast('Failed to send. Please email us directly.')
+  }
+  btn.textContent = 'Send'
+  btn.disabled = false
 }
 
 // ── INIT ──────────────────────────────────────────
