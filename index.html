@@ -394,6 +394,55 @@
         <input class="input" id="edit-name" placeholder="Display name" />
         <input class="input" id="edit-city" placeholder="City" />
         <textarea class="input" id="edit-bio" placeholder="Bio" rows="3" style="resize:vertical"></textarea>
+        <input class="input" id="edit-quote" placeholder="A headline about yourself" />
+        <input class="input" id="edit-occupation" placeholder="Occupation" />
+        <textarea class="input" id="edit-about-match" placeholder="What are you looking for in a partner?" rows="3" style="resize:vertical"></textarea>
+        <div>
+          <p style="color:#6b6866;font-size:12px;margin-bottom:8px">Height</p>
+          <select id="edit-height" class="input" style="color:#f0ede8;background:#1e1e1e">
+            <option value="">Select height</option>
+            <option>4'0"</option><option>4'1"</option><option>4'2"</option><option>4'3"</option><option>4'4"</option><option>4'5"</option><option>4'6"</option><option>4'7"</option><option>4'8"</option><option>4'9"</option><option>4'10"</option><option>4'11"</option>
+            <option>5'0"</option><option>5'1"</option><option>5'2"</option><option>5'3"</option><option>5'4"</option><option>5'5"</option><option>5'6"</option><option>5'7"</option><option>5'8"</option><option>5'9"</option><option>5'10"</option><option>5'11"</option>
+            <option>6'0"</option><option>6'1"</option><option>6'2"</option><option>6'3"</option><option>6'4"</option><option>6'5"</option><option>6'6"</option><option>6'7"</option><option>6'8"</option><option>6'9"</option><option>6'10"</option><option>6'11"</option>
+            <option>7'0"</option>
+          </select>
+        </div>
+        <div>
+          <p style="color:#6b6866;font-size:12px;margin-bottom:8px">Body type</p>
+          <select id="edit-body-type" class="input" style="color:#f0ede8;background:#1e1e1e">
+            <option value="">Select body type</option>
+            <option>Slim</option><option>Athletic</option><option>Average</option><option>Curvy</option><option>Full-figured</option><option>Prefer not to say</option>
+          </select>
+        </div>
+        <div>
+          <p style="color:#6b6866;font-size:12px;margin-bottom:8px">Hair color</p>
+          <select id="edit-hair-color" class="input" style="color:#f0ede8;background:#1e1e1e">
+            <option value="">Select hair color</option>
+            <option>Black</option><option>Brown</option><option>Blonde</option><option>Red</option><option>Gray</option><option>White</option><option>Bald</option><option>Other</option>
+          </select>
+        </div>
+        <div>
+          <p style="color:#6b6866;font-size:12px;margin-bottom:8px">Eye color</p>
+          <select id="edit-eye-color" class="input" style="color:#f0ede8;background:#1e1e1e">
+            <option value="">Select eye color</option>
+            <option>Brown</option><option>Blue</option><option>Green</option><option>Hazel</option><option>Gray</option><option>Other</option>
+          </select>
+        </div>
+        <div>
+          <p style="color:#6b6866;font-size:12px;margin-bottom:8px">Ethnicity</p>
+          <select id="edit-ethnicity" class="input" style="color:#f0ede8;background:#1e1e1e">
+            <option value="">Select ethnicity</option>
+            <option>Asian</option><option>Black/African</option><option>Caucasian/White</option><option>Hispanic/Latino</option><option>Middle Eastern</option><option>Mixed</option><option>Native American</option><option>Pacific Islander</option><option>Other</option><option>Prefer not to say</option>
+          </select>
+        </div>
+        <div>
+          <p style="color:#6b6866;font-size:12px;margin-bottom:8px">Looking for age range</p>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input type="number" id="edit-age-min" class="input" min="18" max="99" placeholder="Min" style="flex:1" />
+            <span style="color:#6b6866;font-size:13px">to</span>
+            <input type="number" id="edit-age-max" class="input" min="18" max="99" placeholder="Max" style="flex:1" />
+          </div>
+        </div>
         <div>
           <p style="color:#6b6866;font-size:12px;margin-bottom:10px">My type</p>
           <div class="hsv-options" id="edit-hsv-options">
@@ -1785,18 +1834,47 @@ async function showProfilePreview(userId) {
   modal.id = 'profile-preview-modal'
   modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.92);display:flex;align-items:flex-end;justify-content:center;z-index:9999'
   modal.onclick = (e) => { if (e.target === modal) modal.remove() }
+  const basicsItems = [
+    p.hsv_type ? `HSV type: ${p.hsv_type}` : null,
+    p.relationship_type ? `Looking for: ${p.relationship_type}` : null,
+    p.height ? `Height: ${p.height}` : null,
+    p.body_type ? `Body type: ${p.body_type}` : null,
+    (p.hair_color && p.eye_color) ? `Hair / Eyes: ${p.hair_color} / ${p.eye_color}` : p.hair_color ? `Hair: ${p.hair_color}` : p.eye_color ? `Eyes: ${p.eye_color}` : null,
+    p.ethnicity ? `Ethnicity: ${p.ethnicity}` : null,
+    (p.looking_for_age_min || p.looking_for_age_max) ? `Looking for ages: ${p.looking_for_age_min ?? 18}–${p.looking_for_age_max ?? 99}` : null,
+  ].filter(Boolean)
+
   modal.innerHTML = `
-    <div style="background:#141414;border-radius:20px 20px 0 0;width:100%;max-width:480px;border-top:1px solid #252525;overflow:hidden">
-      ${photo ? `<img src="${photo}" style="width:100%;height:280px;object-fit:cover">` : `<div style="width:100%;height:280px;background:#252525;display:flex;align-items:center;justify-content:center;font-size:64px;color:#f0ede8">${name.charAt(0).toUpperCase()}</div>`}
+    <div style="background:#141414;border-radius:20px 20px 0 0;width:100%;max-width:480px;border-top:1px solid #252525;overflow-y:auto;max-height:92vh">
+      ${photo ? `<img src="${photo}" style="width:100%;height:280px;object-fit:cover;flex-shrink:0">` : `<div style="width:100%;height:280px;background:#252525;display:flex;align-items:center;justify-content:center;font-size:64px;color:#f0ede8;flex-shrink:0">${name.charAt(0).toUpperCase()}</div>`}
       <div style="padding:20px 24px 32px">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
           <h2 style="color:#f0ede8;font-size:22px;font-weight:700">${name}${age ? `, ${age}` : ''}</h2>
           ${isOnline ? `<span style="background:#0d2e1a;color:#2ecc71;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">● Online</span>` : ''}
           ${isMatched ? `<span style="background:#3a1a14;color:#e8503a;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">✓ Matched</span>` : ''}
         </div>
-        ${p.city ? `<p style="color:#6b6866;font-size:14px;margin-bottom:8px">📍 ${p.city}</p>` : ''}
-        ${p.hsv_type ? `<p style="color:#6b6866;font-size:14px;margin-bottom:8px">${p.hsv_type}</p>` : ''}
-        ${p.bio ? `<p style="color:#9e9b97;font-size:14px;line-height:1.6;margin-bottom:20px">${p.bio}</p>` : '<p style="color:#6b6866;font-size:14px;margin-bottom:20px;font-style:italic">No bio yet.</p>'}
+        ${p.city ? `<p style="color:#6b6866;font-size:14px;margin-bottom:6px">📍 ${p.city}</p>` : ''}
+        ${p.quote ? `<p style="color:#9e9b97;font-size:15px;font-style:italic;text-align:center;margin:12px 0 16px;line-height:1.5">"${p.quote}"</p>` : ''}
+
+        ${(p.bio || p.occupation) ? `
+        <div style="background:#1c1c1c;border-radius:14px;padding:16px;margin-bottom:12px;border:1px solid #252525">
+          <p style="color:#9e9b97;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:10px">About Me</p>
+          ${p.occupation ? `<p style="color:#f0ede8;font-size:14px;font-weight:500;margin-bottom:${p.bio ? '8px' : '0'}">💼 ${p.occupation}</p>` : ''}
+          ${p.bio ? `<p style="color:#9e9b97;font-size:14px;line-height:1.6">${p.bio}</p>` : ''}
+        </div>` : ''}
+
+        ${p.about_match ? `
+        <div style="background:#1c1c1c;border-radius:14px;padding:16px;margin-bottom:12px;border:1px solid #252525">
+          <p style="color:#9e9b97;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:10px">About My Match</p>
+          <p style="color:#9e9b97;font-size:14px;line-height:1.6">${p.about_match}</p>
+        </div>` : ''}
+
+        ${basicsItems.length ? `
+        <div style="background:#1c1c1c;border-radius:14px;padding:16px;margin-bottom:16px;border:1px solid #252525">
+          <p style="color:#9e9b97;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:10px">My Basics</p>
+          ${basicsItems.map(item => `<p style="color:#9e9b97;font-size:14px;line-height:1.7">• ${item}</p>`).join('')}
+        </div>` : ''}
+
         ${!isMatched && alreadyLiked && !currentProfile?.is_premium ? `
         <div style="background:#1c1c1c;border:1px solid #3a1a14;border-radius:12px;padding:12px 14px;margin-bottom:16px">
           <p style="color:#e8503a;font-size:13px;font-weight:600;margin-bottom:4px">⭐ You already liked ${name.split(' ')[0]}</p>
@@ -2566,6 +2644,16 @@ function toggleEdit() {
     el('edit-name').value = currentProfile?.display_name || ''
     el('edit-city').value = currentProfile?.city || ''
     el('edit-bio').value = currentProfile?.bio || ''
+    el('edit-quote').value = currentProfile?.quote || ''
+    el('edit-occupation').value = currentProfile?.occupation || ''
+    el('edit-about-match').value = currentProfile?.about_match || ''
+    el('edit-height').value = currentProfile?.height || ''
+    el('edit-body-type').value = currentProfile?.body_type || ''
+    el('edit-hair-color').value = currentProfile?.hair_color || ''
+    el('edit-eye-color').value = currentProfile?.eye_color || ''
+    el('edit-ethnicity').value = currentProfile?.ethnicity || ''
+    el('edit-age-min').value = currentProfile?.looking_for_age_min ?? 18
+    el('edit-age-max').value = currentProfile?.looking_for_age_max ?? 99
     el('edit-birthdate').value = currentProfile?.birthdate || ''
     setDobSelects('edit', currentProfile?.birthdate || '')
     if (currentProfile?.relationship_type) {
@@ -2597,6 +2685,16 @@ async function saveProfile() {
     display_name: el('edit-name').value.trim(),
     city: el('edit-city').value.trim(),
     bio: el('edit-bio').value.trim(),
+    quote: el('edit-quote').value.trim() || null,
+    occupation: el('edit-occupation').value.trim() || null,
+    about_match: el('edit-about-match').value.trim() || null,
+    height: el('edit-height').value || null,
+    body_type: el('edit-body-type').value || null,
+    hair_color: el('edit-hair-color').value || null,
+    eye_color: el('edit-eye-color').value || null,
+    ethnicity: el('edit-ethnicity').value || null,
+    looking_for_age_min: parseInt(el('edit-age-min').value) || 18,
+    looking_for_age_max: parseInt(el('edit-age-max').value) || 99,
     hsv_type: editHsv || currentProfile?.hsv_type,
     gender: editGender || currentProfile?.gender,
     seeking: editSeeking || currentProfile?.seeking,
