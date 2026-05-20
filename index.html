@@ -1405,12 +1405,11 @@ function urlBase64ToUint8Array(base64String) {
 
 async function sendPush(userId, title, body, tag) {
   try {
-    const { data: { session } } = await sb.auth.getSession()
     await fetch('https://ocwgwfnrstzrapsblkxm.supabase.co/functions/v1/send-push', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${session.access_token}`
+        'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9jd2d3Zm5yc3R6cmFwc2Jsa3htIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY1NjAxNzksImV4cCI6MjA5MjEzNjE3OX0.Tr_l0wJjUDHdklj1AG9MW9FIlNC3lNgGbklpzz4AAfo'
       },
       body: JSON.stringify({ user_id: userId, title, body, tag, url: '/simple_x-app/' })
     })
