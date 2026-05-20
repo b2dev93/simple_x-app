@@ -319,7 +319,7 @@
           <button onclick="setOnlineSort('newest')" id="sort-newest" style="flex-shrink:0;padding:6px 14px;border-radius:20px;border:1px solid #252525;background:transparent;color:#6b6866;font-size:13px;cursor:pointer">Newest Profiles</button>
           <button onclick="setOnlineSort('closest')" id="sort-closest" style="flex-shrink:0;padding:6px 14px;border-radius:20px;border:1px solid #252525;background:transparent;color:#6b6866;font-size:13px;cursor:pointer">Closest</button>
         </div>
-        <div id="online-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:3px">
+        <div id="online-grid">
           <div style="grid-column:1/-1;text-align:center;padding:40px 0"><p style="color:#6b6866;font-size:14px">Loading...</p></div>
         </div>
         </div>
@@ -667,7 +667,7 @@
           <span style="color:#f0ede8;font-size:15px">Privacy Policy</span>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b6866" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
         </a>
-        <a href="https://b2dev93.github.io/simple_x-app/privacy.html" target="_blank" rel="noopener" style="display:flex;justify-content:space-between;align-items:center;padding:14px 0;border-bottom:1px solid #252525;text-decoration:none">
+        <a href="https://b2dev93.github.io/simple_x-app/terms.html" target="_blank" rel="noopener" style="display:flex;justify-content:space-between;align-items:center;padding:14px 0;border-bottom:1px solid #252525;text-decoration:none">
           <span style="color:#f0ede8;font-size:15px">Terms of Service</span>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b6866" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
         </a>
@@ -1640,7 +1640,46 @@ async function loadOnlineNow() {
       .sort((a, b) => haversineDistance(userLat, userLng, a.lat, a.lng) - haversineDistance(userLat, userLng, b.lat, b.lng))
   }
 
-  renderProfileGrid(filtered, 'online-grid', 'No profiles found. Try a different filter.')
+  renderOnlineFeed(filtered)
+}
+
+
+function renderOnlineFeed(profiles) {
+  const container = el('online-grid')
+  if (!profiles || !profiles.length) {
+    container.innerHTML = '<div style="text-align:center;padding:60px 20px"><p style="color:#6b6866;font-size:14px">No profiles found.</p></div>'
+    return
+  }
+  container.innerHTML = profiles.map(p => {
+    const photo = p.photo_urls?.[0]
+    const age = p.birthdate ? Math.floor((Date.now() - new Date(p.birthdate)) / (365.25 * 24 * 3600 * 1000)) : ''
+    const dist = (userLat && userLng && p.lat && p.lng) ? Math.round(haversineDistance(userLat, userLng, p.lat, p.lng)) + ' mi' : ''
+    const isOnline = p.last_seen && (Date.now() - new Date(p.last_seen).getTime()) < 15 * 60 * 1000
+    const photoCount = p.photo_urls?.length || 0
+    return `
+    <div onclick="showProfilePreview('${p.id}')">
+      <div style="position:relative">
+        ${photo
+          ? `<img src="${photo}" style="width:100%;height:420px;object-fit:cover;display:block">`
+          : `<div style="width:100%;height:420px;background:#1c1c1c;display:flex;align-items:center;justify-content:center;font-size:80px;color:#f0ede8">${(p.display_name||'?')[0].toUpperCase()}</div>`
+        }
+        ${isOnline ? '<div style="position:absolute;top:12px;left:12px;background:#0d2e1a;color:#2ecc71;font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px">● Online</div>' : ''}
+        ${photoCount > 1 ? `<div style="position:absolute;top:12px;right:12px;background:rgba(0,0,0,0.6);border-radius:20px;padding:3px 10px;font-size:12px;color:#fff">📷 ${photoCount}</div>` : ''}
+      </div>
+      <div style="padding:16px 20px;border-bottom:1px solid #1a1a1a;cursor:pointer">
+        <h3 style="color:#f0ede8;font-size:20px;font-weight:700;margin:0 0 4px;text-transform:uppercase">${p.display_name || 'Member'}${age ? ', ' + age : ''}${p.verified ? ' <span style="color:#3b9eff">✓</span>' : ''}</h3>
+        ${p.city ? `<p style="color:#9e9b97;font-size:14px;margin:0 0 2px">${p.city}${dist ? ' · ' + dist : ''}</p>` : ''}
+        ${p.hsv_type ? `<p style="color:#9e9b97;font-size:14px;margin:0 0 2px">${p.hsv_type}</p>` : ''}
+        ${p.bio ? `<p style="color:#9e9b97;font-size:14px;margin:8px 0 0;line-height:1.5;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden">${p.bio}</p>` : ''}
+      </div>
+      <div style="display:flex;border-bottom:2px solid #111" onclick="event.stopPropagation()">
+        <button style="flex:1;padding:14px;border:none;background:transparent;color:#f5c518;font-size:15px;cursor:pointer;border-right:1px solid #1a1a1a" onclick="sendWink('${p.id}','${(p.display_name||'').split(' ')[0]}')">😉 Wink</button>
+        <button style="flex:1;padding:14px;border:none;background:transparent;color:#e8503a;font-size:15px;cursor:pointer;border-right:1px solid #1a1a1a" onclick="feedLike('${p.id}', this)">❤️ Like</button>
+        <button style="flex:1;padding:14px;border:none;background:transparent;color:#9e9b97;font-size:15px;cursor:pointer" onclick="showProfilePreview('${p.id}')">👤 View</button>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:center;padding:12px 0"><div style="flex:1;height:1px;background:#1e1e1c"></div><span style="margin:0 12px;color:#333;font-size:18px">✦</span><div style="flex:1;height:1px;background:#1e1e1c"></div></div>
+    </div>`
+  }).join('')
 }
 
 async function loadLikedRecently() {
@@ -2986,6 +3025,8 @@ function openSettings() {
 
 function closeSettings() {
   el('settings-page').style.display = 'none'
+  const nav = el('nav')
+  if (nav) nav.style.display = 'flex'
 }
 
 async function toggleNotifications(val) {
