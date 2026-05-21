@@ -1084,38 +1084,9 @@ async function enterApp(user) {
     await sb.from('profiles').update({ email: user.email }).eq('id', user.id)
     currentProfile.email = user.email
   }
-  function dbgNav(label) {
-    const nav = document.getElementById('nav')
-    const shell = document.getElementById('app-shell')
-    const btn = nav && nav.querySelector('.nav-btn')
-    const icon = btn && btn.querySelector('.nav-icon')
-    const label2 = btn && btn.querySelector('.nav-label')
-    const cs  = nav   && getComputedStyle(nav)
-    const bcs = btn   && getComputedStyle(btn)
-    const ics = icon  && getComputedStyle(icon)
-    const lcs = label2 && getComputedStyle(label2)
-    const scs = shell && getComputedStyle(shell)
-    console.log('[NAV ' + label + '] #app-shell: display=' + (scs&&scs.display) + ' visibility=' + (scs&&scs.visibility) + ' opacity=' + (scs&&scs.opacity))
-    console.log('[NAV ' + label + '] #nav: display=' + (cs&&cs.display) + ' visibility=' + (cs&&cs.visibility) + ' opacity=' + (cs&&cs.opacity) + ' height=' + (cs&&cs.height))
-    console.log('[NAV ' + label + '] .nav-btn: display=' + (bcs&&bcs.display) + ' visibility=' + (bcs&&bcs.visibility) + ' opacity=' + (bcs&&bcs.opacity))
-    console.log('[NAV ' + label + '] .nav-icon: display=' + (ics&&ics.display) + ' visibility=' + (ics&&ics.visibility) + ' opacity=' + (ics&&ics.opacity) + ' fontSize=' + (ics&&ics.fontSize) + ' color=' + (ics&&ics.color))
-    console.log('[NAV ' + label + '] .nav-label: display=' + (lcs&&lcs.display) + ' visibility=' + (lcs&&lcs.visibility) + ' color=' + (lcs&&lcs.color) + ' fontSize=' + (lcs&&lcs.fontSize))
-  }
-  dbgNav('before-show')
   hide('auth')
   show('app-shell')
-  document.body.style.display = 'none'
-  document.body.offsetHeight
-  document.body.style.display = ''
-  dbgNav('after-show')
-  requestAnimationFrame(() => {
-    dbgNav('rAF-1')
-    requestAnimationFrame(() => {
-      switchTab2('discover')
-      dbgNav('rAF-2-post-switch')
-    })
-  })
-  setTimeout(() => dbgNav('500ms'), 500)
+  requestAnimationFrame(() => requestAnimationFrame(() => switchTab2('discover')))
   loadDiscover()
   renderProfileScreen()
   startRealtimeListeners()
@@ -2785,6 +2756,46 @@ async function saveProfile() {
 
 // ── RESEARCH ─────────────────────────────────────
 const RESEARCH_ARTICLES = [
+  {
+    title: "L-Lysine: the most evidence-backed supplement for outbreak prevention",
+    date: "Holistic — Evidence Based",
+    summary: "L-Lysine is an amino acid that competes with arginine, which HSV needs to replicate. Multiple clinical studies show that 1,000–3,000mg daily of L-Lysine reduces outbreak frequency and severity for many people. High-lysine foods include chicken, fish, eggs, and legumes. Pairing supplementation with a low-arginine diet (reducing nuts, seeds, and chocolate during stress) is the most consistently supported dietary approach to HSV management.",
+    tag: "Holistic",
+    tagColor: "#27ae60",
+    tagBg: "#0d2e1a",
+    link: "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6419779/",
+    isNew: true
+  },
+  {
+    title: "Zinc: topical and oral evidence for reducing outbreak severity",
+    date: "Holistic — Evidence Based",
+    summary: "Topical zinc sulfate (0.25–4%) applied at the first sign of an outbreak has been shown in controlled trials to reduce healing time and symptom severity. Oral zinc supplementation (25–50mg zinc gluconate daily) is associated with reduced outbreak frequency in some studies. Zinc supports immune function broadly and is inexpensive and well-tolerated. Avoid taking zinc on an empty stomach.",
+    tag: "Holistic",
+    tagColor: "#27ae60",
+    tagBg: "#0d2e1a",
+    link: "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC2869360/",
+    isNew: true
+  },
+  {
+    title: "Lemon balm (Melissa officinalis): clinically tested topical for outbreaks",
+    date: "Holistic — Evidence Based",
+    summary: "Lemon balm extract is one of the few herbal remedies with genuine clinical trial data for HSV. Topical lemon balm cream applied several times daily at the first sign of a cold sore or genital outbreak reduced healing time from 10 days to 5–6 days in double-blind studies. It also significantly reduced recurrence at treated sites. Available as cream or lip balm at health food stores.",
+    tag: "Holistic",
+    tagColor: "#27ae60",
+    tagBg: "#0d2e1a",
+    link: "https://pubmed.ncbi.nlm.nih.gov/10075479/",
+    isNew: true
+  },
+  {
+    title: "Diet, stress and HSV: what actually triggers outbreaks",
+    date: "Holistic — Lifestyle",
+    summary: "The most consistent outbreak triggers identified in research are: psychological stress (elevated cortisol suppresses immune response), poor sleep, sun exposure on the face/lips, illness or fever, and hormonal changes. Dietary triggers vary by person but arginine-rich foods (nuts, seeds, dark chocolate) are commonly reported. Practical management: prioritize sleep, use daily SPF on lips, consider daily suppressive therapy during high-stress periods, and track your personal triggers.",
+    tag: "Holistic",
+    tagColor: "#27ae60",
+    tagBg: "#0d2e1a",
+    link: "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6747927/",
+    isNew: true
+  },
   {
     title: "ABI-5366: 94% viral shedding reduction — Phase II launching mid-2026",
     date: "2026 — New",
