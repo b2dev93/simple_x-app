@@ -55,6 +55,19 @@
     .nav-icon { font-size: 20px; line-height: 1; opacity: 0.45; }
     .nav-btn.active .nav-icon { opacity: 1; }
 
+    /* ONBOARDING */
+    #onboarding { position: fixed; inset: 0; background: #0a0a0a; z-index: 500; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0 32px 48px; }
+    #onboarding .ob-dots { display: flex; gap: 8px; position: absolute; top: 52px; left: 50%; transform: translateX(-50%); }
+    #onboarding .ob-dot { width: 6px; height: 6px; border-radius: 50%; background: #2a2a2a; transition: background 0.25s; }
+    #onboarding .ob-dot.active { background: #e8503a; }
+    #onboarding .ob-icon { font-size: 56px; margin-bottom: 24px; line-height: 1; }
+    #onboarding .ob-logo { display: flex; align-items: flex-end; gap: 2px; margin-bottom: 32px; }
+    #onboarding .ob-logo span:first-child { font-size: 36px; font-weight: 700; color: #f0ede8; letter-spacing: -1.5px; font-family: Georgia, serif; }
+    #onboarding .ob-logo span:last-child  { font-size: 36px; font-weight: 700; color: #e8503a; letter-spacing: -1.5px; font-family: Georgia, serif; }
+    #onboarding .ob-heading { font-size: 26px; font-weight: 700; color: #f0ede8; text-align: center; margin-bottom: 16px; line-height: 1.2; }
+    #onboarding .ob-body { font-size: 15px; color: #9e9b97; text-align: center; line-height: 1.65; margin-bottom: 48px; max-width: 300px; }
+    #onboarding .ob-btn { padding: 16px 40px; border-radius: 14px; border: none; cursor: pointer; background: #e8503a; color: #fff; font-size: 16px; font-weight: 600; width: 100%; max-width: 320px; }
+
     /* SPLASH */
     #splash { background: #0a0a0a; align-items: center; justify-content: center; gap: 14px; }
     #splash .tagline { color: #6b6866; font-size: 13px; letter-spacing: 0.14em; text-transform: uppercase; }
@@ -1086,6 +1099,7 @@ async function enterApp(user) {
   }
   hide('auth')
   show('app-shell')
+  showOnboarding()
   requestAnimationFrame(() => requestAnimationFrame(() => switchTab2('discover')))
   loadDiscover()
   renderProfileScreen()
@@ -3413,6 +3427,80 @@ if ('serviceWorker' in navigator) {
     }
   })
 }
+
+// ── ONBOARDING ────────────────────────────────────
+let obCurrentSlide = 0
+const OB_TOTAL = 5
+
+function showOnboarding() {
+  if (localStorage.getItem('sx_onboarded')) return
+  obCurrentSlide = 0
+  const el = document.getElementById('onboarding')
+  if (!el) return
+  el.style.display = 'flex'
+  obGoTo(0)
+}
+
+function obGoTo(index) {
+  for (let i = 0; i < OB_TOTAL; i++) {
+    const slide = document.getElementById('ob-slide-' + i)
+    const dot   = document.getElementById('ob-dot-' + i)
+    if (slide) slide.style.display = i === index ? 'flex' : 'none'
+    if (dot)   dot.classList.toggle('active', i === index)
+  }
+  obCurrentSlide = index
+}
+
+function obNext() {
+  if (obCurrentSlide < OB_TOTAL - 1) obGoTo(obCurrentSlide + 1)
+}
+
+function obFinish() {
+  localStorage.setItem('sx_onboarded', '1')
+  const el = document.getElementById('onboarding')
+  if (el) el.style.display = 'none'
+}
 </script>
+
+<!-- ONBOARDING OVERLAY -->
+<div id="onboarding" style="display:none">
+  <div class="ob-dots">
+    <div class="ob-dot active" id="ob-dot-0"></div>
+    <div class="ob-dot" id="ob-dot-1"></div>
+    <div class="ob-dot" id="ob-dot-2"></div>
+    <div class="ob-dot" id="ob-dot-3"></div>
+    <div class="ob-dot" id="ob-dot-4"></div>
+  </div>
+  <div id="ob-slide-0" class="ob-slide" style="display:flex;flex-direction:column;align-items:center">
+    <div class="ob-logo"><span>simple</span><span>x</span></div>
+    <h1 class="ob-heading">Welcome to Simple-x</h1>
+    <p class="ob-body">A judgment-free space for people living with HSV. No complications, just connections.</p>
+    <button class="ob-btn" onclick="obNext()">Get Started</button>
+  </div>
+  <div id="ob-slide-1" class="ob-slide" style="display:none;flex-direction:column;align-items:center">
+    <div class="ob-icon">🙋</div>
+    <h1 class="ob-heading">Complete your profile</h1>
+    <p class="ob-body">Add photos, a bio, and your basics. The more you share, the more connections you'll make.</p>
+    <button class="ob-btn" onclick="obNext()">Next</button>
+  </div>
+  <div id="ob-slide-2" class="ob-slide" style="display:none;flex-direction:column;align-items:center">
+    <div class="ob-icon">🔍</div>
+    <h1 class="ob-heading">Start connecting</h1>
+    <p class="ob-body">Browse profiles, send winks, and like people you're interested in. When someone likes you back — it's a match!</p>
+    <button class="ob-btn" onclick="obNext()">Next</button>
+  </div>
+  <div id="ob-slide-3" class="ob-slide" style="display:none;flex-direction:column;align-items:center">
+    <div class="ob-icon">🔔</div>
+    <h1 class="ob-heading">Never miss a message</h1>
+    <p class="ob-body">Turn on notifications so you know when someone matches or messages you. Go to Profile → Settings → Notifications.</p>
+    <button class="ob-btn" onclick="obNext()">Next</button>
+  </div>
+  <div id="ob-slide-4" class="ob-slide" style="display:none;flex-direction:column;align-items:center">
+    <div class="ob-icon">✨</div>
+    <h1 class="ob-heading">You're ready!</h1>
+    <p class="ob-body">Your privacy is protected. This community understands what you're going through.</p>
+    <button class="ob-btn" onclick="obFinish()">Start Exploring</button>
+  </div>
+</div>
 </body>
 </html>
