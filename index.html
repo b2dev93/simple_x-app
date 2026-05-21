@@ -426,7 +426,11 @@
             <svg width="12" height="12" viewBox="0 0 24 24" fill="white"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
           </div>
         </div>
-        <p class="profile-name" id="profile-display-name"></p>
+        <div style="display:flex;align-items:center;gap:8px;justify-content:center;flex-wrap:wrap">
+          <p class="profile-name" id="profile-display-name"></p>
+          <span id="streak-badge" style="display:none;background:#ff6348;color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;white-space:nowrap"></span>
+        </div>
+        <p id="top-member-label" style="display:none;color:#f5c518;font-size:12px;font-weight:600;text-align:center;margin-top:-4px">Top Member ⭐</p>
         <p class="profile-city-label" id="profile-city-label"></p>
         <button class="edit-btn" onclick="toggleEdit()">Edit profile</button>
       </div>
@@ -744,6 +748,42 @@
             <span id="notif-slider" style="position:absolute;inset:0;background:#2a2a2a;border-radius:24px;transition:0.2s"></span>
             <span id="notif-thumb" style="position:absolute;left:3px;top:3px;width:18px;height:18px;background:#fff;border-radius:50%;transition:0.2s"></span>
           </label>
+        </div>
+        <!-- Notification type preferences -->
+        <div style="padding:4px 0 8px;border-bottom:1px solid #252525">
+          <p style="color:#6b6866;font-size:11px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;margin-bottom:6px">Notify me about</p>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0">
+            <p style="color:#9e9b97;font-size:14px">New matches</p>
+            <label style="position:relative;display:inline-block;width:36px;height:20px;cursor:pointer;flex-shrink:0">
+              <input type="checkbox" id="notif-matches-toggle" onchange="toggleNotifPref('notif_matches',this.checked)" style="opacity:0;width:0;height:0">
+              <span id="notif-matches-slider" style="position:absolute;inset:0;background:#2a2a2a;border-radius:20px;transition:0.2s"></span>
+              <span id="notif-matches-thumb" style="position:absolute;left:2px;top:2px;width:16px;height:16px;background:#fff;border-radius:50%;transition:0.2s"></span>
+            </label>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0">
+            <p style="color:#9e9b97;font-size:14px">New messages</p>
+            <label style="position:relative;display:inline-block;width:36px;height:20px;cursor:pointer;flex-shrink:0">
+              <input type="checkbox" id="notif-messages-toggle" onchange="toggleNotifPref('notif_messages',this.checked)" style="opacity:0;width:0;height:0">
+              <span id="notif-messages-slider" style="position:absolute;inset:0;background:#2a2a2a;border-radius:20px;transition:0.2s"></span>
+              <span id="notif-messages-thumb" style="position:absolute;left:2px;top:2px;width:16px;height:16px;background:#fff;border-radius:50%;transition:0.2s"></span>
+            </label>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0">
+            <p style="color:#9e9b97;font-size:14px">Winks</p>
+            <label style="position:relative;display:inline-block;width:36px;height:20px;cursor:pointer;flex-shrink:0">
+              <input type="checkbox" id="notif-winks-toggle" onchange="toggleNotifPref('notif_winks',this.checked)" style="opacity:0;width:0;height:0">
+              <span id="notif-winks-slider" style="position:absolute;inset:0;background:#2a2a2a;border-radius:20px;transition:0.2s"></span>
+              <span id="notif-winks-thumb" style="position:absolute;left:2px;top:2px;width:16px;height:16px;background:#fff;border-radius:50%;transition:0.2s"></span>
+            </label>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0">
+            <p style="color:#9e9b97;font-size:14px">Profile views</p>
+            <label style="position:relative;display:inline-block;width:36px;height:20px;cursor:pointer;flex-shrink:0">
+              <input type="checkbox" id="notif-views-toggle" onchange="toggleNotifPref('notif_views',this.checked)" style="opacity:0;width:0;height:0">
+              <span id="notif-views-slider" style="position:absolute;inset:0;background:#2a2a2a;border-radius:20px;transition:0.2s"></span>
+              <span id="notif-views-thumb" style="position:absolute;left:2px;top:2px;width:16px;height:16px;background:#fff;border-radius:50%;transition:0.2s"></span>
+            </label>
+          </div>
         </div>
         <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0">
           <div>
@@ -1140,6 +1180,7 @@ async function enterApp(user) {
   }
   hide('auth')
   show('app-shell')
+  updateStreak()
   showOnboarding()
   requestAnimationFrame(() => requestAnimationFrame(() => switchTab2('discover')))
   loadDiscover()
@@ -1556,6 +1597,12 @@ function urlBase64ToUint8Array(base64String) {
 
 async function sendPush(userId, title, body, tag, matchId) {
   try {
+    // Check recipient's per-type notification preference before sending
+    const prefKey = { match: 'notif_matches', message: 'notif_messages', wink: 'notif_winks', view: 'notif_views' }[tag]
+    if (prefKey) {
+      const { data: prefs } = await sb.from('profiles').select('notifications_enabled,' + prefKey).eq('id', userId).single()
+      if (prefs && (prefs.notifications_enabled === false || prefs[prefKey] === false)) return
+    }
     await fetch('https://ocwgwfnrstzrapsblkxm.supabase.co/functions/v1/send-push', {
       method: 'POST',
       headers: {
@@ -2850,6 +2897,39 @@ async function loadWhoLikedMe() {
   }).join('')
 }
 
+// ── ACTIVITY STREAK ───────────────────────────────
+function updateStreak() {
+  const today = new Date().toISOString().slice(0, 10)
+  const lastActive = localStorage.getItem('sx_last_active')
+  let streak = parseInt(localStorage.getItem('sx_streak') || '0', 10)
+
+  if (!lastActive) {
+    streak = 1
+  } else if (lastActive === today) {
+    return  // already counted today
+  } else {
+    const daysDiff = Math.round((new Date(today) - new Date(lastActive)) / 86400000)
+    streak = daysDiff === 1 ? streak + 1 : 1
+  }
+
+  localStorage.setItem('sx_streak', String(streak))
+  localStorage.setItem('sx_last_active', today)
+}
+
+function renderStreakBadge() {
+  const streak = parseInt(localStorage.getItem('sx_streak') || '0', 10)
+  const badge = el('streak-badge')
+  const topLabel = el('top-member-label')
+  if (!badge) return
+  if (streak >= 1) {
+    badge.textContent = '🔥 ' + streak + (streak === 1 ? ' day' : ' days')
+    badge.style.display = ''
+  } else {
+    badge.style.display = 'none'
+  }
+  if (topLabel) topLabel.style.display = streak >= 7 ? '' : 'none'
+}
+
 function renderProfileScreen() {
   if (!currentProfile) return
   const p = currentProfile
@@ -2881,6 +2961,7 @@ function renderProfileScreen() {
     }
   }
   renderPhotoGrid()
+  renderStreakBadge()
   checkProfileNudge()
 }
 
@@ -3446,6 +3527,16 @@ function openSettings() {
   if (ssl) ssl.style.background = soundsEnabled ? '#e8503a' : '#2a2a2a'
   if (sth) sth.style.transform = soundsEnabled ? 'translateX(20px)' : 'translateX(0)'
 
+  // Sync notification type preference toggles
+  ;['notif_matches','notif_messages','notif_winks','notif_views'].forEach(key => {
+    const val = currentProfile?.[key] !== false
+    const base = key.replaceAll('_', '-')
+    const tog = el(base + '-toggle'), sl = el(base + '-slider'), th = el(base + '-thumb')
+    if (tog) tog.checked = val
+    if (sl)  sl.style.background = val ? '#e8503a' : '#2a2a2a'
+    if (th)  th.style.transform  = val ? 'translateX(16px)' : 'translateX(0)'
+  })
+
   loadBlockedMembers()
 }
 
@@ -3462,6 +3553,15 @@ async function toggleNotifications(val) {
   await sb.from('profiles').update({ notifications_enabled: val }).eq('id', currentUser.id)
   if (currentProfile) currentProfile.notifications_enabled = val
   showToast(val ? 'Push notifications on' : 'Push notifications off')
+}
+
+async function toggleNotifPref(key, val) {
+  const base = key.replaceAll('_', '-')
+  const sl = el(base + '-slider'), th = el(base + '-thumb')
+  if (sl) sl.style.background = val ? '#e8503a' : '#2a2a2a'
+  if (th) th.style.transform  = val ? 'translateX(16px)' : 'translateX(0)'
+  await sb.from('profiles').update({ [key]: val }).eq('id', currentUser.id)
+  if (currentProfile) currentProfile[key] = val
 }
 
 function toggleSounds(val) {
