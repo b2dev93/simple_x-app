@@ -167,12 +167,32 @@
     #topbar { position: absolute; top: 0; left: 0; right: 0; height: 56px; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; z-index: 10; }
     .location-pill { background: #141414; border-radius: 20px; padding: 6px 14px; border: 1px solid #252525; display: flex; align-items: center; gap: 6px; color: #9e9b97; font-size: 13px; }
 
-    /* MATCH MODAL */
-    #match-modal { position: absolute; inset: 0; background: rgba(0,0,0,0.88); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 32px; }
-    .match-modal-inner { background: #1c1c1c; border-radius: 24px; padding: 36px 28px; text-align: center; border: 1px solid #252525; width: 100%; }
-    .match-modal-title { color: #f0ede8; font-size: 24px; font-weight: 700; margin-bottom: 8px; }
-    .match-modal-sub { color: #6b6866; font-size: 15px; margin-bottom: 32px; }
-    .match-modal-btns { display: flex; gap: 12px; }
+    /* MATCH CELEBRATION */
+    #match-modal { position: fixed; inset: 0; background: #0a0a0a; display: flex; align-items: center; justify-content: center; z-index: 300; overflow: hidden; }
+    #match-confetti { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 1; }
+    .confetti-piece { position: absolute; top: -14px; border-radius: 2px; animation: confettiFall linear forwards; }
+    @keyframes confettiFall {
+      0%   { transform: translateY(0) rotate(0deg); opacity: 1; }
+      100% { transform: translateY(110vh) rotate(720deg); opacity: 0.2; }
+    }
+    .match-celebration { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 40px 32px; position: relative; z-index: 2; animation: matchFadeUp 0.45s cubic-bezier(0.22,1,0.36,1); }
+    @keyframes matchFadeUp {
+      from { opacity: 0; transform: translateY(28px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .match-heart { font-size: 50px; margin-bottom: 20px; display: inline-block; animation: heartPulse 0.85s ease-in-out infinite; }
+    @keyframes heartPulse {
+      0%, 100% { transform: scale(1); }
+      50%       { transform: scale(1.2); }
+    }
+    .match-photo-ring { width: 108px; height: 108px; border-radius: 50%; border: 3px solid #e8503a; box-shadow: 0 0 0 6px rgba(232,80,58,0.18), 0 0 32px rgba(232,80,58,0.25); overflow: hidden; margin-bottom: 24px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .match-title { color: #f0ede8; font-size: 28px; font-weight: 800; margin-bottom: 8px; }
+    .match-sub-text { color: #9e9b97; font-size: 15px; margin-bottom: 40px; }
+    .match-btns { display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 300px; }
+    /* PROFILE NUDGE BANNER */
+    #profile-completion-nudge { display: none; align-items: center; gap: 10px; background: #1c1a18; border: 1px solid #3a2a20; border-radius: 12px; padding: 12px 14px; margin-bottom: 18px; cursor: pointer; }
+    #profile-completion-nudge span { flex: 1; color: #f0ede8; font-size: 14px; font-weight: 500; }
+    #profile-completion-nudge button { border: none; background: transparent; color: #6b6866; font-size: 20px; cursor: pointer; padding: 0 2px; line-height: 1; flex-shrink: 0; }
     .report-reason-btn { width:100%;padding:12px 16px;border-radius:10px;border:1px solid #252525;background:transparent;color:#9e9b97;font-size:14px;text-align:left;cursor:pointer;transition:all 0.15s; }
     .report-reason-btn.selected { border-color:#e8503a;background:#3a1a14;color:#e8503a; }
     .filter-hsv-btn { padding:8px 16px;border-radius:20px;border:1px solid #252525;background:transparent;color:#9e9b97;font-size:13px;cursor:pointer;transition:all 0.15s; }
@@ -393,6 +413,10 @@
     <!-- PROFILE TAB -->
     <div id="profile-content" style="display:none">
       <input type="file" id="photo-input" accept="image/*,.heic,.heif" style="display:none" onchange="uploadPhoto(this)" multiple />
+      <div id="profile-completion-nudge" onclick="toggleEdit()">
+        <span>Complete your profile to get more matches ✏️</span>
+        <button onclick="event.stopPropagation();dismissProfileNudge()" aria-label="Dismiss">×</button>
+      </div>
       <div class="profile-header">
         <div class="avatar-wrap" onclick="el('photo-input').click()">
           <div class="avatar" id="profile-avatar" style="width:76px;height:76px;font-size:28px"></div>
@@ -668,15 +692,17 @@
     </div>
   </div>
 
-  <!-- MATCH MODAL -->
+  <!-- MATCH CELEBRATION -->
   <div id="match-modal" class="hidden">
-    <div class="match-modal-inner">
-      <div style="font-size:48px;margin-bottom:16px">🎉</div>
-      <p class="match-modal-title">It's a match!</p>
-      <p class="match-modal-sub" id="match-modal-sub"></p>
-      <div class="match-modal-btns">
-        <button class="btn-ghost" onclick="closeMatchModal()">Keep swiping</button>
-        <button class="btn-primary" onclick="goToMessages()" style="border-radius:12px">Say hey</button>
+    <div id="match-confetti"></div>
+    <div class="match-celebration">
+      <div class="match-heart">❤️</div>
+      <div class="match-photo-ring" id="match-photo-ring"></div>
+      <h1 class="match-title">It's a Match! 🎉</h1>
+      <p class="match-sub-text" id="match-modal-sub"></p>
+      <div class="match-btns">
+        <button class="btn-primary" onclick="goToMessages()">Send a Message</button>
+        <button class="btn-ghost" onclick="closeMatchModal()">Keep Swiping</button>
       </div>
     </div>
   </div>
@@ -2247,12 +2273,61 @@ async function undoSwipe() {
   renderCard()
 }
 
+function spawnConfetti() {
+  const container = el('match-confetti')
+  if (!container) return
+  container.innerHTML = ''
+  const colors = ['#e8503a','#ff8f7e','#ff6b9d','#ffd700','#ff4757','#ff6348','#eccc68','#ff7f50','#fd79a8','#e17055']
+  for (let i = 0; i < 48; i++) {
+    const p = document.createElement('div')
+    p.className = 'confetti-piece'
+    p.style.left = (Math.random() * 100) + '%'
+    p.style.background = colors[Math.floor(Math.random() * colors.length)]
+    p.style.width  = (6 + Math.random() * 6) + 'px'
+    p.style.height = (10 + Math.random() * 8) + 'px'
+    p.style.animationDuration = (1.6 + Math.random() * 2.2) + 's'
+    p.style.animationDelay   = (Math.random() * 1.4) + 's'
+    container.appendChild(p)
+  }
+}
+
 function showMatchModal(profile) {
+  const ring = el('match-photo-ring')
+  if (ring) {
+    if (profile.photo_urls?.[0]) {
+      ring.innerHTML = `<img src="${profile.photo_urls[0]}" style="width:100%;height:100%;object-fit:cover" />`
+    } else {
+      const cols = ['#4a90d9','#50c878','#ff6b6b','#9b59b6','#e8503a']
+      ring.style.background = cols[(profile.display_name || '?').charCodeAt(0) % cols.length]
+      ring.innerHTML = `<span style="color:#fff;font-size:42px;font-weight:700;line-height:1">${(profile.display_name || '?')[0].toUpperCase()}</span>`
+    }
+  }
   el('match-modal-sub').textContent = `You and ${profile.display_name} liked each other`
+  spawnConfetti()
   show('match-modal')
 }
-function closeMatchModal() { hide('match-modal') }
-function goToMessages() { hide('match-modal'); switchTab2('messages') }
+function closeMatchModal() {
+  hide('match-modal')
+  const container = el('match-confetti')
+  if (container) container.innerHTML = ''
+}
+function goToMessages() { closeMatchModal(); switchTab2('messages') }
+
+// ── PROFILE COMPLETION NUDGE ──────────────────────
+function checkProfileNudge() {
+  const nudge = el('profile-completion-nudge')
+  if (!nudge) return
+  if (localStorage.getItem('sx_profile_nudge_dismissed')) { nudge.style.display = 'none'; return }
+  const p = currentProfile
+  if (!p) return
+  const filled = [p.bio, p.photo_urls?.length, p.city, p.hsv_type, p.birthdate, p.occupation, p.quote].filter(Boolean).length
+  nudge.style.display = (7 - filled) > 3 ? 'flex' : 'none'
+}
+function dismissProfileNudge() {
+  localStorage.setItem('sx_profile_nudge_dismissed', '1')
+  const nudge = el('profile-completion-nudge')
+  if (nudge) nudge.style.display = 'none'
+}
 
 // ── MESSAGES ──────────────────────────────────────
 async function loadWinks() {
@@ -2655,6 +2730,7 @@ function renderProfileScreen() {
     }
   }
   renderPhotoGrid()
+  checkProfileNudge()
 }
 
 function renderPhotoGrid() {
