@@ -2018,8 +2018,7 @@ async function showProfilePreview(userId) {
 
   const modal = document.createElement('div')
   modal.id = 'profile-preview-modal'
-  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.92);display:flex;align-items:flex-end;justify-content:center;z-index:9999'
-  modal.onclick = (e) => { if (e.target === modal) modal.remove() }
+  modal.style.cssText = 'position:fixed;inset:0;background:#0a0a0a;z-index:9999'
   const basicsItems = [
     p.hsv_type ? `HSV type: ${p.hsv_type}` : null,
     p.relationship_type ? `Looking for: ${p.relationship_type}` : null,
@@ -2031,24 +2030,27 @@ async function showProfilePreview(userId) {
   ].filter(Boolean)
 
   modal.innerHTML = `
-    <div style="background:#141414;border-radius:20px 20px 0 0;width:100%;max-width:480px;border-top:1px solid #252525;overflow-y:auto;max-height:92vh">
+    <div style="position:absolute;top:0;left:0;right:0;z-index:10;display:flex;padding:48px 16px 16px;background:linear-gradient(to bottom,rgba(0,0,0,0.65) 0%,transparent 100%);pointer-events:none">
+      <button onclick="document.getElementById('profile-preview-modal')?.remove()" style="pointer-events:auto;background:rgba(0,0,0,0.45);border:none;border-radius:50%;width:46px;height:46px;color:#f0ede8;font-size:28px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1">‹</button>
+    </div>
+    <div id="preview-scroll" style="position:absolute;inset:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain">
       ${previewPhotos.length > 0
-        ? `<div id="preview-carousel" style="position:relative;width:100%;height:280px;background:#0a0a0a;flex-shrink:0;overflow:hidden">
+        ? `<div id="preview-carousel" style="position:relative;width:100%;height:420px;background:#0a0a0a;flex-shrink:0;overflow:hidden;touch-action:pan-y">
             ${isVideoUrl(previewPhotos[0])
-              ? `<video id="preview-media" src="${previewPhotos[0]}" style="width:100%;height:280px;object-fit:cover" autoplay muted playsinline loop></video>`
-              : `<img id="preview-media" src="${previewPhotos[0]}" style="width:100%;height:280px;object-fit:cover;display:block">`
+              ? `<video id="preview-media" src="${previewPhotos[0]}" style="width:100%;height:420px;object-fit:cover" autoplay muted playsinline loop></video>`
+              : `<img id="preview-media" src="${previewPhotos[0]}" style="width:100%;height:420px;object-fit:cover;display:block">`
             }
             ${previewPhotos.length > 1 ? `
-              <div style="position:absolute;bottom:8px;left:0;right:0;display:flex;justify-content:center;gap:4px;z-index:5">
-                ${previewPhotos.map((_, i) => `<div id="prev-dot-${i}" style="width:${i===0?'18':'6'}px;height:6px;border-radius:3px;background:${i===0?'#fff':'rgba(255,255,255,0.4)'};transition:all 0.2s"></div>`).join('')}
+              <div style="position:absolute;bottom:12px;left:0;right:0;display:flex;justify-content:center;gap:6px;z-index:5">
+                ${previewPhotos.map((_, i) => `<div id="prev-dot-${i}" onclick="previewCarouselGoTo(${i})" style="width:${i===0?'18':'6'}px;height:6px;border-radius:3px;background:${i===0?'#fff':'rgba(255,255,255,0.4)'};transition:all 0.2s;cursor:pointer;padding:6px 0;box-sizing:content-box"></div>`).join('')}
               </div>
-              <button onclick="previewCarouselPrev()" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,0.5);border:none;border-radius:50%;width:34px;height:34px;color:#fff;font-size:20px;cursor:pointer;line-height:1">‹</button>
-              <button onclick="previewCarouselNext()" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,0.5);border:none;border-radius:50%;width:34px;height:34px;color:#fff;font-size:20px;cursor:pointer;line-height:1">›</button>
+              <button onclick="previewCarouselPrev()" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,0.5);border:none;border-radius:50%;width:36px;height:36px;color:#fff;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1">‹</button>
+              <button onclick="previewCarouselNext()" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,0.5);border:none;border-radius:50%;width:36px;height:36px;color:#fff;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1">›</button>
             ` : ''}
           </div>`
-        : `<div style="width:100%;height:280px;background:#252525;display:flex;align-items:center;justify-content:center;font-size:64px;color:#f0ede8;flex-shrink:0">${name.charAt(0).toUpperCase()}</div>`
+        : `<div style="width:100%;height:420px;background:#252525;display:flex;align-items:center;justify-content:center;font-size:64px;color:#f0ede8">${name.charAt(0).toUpperCase()}</div>`
       }
-      <div style="padding:20px 24px 32px">
+      <div style="padding:20px 24px 40px;background:#141414">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
           <h2 style="color:#f0ede8;font-size:22px;font-weight:700">${name}${age ? `, ${age}` : ''}</h2>
           ${isOnline ? `<span style="background:#0d2e1a;color:#2ecc71;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">● Online</span>` : ''}
@@ -2098,6 +2100,37 @@ async function showProfilePreview(userId) {
   `
   document.body.appendChild(modal)
 
+  // Swipe down to close (only when scroll is at top)
+  const scrollEl = document.getElementById('preview-scroll')
+  if (scrollEl) {
+    let swipeStartY = 0, swipeStartScrollTop = 0
+    scrollEl.addEventListener('touchstart', e => {
+      swipeStartY = e.touches[0].clientY
+      swipeStartScrollTop = scrollEl.scrollTop
+    }, {passive: true})
+    scrollEl.addEventListener('touchend', e => {
+      if (swipeStartScrollTop > 10) return
+      if (e.changedTouches[0].clientY - swipeStartY > 80) modal.remove()
+    }, {passive: true})
+
+    // Carousel horizontal swipe
+    const carousel = document.getElementById('preview-carousel')
+    if (carousel && previewPhotos.length > 1) {
+      let cStartX = 0, cStartY = 0
+      carousel.addEventListener('touchstart', e => {
+        cStartX = e.touches[0].clientX
+        cStartY = e.touches[0].clientY
+      }, {passive: true})
+      carousel.addEventListener('touchend', e => {
+        const dx = e.changedTouches[0].clientX - cStartX
+        const dy = e.changedTouches[0].clientY - cStartY
+        if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) {
+          dx < 0 ? previewCarouselNext() : previewCarouselPrev()
+        }
+      }, {passive: true})
+    }
+  }
+
   // Set buttons after modal is in DOM
   const btnsContainer = document.getElementById('preview-action-btns')
   if (btnsContainer) {
@@ -2138,31 +2171,25 @@ async function showProfilePreview(userId) {
   }
 }
 
-function previewCarouselNav(dir) {
-  if (!previewPhotos.length) return
-  previewPhotoIdx = (previewPhotoIdx + dir + previewPhotos.length) % previewPhotos.length
-  const url = previewPhotos[previewPhotoIdx]
-  const carousel = document.getElementById('preview-carousel')
-  if (!carousel) return
+function previewCarouselUpdateMedia(url) {
   const existing = document.getElementById('preview-media')
-  if (existing) {
-    if (isVideoUrl(url)) {
-      if (existing.tagName !== 'VIDEO') {
-        const vid = document.createElement('video')
-        vid.id = 'preview-media'; vid.autoplay = true; vid.muted = true; vid.loop = true
-        vid.setAttribute('playsinline', '')
-        vid.style.cssText = 'width:100%;height:280px;object-fit:cover'
-        vid.src = url
-        existing.replaceWith(vid)
-      } else { existing.src = url }
-    } else {
-      if (existing.tagName !== 'IMG') {
-        const img = document.createElement('img')
-        img.id = 'preview-media'; img.style.cssText = 'width:100%;height:280px;object-fit:cover;display:block'
-        img.src = url
-        existing.replaceWith(img)
-      } else { existing.src = url }
-    }
+  if (!existing) return
+  if (isVideoUrl(url)) {
+    if (existing.tagName !== 'VIDEO') {
+      const vid = document.createElement('video')
+      vid.id = 'preview-media'; vid.autoplay = true; vid.muted = true; vid.loop = true
+      vid.setAttribute('playsinline', '')
+      vid.style.cssText = 'width:100%;height:420px;object-fit:cover'
+      vid.src = url
+      existing.replaceWith(vid)
+    } else { existing.src = url }
+  } else {
+    if (existing.tagName !== 'IMG') {
+      const img = document.createElement('img')
+      img.id = 'preview-media'; img.style.cssText = 'width:100%;height:420px;object-fit:cover;display:block'
+      img.src = url
+      existing.replaceWith(img)
+    } else { existing.src = url }
   }
   previewPhotos.forEach((_, i) => {
     const dot = document.getElementById('prev-dot-' + i)
@@ -2171,6 +2198,18 @@ function previewCarouselNav(dir) {
       dot.style.background = i === previewPhotoIdx ? '#fff' : 'rgba(255,255,255,0.4)'
     }
   })
+}
+function previewCarouselNav(dir) {
+  if (!previewPhotos.length) return
+  previewPhotoIdx = (previewPhotoIdx + dir + previewPhotos.length) % previewPhotos.length
+  if (!document.getElementById('preview-carousel')) return
+  previewCarouselUpdateMedia(previewPhotos[previewPhotoIdx])
+}
+function previewCarouselGoTo(i) {
+  if (!previewPhotos.length) return
+  previewPhotoIdx = i
+  if (!document.getElementById('preview-carousel')) return
+  previewCarouselUpdateMedia(previewPhotos[previewPhotoIdx])
 }
 function previewCarouselNext() { previewCarouselNav(1) }
 function previewCarouselPrev() { previewCarouselNav(-1) }
