@@ -1946,96 +1946,65 @@ async function loadContacts() {
     ;(profiles || []).forEach(p => { _contactsProfileCache[p.id] = p })
   }
 
-  function avatarItem(p) {
-    const photo = p.photo_urls?.[0]
-    const name = p.display_name || 'User'
-    const color = AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length]
-    return `<div onclick="showProfilePreview('${p.id}')" style="flex-shrink:0;cursor:pointer;text-align:center;width:68px">
-      <div style="width:56px;height:56px;border-radius:50%;overflow:hidden;margin:0 auto 6px;background:${color};display:flex;align-items:center;justify-content:center">
-        ${photo ? `<img src="${photo}" style="width:100%;height:100%;object-fit:cover">` : `<span style="color:#fff;font-size:20px;font-weight:700">${name[0].toUpperCase()}</span>`}
-      </div>
-      <p style="font-size:11px;color:#9e9b97;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:68px">${escapeHtml(name.split(' ')[0])}</p>
+  function contactCard(icon, title, sectionKey, count, gated) {
+    const badge = gated
+      ? `<span style="background:#e8503a;color:#fff;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;display:inline-flex;align-items:center;gap:4px">🔒 Plus</span>`
+      : `<span style="background:#e8503a;color:#fff;font-size:12px;font-weight:700;padding:3px 14px;border-radius:20px">${count}</span>`
+    const onclick = gated
+      ? `showUpgradePrompt('Upgrade to Plus to see who ${sectionKey === 'viewed' ? 'viewed' : 'liked'} your profile.')`
+      : `openContactsSection('${sectionKey}')`
+    return `<div onclick="${onclick}" style="background:#1c1c1c;border-radius:20px;border:1px solid #252525;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;aspect-ratio:1;padding:20px 12px;text-align:center;gap:10px${gated ? ';opacity:0.8' : ''}">
+      <span style="font-size:40px;line-height:1">${icon}</span>
+      <p style="color:#f0ede8;font-size:14px;font-weight:700;line-height:1.3">${title}</p>
+      ${badge}
     </div>`
   }
 
-  function renderSection(title, ids, sectionKey, gated) {
-    if (ids.length === 0) return ''
-    const profiles = ids.map(id => _contactsProfileCache[id]).filter(Boolean)
-    const rowContent = gated
-      ? Array(Math.min(ids.length, 6)).fill(0).map(() =>
-          `<div style="flex-shrink:0;width:68px;text-align:center">
-            <div style="width:56px;height:56px;border-radius:50%;background:#252525;margin:0 auto 6px"></div>
-            <div style="height:9px;width:36px;background:#252525;border-radius:4px;margin:0 auto"></div>
-          </div>`).join('')
-      : profiles.slice(0, 10).map(avatarItem).join('')
-    if (!rowContent) return ''
-    return `<div style="margin-bottom:24px">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-        <p style="font-size:14px;font-weight:700;color:#f0ede8">${title}</p>
-        <button onclick="showContactsAll('${sectionKey}')" style="background:none;border:none;color:#e8503a;font-size:13px;font-weight:600;cursor:pointer">See all</button>
-      </div>
-      <div style="position:relative">
-        <div style="display:flex;gap:10px;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch;scrollbar-width:none">${rowContent}</div>
-        ${gated ? `<div onclick="showUpgradePrompt('Upgrade to Plus to see who ${sectionKey === 'viewed' ? 'viewed' : 'liked'} your profile.')" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;cursor:pointer;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);background:rgba(10,10,10,0.55);border-radius:12px">
-          <div style="text-align:center"><p style="font-size:14px;font-weight:700;color:#f0ede8;margin-bottom:3px">🔒 Plus only</p><p style="color:#9e9b97;font-size:12px">Tap to upgrade</p></div>
-        </div>` : ''}
-      </div>
+  container.innerHTML = `
+    <div style="padding:12px 16px 24px;display:grid;grid-template-columns:repeat(2,1fr);gap:12px">
+      ${contactCard('👀', 'Who Viewed You', 'viewed', viewerIds.length, !isPremium)}
+      ${contactCard('❤️', 'Who Liked You', 'liked-me', likedMeIds.length, !isPremium)}
+      ${contactCard('💛', 'You Liked', 'i-liked', iLikedIds.length, false)}
+      ${contactCard('✅', 'Matches', 'matches', matchIds.length, false)}
     </div>`
-  }
-
-  const html = [
-    renderSection('👀 Who Viewed You', viewerIds, 'viewed', !isPremium),
-    renderSection('❤️ Who Liked You', likedMeIds, 'liked-me', !isPremium),
-    renderSection('💙 You Liked', iLikedIds, 'i-liked', false),
-    renderSection('✓ Matches', matchIds, 'matches', false),
-  ].join('')
-
-  container.innerHTML = html
-    ? `<div style="padding:16px">${html}</div>`
-    : `<div style="text-align:center;padding:60px 20px">
-        <p style="font-size:40px;margin-bottom:12px">💫</p>
-        <p style="color:#f0ede8;font-size:16px;font-weight:600;margin-bottom:8px">Nothing here yet</p>
-        <p style="color:#6b6866;font-size:14px">Start swiping to build your contacts.</p>
-      </div>`
 }
 
-function showContactsAll(sectionKey) {
-  const isPremium = !!(currentProfile?.is_premium || currentProfile?.is_admin)
-  if ((sectionKey === 'viewed' || sectionKey === 'liked-me') && !isPremium) {
-    showUpgradePrompt('Upgrade to Plus to see all contacts.')
-    return
-  }
-  const titles = { viewed: '👀 Who Viewed You', 'liked-me': '❤️ Who Liked You', 'i-liked': '💙 You Liked', matches: '✓ Matches' }
+function openContactsSection(sectionKey) {
+  const titles = { viewed: '👀 Who Viewed You', 'liked-me': '❤️ Who Liked You', 'i-liked': '💛 You Liked', matches: '✅ Matches' }
   const ids = _contactsData[sectionKey] || []
   const profiles = ids.map(id => _contactsProfileCache[id]).filter(Boolean)
-  if (!profiles.length) { showToast('No contacts to show yet.'); return }
 
-  const existing = document.getElementById('contacts-all-modal')
+  const existing = document.getElementById('contacts-section-page')
   if (existing) existing.remove()
-  const modal = document.createElement('div')
-  modal.id = 'contacts-all-modal'
-  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.88);display:flex;align-items:flex-end;justify-content:center;z-index:10000'
-  modal.onclick = e => { if (e.target === modal) modal.remove() }
-  const grid = profiles.map(p => {
-    const photo = p.photo_urls?.[0]
-    const name = p.display_name || 'User'
-    const color = AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length]
-    return `<div onclick="document.getElementById('contacts-all-modal').remove();showProfilePreview('${p.id}')" style="cursor:pointer;text-align:center">
-      <div style="width:56px;height:56px;border-radius:50%;overflow:hidden;margin:0 auto 5px;background:${color};display:flex;align-items:center;justify-content:center">
-        ${photo ? `<img src="${photo}" style="width:100%;height:100%;object-fit:cover">` : `<span style="color:#fff;font-size:18px;font-weight:700">${name[0].toUpperCase()}</span>`}
-      </div>
-      <p style="font-size:11px;color:#9e9b97;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:68px">${escapeHtml(name.split(' ')[0])}</p>
+  const page = document.createElement('div')
+  page.id = 'contacts-section-page'
+  page.style.cssText = 'position:fixed;inset:0;background:#0a0a0a;z-index:10000;display:flex;flex-direction:column'
+
+  const grid = profiles.length > 0
+    ? profiles.map(p => {
+        const photo = p.photo_urls?.[0]
+        const name = p.display_name || 'User'
+        const color = AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length]
+        return `<div onclick="document.getElementById('contacts-section-page').remove();showProfilePreview('${p.id}')" style="cursor:pointer;text-align:center;padding:8px 4px">
+          <div style="width:72px;height:72px;border-radius:50%;overflow:hidden;margin:0 auto 8px;background:${color};display:flex;align-items:center;justify-content:center">
+            ${photo ? `<img src="${photo}" style="width:100%;height:100%;object-fit:cover">` : `<span style="color:#fff;font-size:24px;font-weight:700">${name[0].toUpperCase()}</span>`}
+          </div>
+          <p style="font-size:12px;color:#9e9b97;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:80px;margin:0 auto">${escapeHtml(name.split(' ')[0])}</p>
+        </div>`
+      }).join('')
+    : '<p style="color:#6b6866;font-size:14px;text-align:center;padding:60px 0;grid-column:1/-1">Nobody here yet.</p>'
+
+  page.innerHTML = `
+    <div style="position:sticky;top:0;background:#0a0a0a;border-bottom:1px solid #1c1c1c;z-index:1;padding:52px 16px 16px;display:flex;align-items:center;gap:12px">
+      <button onclick="document.getElementById('contacts-section-page').remove()" style="background:rgba(255,255,255,0.08);border:none;border-radius:50%;width:40px;height:40px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0">
+        <span style="color:#f0ede8;font-size:22px;line-height:1">‹</span>
+      </button>
+      <h2 style="color:#f0ede8;font-size:20px;font-weight:700">${titles[sectionKey] || 'Contacts'}</h2>
+    </div>
+    <div style="flex:1;overflow-y:auto;padding:16px">
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">${grid}</div>
     </div>`
-  }).join('')
-  modal.innerHTML = `
-    <div style="background:#141414;border-radius:20px 20px 0 0;width:100%;max-width:480px;max-height:80vh;overflow-y:auto;padding:24px;border-top:1px solid #252525">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
-        <h3 style="color:#f0ede8;font-size:18px;font-weight:700">${titles[sectionKey] || 'Contacts'}</h3>
-        <button onclick="document.getElementById('contacts-all-modal').remove()" style="background:none;border:none;color:#6b6866;font-size:24px;cursor:pointer;line-height:1">×</button>
-      </div>
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px 8px">${grid}</div>
-    </div>`
-  document.body.appendChild(modal)
+  document.body.appendChild(page)
 }
 
 async function showProfilePreview(userId) {
@@ -3795,7 +3764,6 @@ const RESEARCH_ARTICLES = [
 
 
 const RESEARCH_SEEN_KEY = 'sx_research_seen_v2'
-let currentResearchTab = 'All'
 
 function checkResearchBadge() {
   const seen = JSON.parse(localStorage.getItem(RESEARCH_SEEN_KEY) || '[]')
@@ -3824,10 +3792,44 @@ function clearResearchBadge() {
 function loadResearch() {
   const list = el('research-list')
   if (!list) return
-  const TABS = ['All', 'Treatment', 'Vaccine', 'Cure Research', 'Holistic', 'Education', 'Wellbeing']
-  const filtered = currentResearchTab === 'All'
-    ? RESEARCH_ARTICLES
-    : RESEARCH_ARTICLES.filter(a => a.tag === currentResearchTab)
+
+  const TOPICS = [
+    { tag: 'Treatment',     icon: '💊', label: 'Treatments' },
+    { tag: 'Vaccine',       icon: '💉', label: 'Vaccines' },
+    { tag: 'Cure Research', icon: '🔬', label: 'Cure Research' },
+    { tag: 'Holistic',      icon: '🌿', label: 'Holistic' },
+    { tag: 'Education',     icon: '📚', label: 'Education' },
+    { tag: 'Wellbeing',     icon: '🧠', label: 'Wellbeing' },
+  ]
+
+  function topicCard(t) {
+    const count = RESEARCH_ARTICLES.filter(a => a.tag === t.tag).length
+    return `<div onclick="openResearchCategory('${t.tag}')" style="background:#1c1c1c;border-radius:20px;border:1px solid #252525;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;aspect-ratio:1;padding:20px 12px;text-align:center;gap:10px">
+      <span style="font-size:40px;line-height:1">${t.icon}</span>
+      <p style="color:#f0ede8;font-size:14px;font-weight:700;line-height:1.3">${t.label}</p>
+      <span style="background:#e8503a;color:#fff;font-size:12px;font-weight:700;padding:3px 14px;border-radius:20px">${count}</span>
+    </div>`
+  }
+
+  list.innerHTML = `
+    <div style="padding:20px 20px 12px">
+      <h2 style="color:#f0ede8;font-size:20px;font-weight:700;margin-bottom:4px">HSV Research & Education</h2>
+      <p style="color:#6b6866;font-size:13px">Treatments, vaccines, and holistic approaches.</p>
+    </div>
+    <div style="padding:0 16px 24px;display:grid;grid-template-columns:repeat(2,1fr);gap:12px">
+      ${TOPICS.map(t => topicCard(t)).join('')}
+    </div>`
+}
+
+function openResearchCategory(tag) {
+  const TOPIC_LABELS = { Treatment: '💊 Treatments', Vaccine: '💉 Vaccines', 'Cure Research': '🔬 Cure Research', Holistic: '🌿 Holistic', Education: '📚 Education', Wellbeing: '🧠 Wellbeing' }
+  const articles = RESEARCH_ARTICLES.filter(a => a.tag === tag)
+
+  const existing = document.getElementById('research-category-page')
+  if (existing) existing.remove()
+  const page = document.createElement('div')
+  page.id = 'research-category-page'
+  page.style.cssText = 'position:fixed;inset:0;background:#0a0a0a;z-index:10000;overflow-y:auto'
 
   function renderCard(a, i) {
     return `
@@ -3850,17 +3852,16 @@ function loadResearch() {
     </div>`
   }
 
-  list.innerHTML = `
-    <div style="padding:20px 20px 12px">
-      <h2 style="color:#f0ede8;font-size:20px;font-weight:700;margin-bottom:4px">HSV Research & Education</h2>
-      <p style="color:#6b6866;font-size:13px">Treatments, vaccines, and holistic approaches.</p>
+  page.innerHTML = `
+    <div style="position:sticky;top:0;background:#0a0a0a;border-bottom:1px solid #1c1c1c;z-index:1;padding:52px 16px 16px;display:flex;align-items:center;gap:12px">
+      <button onclick="document.getElementById('research-category-page').remove()" style="background:rgba(255,255,255,0.08);border:none;border-radius:50%;width:40px;height:40px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0">
+        <span style="color:#f0ede8;font-size:22px;line-height:1">‹</span>
+      </button>
+      <h2 style="color:#f0ede8;font-size:20px;font-weight:700">${TOPIC_LABELS[tag] || tag}</h2>
     </div>
-    <div style="display:flex;gap:8px;overflow-x:auto;padding:0 20px 16px;-webkit-overflow-scrolling:touch">
-      ${TABS.map(t => `<button onclick="setResearchTab('${t}')" style="flex-shrink:0;padding:7px 14px;border-radius:20px;border:${currentResearchTab===t?'none':'1px solid #252525'};background:${currentResearchTab===t?'#e8503a':'transparent'};color:${currentResearchTab===t?'#fff':'#9e9b97'};font-size:13px;font-weight:${currentResearchTab===t?'600':'400'};cursor:pointer;white-space:nowrap">${t}</button>`).join('')}
-    </div>
-    <div style="padding:0 20px">
-      ${filtered.length > 0
-        ? filtered.map((a, i) => renderCard(a, i)).join('')
+    <div style="padding:16px 20px">
+      ${articles.length > 0
+        ? articles.map(a => renderCard(a, RESEARCH_ARTICLES.indexOf(a))).join('')
         : '<p style="color:#6b6866;font-size:14px;text-align:center;padding:40px 0">No articles in this category yet.</p>'
       }
     </div>
@@ -3868,13 +3869,8 @@ function loadResearch() {
       <div style="background:#141414;border-radius:16px;border:1px solid #252525;padding:16px;margin-top:8px">
         <p style="color:#6b6866;font-size:12px;line-height:1.6;text-align:center">Simple-x does not provide medical advice. Research summaries are for informational purposes only. Speak with a healthcare provider about treatment options.</p>
       </div>
-    </div>
-  `
-}
-
-function setResearchTab(tab) {
-  currentResearchTab = tab
-  loadResearch()
+    </div>`
+  document.body.appendChild(page)
 }
 
 function toggleResearchCard(i) {
