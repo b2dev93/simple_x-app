@@ -384,6 +384,14 @@
         <h2 style="font-size:22px;font-weight:700">Messages</h2>
       </div>
 
+      <!-- Groups section -->
+      <div style="padding:12px 20px 4px;display:flex;align-items:center;justify-content:space-between">
+        <p style="font-size:13px;font-weight:700;color:#6b6866;text-transform:uppercase;letter-spacing:0.06em">Groups</p>
+        <button id="create-group-btn" onclick="showCreateGroupModal()" style="background:#e8503a;border:none;color:#fff;font-size:12px;font-weight:600;padding:5px 12px;border-radius:20px;cursor:pointer;display:none">+ New</button>
+      </div>
+      <div id="groups-list" style="padding:0 16px 8px"></div>
+      <div style="height:1px;background:#1a1a1a;margin:4px 0 8px"></div>
+
       <div id="matches-list"></div>
     </div>
 
@@ -414,7 +422,7 @@
 
     <!-- PROFILE TAB -->
     <div id="profile-content" style="display:none">
-      <input type="file" id="photo-input" accept="image/*,.heic,.heif" style="display:none" onchange="uploadPhoto(this)" multiple />
+      <input type="file" id="photo-input" accept="image/*,video/*,.heic,.heif" style="display:none" onchange="uploadPhoto(this)" multiple />
       <div id="profile-completion-nudge" onclick="toggleEdit()">
         <span>Complete your profile to get more matches ✏️</span>
         <button onclick="event.stopPropagation();dismissProfileNudge()" aria-label="Dismiss">×</button>
@@ -550,6 +558,13 @@
         </div>
         <div id="liked-list" style="display:flex;gap:10px;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch"></div>
       </div>
+      <div id="my-questions-section" style="margin-bottom:16px;display:none">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <p style="font-size:14px;font-weight:600;color:#f0ede8">❓ Questions for you</p>
+          <span id="questions-count" style="font-size:12px;color:#6b6866"></span>
+        </div>
+        <div id="questions-list"></div>
+      </div>
       <div id="premium-card" class="premium-card" onclick="showUpgradePrompt('Unlock unlimited likes, unlimited conversations, and more with Simple-x Plus.')" style="cursor:pointer">
         <div>
           <p class="premium-title">Simple-x Plus</p>
@@ -600,6 +615,27 @@
         <span class="nav-icon">👤</span>
         <span class="nav-label">Profile</span>
       </button>
+    </div>
+
+    <!-- GROUP CHAT OVERLAY -->
+    <div id="group-chat" style="display:none;position:absolute;inset:0;background:#0a0a0a;z-index:100;flex-direction:column">
+      <div class="chat-header">
+        <button class="back-btn" onclick="closeGroupChat()">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#9e9b97" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
+        <div style="width:38px;height:38px;border-radius:50%;background:#e8503a;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:#fff;flex-shrink:0" id="group-chat-avatar"></div>
+        <div style="flex:1">
+          <p style="font-weight:600;font-size:15px" id="group-chat-name"></p>
+          <p style="color:#6b6866;font-size:12px" id="group-chat-members"></p>
+        </div>
+      </div>
+      <div class="chat-messages" id="group-chat-messages"></div>
+      <div class="chat-input-bar">
+        <input class="chat-input" id="group-chat-input" placeholder="Message..." />
+        <button class="send-btn" onclick="sendGroupMessage()">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        </button>
+      </div>
     </div>
 
     <!-- CHAT OVERLAY -->
@@ -930,15 +966,23 @@ async function uploadPhoto(input) {
   const newUrls = []
 
   for (const file of toUpload) {
-    let jpegBlob
-    try {
-      jpegBlob = await convertToJpeg(file)
-    } catch (convErr) {
-      showToast('Could not process image: ' + convErr.message)
-      continue
+    const isVideo = file.type.startsWith('video/')
+    let uploadBlob = file
+    let contentType = file.type
+    let ext = isVideo ? (file.name.split('.').pop().toLowerCase() || 'mp4') : 'jpg'
+
+    if (!isVideo) {
+      try {
+        uploadBlob = await convertToJpeg(file)
+        contentType = 'image/jpeg'
+        ext = 'jpg'
+      } catch (convErr) {
+        showToast('Could not process image: ' + convErr.message)
+        continue
+      }
     }
-    const path = `${currentUser.id}/${Date.now()}_${Math.random().toString(36).slice(2)}.jpg`
-    const { error: upErr } = await sb.storage.from('avatars').upload(path, jpegBlob, { upsert: false, contentType: 'image/jpeg' })
+    const path = `${currentUser.id}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`
+    const { error: upErr } = await sb.storage.from('avatars').upload(path, uploadBlob, { upsert: false, contentType })
     if (upErr) { showToast('Upload failed: ' + upErr.message); continue }
     const { data: urlData } = sb.storage.from('avatars').getPublicUrl(path)
     newUrls.push(urlData.publicUrl)
@@ -951,7 +995,7 @@ async function uploadPhoto(input) {
   currentProfile.photo_urls = updatedUrls
   renderProfileScreen()
   input.value = ''
-  showToast(`${newUrls.length} photo${newUrls.length > 1 ? 's' : ''} uploaded.`)
+  showToast(`${newUrls.length} file${newUrls.length > 1 ? 's' : ''} uploaded.`)
 }
 
 async function deletePhoto(idx) {
@@ -1681,10 +1725,10 @@ function switchTab2(tab) {
   })
   el('location-pill').style.display = tab === 'discover' ? '' : 'none'
   el('settings-gear-btn').style.display = tab === 'profile' ? '' : 'none'
-  if (tab === 'messages') { loadMatches(); loadWinks() }
+  if (tab === 'messages') { loadMatches(); loadWinks(); loadGroups() }
   if (tab === 'research') loadResearch()
   if (tab === 'community') loadCommunity()
-  if (tab === 'profile') { renderProfileScreen(); loadProfileViews(); loadWhoLikedMe() }
+  if (tab === 'profile') { renderProfileScreen(); loadProfileViews(); loadWhoLikedMe(); loadMyQuestions() }
 }
 
 
@@ -1954,6 +1998,18 @@ async function showProfilePreview(userId) {
   const isMatched = !!match
   const alreadyLiked = !!existingSwipe
 
+  // Load answered Q&A for this profile
+  const { data: answeredQs } = await sb.from('anonymous_questions')
+    .select('question, answer')
+    .eq('target_id', userId)
+    .not('answer', 'is', null)
+    .order('created_at', { ascending: false })
+    .limit(10)
+
+  // Set up preview carousel state
+  previewPhotos = p.photo_urls || []
+  previewPhotoIdx = 0
+
   const modal = document.createElement('div')
   modal.id = 'profile-preview-modal'
   modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.92);display:flex;align-items:flex-end;justify-content:center;z-index:9999'
@@ -1970,7 +2026,22 @@ async function showProfilePreview(userId) {
 
   modal.innerHTML = `
     <div style="background:#141414;border-radius:20px 20px 0 0;width:100%;max-width:480px;border-top:1px solid #252525;overflow-y:auto;max-height:92vh">
-      ${photo ? `<img src="${photo}" style="width:100%;height:280px;object-fit:cover;flex-shrink:0">` : `<div style="width:100%;height:280px;background:#252525;display:flex;align-items:center;justify-content:center;font-size:64px;color:#f0ede8;flex-shrink:0">${name.charAt(0).toUpperCase()}</div>`}
+      ${previewPhotos.length > 0
+        ? `<div id="preview-carousel" style="position:relative;width:100%;height:280px;background:#0a0a0a;flex-shrink:0;overflow:hidden">
+            ${isVideoUrl(previewPhotos[0])
+              ? `<video id="preview-media" src="${previewPhotos[0]}" style="width:100%;height:280px;object-fit:cover" autoplay muted playsinline loop></video>`
+              : `<img id="preview-media" src="${previewPhotos[0]}" style="width:100%;height:280px;object-fit:cover;display:block">`
+            }
+            ${previewPhotos.length > 1 ? `
+              <div style="position:absolute;bottom:8px;left:0;right:0;display:flex;justify-content:center;gap:4px;z-index:5">
+                ${previewPhotos.map((_, i) => `<div id="prev-dot-${i}" style="width:${i===0?'18':'6'}px;height:6px;border-radius:3px;background:${i===0?'#fff':'rgba(255,255,255,0.4)'};transition:all 0.2s"></div>`).join('')}
+              </div>
+              <button onclick="previewCarouselPrev()" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,0.5);border:none;border-radius:50%;width:34px;height:34px;color:#fff;font-size:20px;cursor:pointer;line-height:1">‹</button>
+              <button onclick="previewCarouselNext()" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,0.5);border:none;border-radius:50%;width:34px;height:34px;color:#fff;font-size:20px;cursor:pointer;line-height:1">›</button>
+            ` : ''}
+          </div>`
+        : `<div style="width:100%;height:280px;background:#252525;display:flex;align-items:center;justify-content:center;font-size:64px;color:#f0ede8;flex-shrink:0">${name.charAt(0).toUpperCase()}</div>`
+      }
       <div style="padding:20px 24px 32px">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
           <h2 style="color:#f0ede8;font-size:22px;font-weight:700">${name}${age ? `, ${age}` : ''}</h2>
@@ -1998,6 +2069,16 @@ async function showProfilePreview(userId) {
         <div style="background:#1c1c1c;border-radius:14px;padding:16px;margin-bottom:16px;border:1px solid #252525">
           <p style="color:#9e9b97;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:10px">My Basics</p>
           ${basicsItems.map(item => `<p style="color:#9e9b97;font-size:14px;line-height:1.7">• ${item}</p>`).join('')}
+        </div>` : ''}
+
+        ${answeredQs?.length ? `
+        <div style="background:#1c1c1c;border-radius:14px;padding:16px;margin-bottom:16px;border:1px solid #252525">
+          <p style="color:#9e9b97;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:12px">❓ Q&A</p>
+          ${answeredQs.map(q => `
+            <div style="margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid #1e1e1e">
+              <p style="color:#f0ede8;font-size:13px;font-weight:600;margin-bottom:4px">${escapeHtml(q.question)}</p>
+              <p style="color:#9e9b97;font-size:13px;line-height:1.5">${escapeHtml(q.answer)}</p>
+            </div>`).join('')}
         </div>` : ''}
 
         ${!isMatched && alreadyLiked && !currentProfile?.is_premium ? `
@@ -2028,6 +2109,12 @@ async function showProfilePreview(userId) {
       msgB.onclick = () => { document.getElementById('profile-preview-modal')?.remove(); showUpgradePrompt('Upgrade to Plus to message anyone directly — no match required.') }
     }
 
+    const askB = document.createElement('button')
+    askB.style.cssText = 'flex:1;padding:14px;border-radius:12px;border:1px solid #252525;background:transparent;color:#9e9b97;font-size:16px;cursor:pointer'
+    askB.textContent = '❓'
+    askB.title = 'Ask anonymously'
+    askB.onclick = () => { document.getElementById('profile-preview-modal')?.remove(); askQuestion(p.id, name.split(' ')[0]) }
+
     if (!alreadyLiked && !isMatched) {
       const likeB = document.createElement('button')
       likeB.style.cssText = 'flex:2;padding:14px;border-radius:12px;border:none;background:#252525;color:#f0ede8;font-size:15px;font-weight:600;cursor:pointer'
@@ -2036,11 +2123,121 @@ async function showProfilePreview(userId) {
       btnsContainer.appendChild(winkB)
       btnsContainer.appendChild(likeB)
       btnsContainer.appendChild(msgB)
+      btnsContainer.appendChild(askB)
     } else {
       btnsContainer.appendChild(winkB)
       btnsContainer.appendChild(msgB)
+      btnsContainer.appendChild(askB)
     }
   }
+}
+
+function previewCarouselNav(dir) {
+  if (!previewPhotos.length) return
+  previewPhotoIdx = (previewPhotoIdx + dir + previewPhotos.length) % previewPhotos.length
+  const url = previewPhotos[previewPhotoIdx]
+  const carousel = document.getElementById('preview-carousel')
+  if (!carousel) return
+  const existing = document.getElementById('preview-media')
+  if (existing) {
+    if (isVideoUrl(url)) {
+      if (existing.tagName !== 'VIDEO') {
+        const vid = document.createElement('video')
+        vid.id = 'preview-media'; vid.autoplay = true; vid.muted = true; vid.loop = true
+        vid.setAttribute('playsinline', '')
+        vid.style.cssText = 'width:100%;height:280px;object-fit:cover'
+        vid.src = url
+        existing.replaceWith(vid)
+      } else { existing.src = url }
+    } else {
+      if (existing.tagName !== 'IMG') {
+        const img = document.createElement('img')
+        img.id = 'preview-media'; img.style.cssText = 'width:100%;height:280px;object-fit:cover;display:block'
+        img.src = url
+        existing.replaceWith(img)
+      } else { existing.src = url }
+    }
+  }
+  previewPhotos.forEach((_, i) => {
+    const dot = document.getElementById('prev-dot-' + i)
+    if (dot) {
+      dot.style.width = i === previewPhotoIdx ? '18px' : '6px'
+      dot.style.background = i === previewPhotoIdx ? '#fff' : 'rgba(255,255,255,0.4)'
+    }
+  })
+}
+function previewCarouselNext() { previewCarouselNav(1) }
+function previewCarouselPrev() { previewCarouselNav(-1) }
+
+function askQuestion(userId, name) {
+  const existing = document.getElementById('ask-question-modal')
+  if (existing) existing.remove()
+  const modal = document.createElement('div')
+  modal.id = 'ask-question-modal'
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;z-index:10000;padding:20px'
+  modal.onclick = e => { if (e.target === modal) modal.remove() }
+  const box = document.createElement('div')
+  box.style.cssText = 'background:#141414;border-radius:20px;padding:24px;width:100%;max-width:400px;border:1px solid #252525'
+  const nameEsc = escapeHtml(name)
+  box.innerHTML = `
+    <h3 style="color:#f0ede8;font-size:18px;font-weight:700;margin-bottom:6px">Ask ${nameEsc} anonymously</h3>
+    <p style="color:#6b6866;font-size:13px;margin-bottom:16px">They won't know who asked</p>
+    <textarea id="ask-q-input" class="input" placeholder="Type your question..." rows="3" style="resize:none;width:100%;margin-bottom:12px;box-sizing:border-box"></textarea>
+    <div style="display:flex;gap:8px">
+      <button onclick="document.getElementById('ask-question-modal').remove()" style="flex:1;padding:12px;border-radius:12px;border:1px solid #252525;background:transparent;color:#9e9b97;cursor:pointer">Cancel</button>
+      <button id="ask-submit-btn" style="flex:2;padding:12px;border-radius:12px;border:none;background:#e8503a;color:#fff;font-weight:600;cursor:pointer">Send Question</button>
+    </div>`
+  modal.appendChild(box)
+  document.body.appendChild(modal)
+  setTimeout(() => document.getElementById('ask-q-input')?.focus(), 100)
+  document.getElementById('ask-submit-btn').onclick = async () => {
+    const q = (document.getElementById('ask-q-input')?.value || '').trim()
+    if (!q) return
+    const btn = document.getElementById('ask-submit-btn')
+    btn.textContent = 'Sending...'; btn.disabled = true
+    const { error } = await sb.from('anonymous_questions').insert({ asker_id: currentUser.id, target_id: userId, question: q })
+    if (error) { showToast('Failed to send.'); btn.textContent = 'Send Question'; btn.disabled = false; return }
+    modal.remove()
+    showToast('Question sent anonymously! 🎉')
+  }
+}
+
+async function loadMyQuestions() {
+  const section = document.getElementById('my-questions-section')
+  const list = document.getElementById('questions-list')
+  const countEl = document.getElementById('questions-count')
+  if (!section || !list) return
+  const { data: questions } = await sb.from('anonymous_questions')
+    .select('*').eq('target_id', currentUser.id).order('created_at', { ascending: false })
+  if (!questions?.length) { section.style.display = 'none'; return }
+  section.style.display = ''
+  if (countEl) countEl.textContent = questions.length + (questions.length === 1 ? ' question' : ' questions')
+  list.innerHTML = questions.map(q => `
+    <div style="background:#1c1c1c;border-radius:14px;padding:16px;margin-bottom:10px;border:1px solid #252525">
+      <p style="color:#f0ede8;font-size:14px;font-weight:600;margin-bottom:10px">${escapeHtml(q.question)}</p>
+      ${q.answer
+        ? `<p style="color:#9e9b97;font-size:13px;line-height:1.5;margin-bottom:6px">${escapeHtml(q.answer)}</p>
+           <button onclick="clearAnswer('${q.id}')" style="font-size:12px;color:#6b6866;background:none;border:none;cursor:pointer;padding:0">Edit answer</button>`
+        : `<div style="display:flex;gap:8px;align-items:center">
+             <input class="input" id="ans-${q.id}" placeholder="Write your answer..." style="flex:1;padding:10px 14px;font-size:14px" />
+             <button onclick="submitAnswer('${q.id}')" style="padding:10px 14px;border-radius:10px;border:none;background:#e8503a;color:#fff;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap">Answer</button>
+           </div>`
+      }
+    </div>`).join('')
+}
+
+async function submitAnswer(questionId) {
+  const input = document.getElementById('ans-' + questionId)
+  const answer = (input?.value || '').trim()
+  if (!answer) return
+  await sb.from('anonymous_questions').update({ answer }).eq('id', questionId)
+  showToast('Answer posted!')
+  loadMyQuestions()
+}
+
+async function clearAnswer(questionId) {
+  await sb.from('anonymous_questions').update({ answer: null }).eq('id', questionId)
+  loadMyQuestions()
 }
 
 async function openDirectMessage(userId) {
@@ -2181,7 +2378,10 @@ function renderCard() {
         <div class="stamp stamp-pass" id="stamp-pass">PASS</div>
       </div>
       ${p.photo_urls?.length > 0
-        ? `<img class="card-photo" id="card-photo-img" src="${p.photo_urls[0]}" alt="" onclick="nextCardPhoto()" />
+        ? `${isVideoUrl(p.photo_urls[0])
+            ? `<video class="card-photo" id="card-photo-img" src="${p.photo_urls[0]}" autoplay muted playsinline loop style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0;cursor:pointer" onclick="nextCardPhoto()"></video>`
+            : `<img class="card-photo" id="card-photo-img" src="${p.photo_urls[0]}" alt="" onclick="nextCardPhoto()" />`
+          }
            ${p.photo_urls.length > 1 ? `
            <div style="position:absolute;top:10px;left:0;right:0;display:flex;justify-content:center;gap:4px;z-index:5;padding:0 12px">
              ${p.photo_urls.map((_, i) => `<div class="photo-dot ${i === 0 ? 'active' : ''}" id="photo-dot-${i}" style="flex:1;height:3px;border-radius:2px;background:${i === 0 ? '#fff' : 'rgba(255,255,255,0.4)'}"></div>`).join('')}
@@ -2262,8 +2462,29 @@ function nextCardPhoto() {
   const p = discoverProfiles[discoverIdx]
   if (!p?.photo_urls || p.photo_urls.length <= 1) return
   currentCardPhotoIdx = (currentCardPhotoIdx + 1) % p.photo_urls.length
-  const img = document.getElementById('card-photo-img')
-  if (img) img.src = p.photo_urls[currentCardPhotoIdx]
+  const url = p.photo_urls[currentCardPhotoIdx]
+  const existing = document.getElementById('card-photo-img')
+  if (existing) {
+    if (isVideoUrl(url)) {
+      if (existing.tagName !== 'VIDEO') {
+        const vid = document.createElement('video')
+        vid.className = 'card-photo'; vid.id = 'card-photo-img'
+        vid.autoplay = true; vid.muted = true; vid.loop = true
+        vid.setAttribute('playsinline', '')
+        vid.style.cssText = 'width:100%;height:100%;object-fit:cover;position:absolute;inset:0;cursor:pointer'
+        vid.onclick = nextCardPhoto
+        existing.replaceWith(vid)
+      } else { existing.src = url }
+    } else {
+      if (existing.tagName !== 'IMG') {
+        const img = document.createElement('img')
+        img.className = 'card-photo'; img.id = 'card-photo-img'; img.alt = ''
+        img.onclick = nextCardPhoto
+        existing.replaceWith(img)
+        document.getElementById('card-photo-img').src = url
+      } else { existing.src = url }
+    }
+  }
   p.photo_urls.forEach((_, i) => {
     const dot = document.getElementById('photo-dot-' + i)
     if (dot) dot.style.background = i === currentCardPhotoIdx ? '#fff' : 'rgba(255,255,255,0.4)'
@@ -2281,6 +2502,13 @@ function isNewMember(profile) {
   if (!profile?.created_at) return false
   return (Date.now() - new Date(profile.created_at).getTime()) < 7 * 24 * 3600 * 1000
 }
+
+function isVideoUrl(url) {
+  return /\.(mp4|mov|webm)(\?|$)/i.test(url || '')
+}
+
+let previewPhotos = []
+let previewPhotoIdx = 0
 
 function setupSwipeGesture() {
   const card = el('current-card')
@@ -2614,6 +2842,176 @@ function closeChat() {
   if (chatSubscription) { sb.removeChannel(chatSubscription); chatSubscription = null }
   activeMatch = null
   setTimeout(() => checkUnreadOnLoad(), 300)
+}
+
+// ── GROUP CHATS ────────────────────────────────────
+let activeGroupId = null
+let groupChatSubscription = null
+
+async function loadGroups() {
+  const listEl = document.getElementById('groups-list')
+  const createBtn = document.getElementById('create-group-btn')
+  if (!listEl) return
+  if (!currentProfile?.is_premium && !currentProfile?.is_admin) {
+    if (createBtn) createBtn.style.display = 'none'
+    listEl.innerHTML = `
+      <div style="position:relative;border-radius:14px;overflow:hidden;margin-bottom:4px">
+        <div style="filter:blur(4px);pointer-events:none;padding:12px 0">
+          <div style="background:#1c1c1c;border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:12px">
+            <div style="width:40px;height:40px;border-radius:50%;background:#252525"></div>
+            <div><p style="color:#f0ede8;font-size:14px;font-weight:600">HSV Support Group</p><p style="color:#6b6866;font-size:12px">5 members</p></div>
+          </div>
+        </div>
+        <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px">
+          <p style="color:#f0ede8;font-size:13px;font-weight:600">Plus feature</p>
+          <button onclick="showUpgradePrompt('Upgrade to Plus to create and join group chats.')" style="background:#e8503a;border:none;color:#fff;font-size:12px;font-weight:600;padding:8px 16px;border-radius:20px;cursor:pointer">Upgrade to Plus</button>
+        </div>
+      </div>`
+    return
+  }
+  if (createBtn) createBtn.style.display = ''
+  const { data: groups } = await sb.from('group_chats')
+    .select('*')
+    .or(`created_by.eq.${currentUser.id},members.cs.{${currentUser.id}}`)
+    .order('created_at', { ascending: false })
+  if (!groups?.length) {
+    listEl.innerHTML = '<p style="color:#6b6866;font-size:13px;text-align:center;padding:8px 0 4px">No groups yet. Create one!</p>'
+    return
+  }
+  listEl.innerHTML = groups.map((g, i) => {
+    const color = AVATAR_COLORS[i % AVATAR_COLORS.length]
+    return `
+      <div onclick="openGroupChat('${g.id}','${escapeHtml(g.name).replace(/'/g,"&#39;")}')" style="background:#1c1c1c;border-radius:14px;padding:12px 16px;margin-bottom:8px;display:flex;align-items:center;gap:12px;cursor:pointer;border:1px solid #252525">
+        <div style="width:40px;height:40px;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:#fff;flex-shrink:0">${escapeHtml(g.name[0].toUpperCase())}</div>
+        <div style="flex:1;min-width:0">
+          <p style="color:#f0ede8;font-size:15px;font-weight:600;margin-bottom:2px">${escapeHtml(g.name)}</p>
+          <p style="color:#6b6866;font-size:12px">${(g.members?.length || 0) + 1} members</p>
+        </div>
+      </div>`
+  }).join('')
+}
+
+async function showCreateGroupModal() {
+  const { data: matches } = await sb.from('matches')
+    .select('*, profiles_a:profiles!matches_user_a_fkey(id, display_name), profiles_b:profiles!matches_user_b_fkey(id, display_name)')
+    .or(`user_a.eq.${currentUser.id},user_b.eq.${currentUser.id}`).limit(50)
+  const others = (matches || []).map(m => m.user_a === currentUser.id ? m.profiles_b : m.profiles_a).filter(Boolean)
+  document.getElementById('create-group-modal')?.remove()
+  const modal = document.createElement('div')
+  modal.id = 'create-group-modal'
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);display:flex;align-items:flex-end;justify-content:center;z-index:9999'
+  modal.onclick = e => { if (e.target === modal) modal.remove() }
+  const box = document.createElement('div')
+  box.style.cssText = 'background:#141414;border-radius:20px 20px 0 0;width:100%;max-width:480px;padding:24px 20px 40px;border-top:1px solid #252525;max-height:85vh;overflow-y:auto'
+  box.innerHTML = `
+    <h3 style="color:#f0ede8;font-size:18px;font-weight:700;margin-bottom:16px">New Group Chat</h3>
+    <input class="input" id="group-name-input" placeholder="Group name" style="margin-bottom:16px" />
+    <p style="color:#9e9b97;font-size:13px;font-weight:600;margin-bottom:10px">Add members from matches (up to 10)</p>
+    <div id="member-select-list">
+      ${others.length === 0
+        ? '<p style="color:#6b6866;font-size:13px;padding:8px 0">Match with people first to add them to groups.</p>'
+        : others.map(o => `
+          <label style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #1e1e1e;cursor:pointer">
+            <input type="checkbox" data-uid="${o.id}" style="width:18px;height:18px;cursor:pointer;accent-color:#e8503a" />
+            <span style="color:#f0ede8;font-size:15px">${escapeHtml(o.display_name || 'User')}</span>
+          </label>`).join('')
+      }
+    </div>
+    <div style="display:flex;gap:8px;margin-top:20px">
+      <button onclick="document.getElementById('create-group-modal').remove()" style="flex:1;padding:14px;border-radius:12px;border:1px solid #252525;background:transparent;color:#9e9b97;cursor:pointer">Cancel</button>
+      <button id="create-group-submit" style="flex:2;padding:14px;border-radius:12px;border:none;background:#e8503a;color:#fff;font-weight:600;cursor:pointer">Create Group</button>
+    </div>`
+  modal.appendChild(box)
+  document.body.appendChild(modal)
+  document.getElementById('create-group-submit').onclick = async () => {
+    const name = (document.getElementById('group-name-input')?.value || '').trim()
+    if (!name) { showToast('Enter a group name'); return }
+    const checked = Array.from(document.querySelectorAll('#member-select-list input[type=checkbox]:checked'))
+    const memberIds = checked.map(cb => cb.dataset.uid).slice(0, 10)
+    const btn = document.getElementById('create-group-submit')
+    btn.textContent = 'Creating...'; btn.disabled = true
+    const { error } = await sb.from('group_chats').insert({ name, created_by: currentUser.id, members: memberIds })
+    if (error) { showToast('Failed to create group.'); btn.textContent = 'Create Group'; btn.disabled = false; return }
+    modal.remove(); showToast('Group created! 🎉'); loadGroups()
+  }
+}
+
+async function openGroupChat(groupId, groupName) {
+  if (!groupName) {
+    const { data: g } = await sb.from('group_chats').select('name, members').eq('id', groupId).single()
+    groupName = g?.name || 'Group'
+    activeGroupId = groupId
+    document.getElementById('group-chat-name').textContent = groupName
+    document.getElementById('group-chat-avatar').textContent = groupName[0].toUpperCase()
+    document.getElementById('group-chat-members').textContent = ((g?.members?.length || 0) + 1) + ' members'
+  } else {
+    activeGroupId = groupId
+    document.getElementById('group-chat-name').textContent = groupName
+    document.getElementById('group-chat-avatar').textContent = groupName[0].toUpperCase()
+  }
+  const gcEl = document.getElementById('group-chat')
+  gcEl.style.display = 'flex'
+  loadGroupMessages()
+  if (groupChatSubscription) sb.removeChannel(groupChatSubscription)
+  groupChatSubscription = sb.channel('gchat-' + groupId)
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'group_messages', filter: `group_id=eq.${groupId}` },
+      payload => appendGroupMessage(payload.new))
+    .subscribe()
+  const input = document.getElementById('group-chat-input')
+  if (input) input.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); sendGroupMessage() } }
+}
+
+function closeGroupChat() {
+  document.getElementById('group-chat').style.display = 'none'
+  if (groupChatSubscription) { sb.removeChannel(groupChatSubscription); groupChatSubscription = null }
+  activeGroupId = null
+}
+
+async function loadGroupMessages() {
+  const msgs = document.getElementById('group-chat-messages')
+  if (!msgs) return
+  msgs.innerHTML = ''
+  const { data } = await sb.from('group_messages')
+    .select('*, sender:profiles!group_messages_sender_id_fkey(display_name)')
+    .eq('group_id', activeGroupId).order('created_at')
+  if (!data?.length) {
+    msgs.innerHTML = '<p style="color:#6b6866;font-size:14px;text-align:center;margin-top:40px">No messages yet. Say something!</p>'
+    return
+  }
+  data.forEach(m => appendGroupMessage(m, true))
+  msgs.scrollTop = msgs.scrollHeight
+}
+
+function appendGroupMessage(msg, skipScroll) {
+  const msgs = document.getElementById('group-chat-messages')
+  if (!msgs) return
+  const isMine = msg.sender_id === currentUser.id
+  const senderName = msg.sender?.display_name || 'Member'
+  const placeholder = msgs.querySelector('p')
+  if (placeholder) placeholder.remove()
+  const div = document.createElement('div')
+  div.style.cssText = `display:flex;flex-direction:column;align-items:${isMine ? 'flex-end' : 'flex-start'};margin-bottom:8px`
+  if (!isMine) {
+    const label = document.createElement('p')
+    label.textContent = senderName
+    label.style.cssText = 'color:#6b6866;font-size:11px;margin-bottom:2px;margin-left:4px'
+    div.appendChild(label)
+  }
+  const bubble = document.createElement('div')
+  bubble.style.cssText = `max-width:75%;padding:10px 14px;border-radius:${isMine ? '18px 18px 4px 18px' : '18px 18px 18px 4px'};background:${isMine ? '#e8503a' : '#1c1c1c'};color:${isMine ? '#fff' : '#f0ede8'};font-size:15px;line-height:1.4`
+  bubble.textContent = msg.content
+  div.appendChild(bubble)
+  msgs.appendChild(div)
+  if (!skipScroll) msgs.scrollTop = msgs.scrollHeight
+}
+
+async function sendGroupMessage() {
+  const input = document.getElementById('group-chat-input')
+  if (!input || !activeGroupId) return
+  const content = input.value.trim()
+  if (!content) return
+  input.value = ''
+  await sb.from('group_messages').insert({ group_id: activeGroupId, sender_id: currentUser.id, content })
 }
 
 async function markMessagesRead(matchId) {
@@ -2987,7 +3385,10 @@ function renderPhotoGrid() {
     const cell = document.createElement('div')
     cell.style.cssText = 'position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;background:#1c1c1c'
     cell.innerHTML = `
-      <img src="${url}" style="width:100%;height:100%;object-fit:cover" />
+      ${isVideoUrl(url)
+        ? `<video src="${url}" style="width:100%;height:100%;object-fit:cover" muted playsinline preload="metadata"></video><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none"><span style="font-size:24px;opacity:0.85">▶️</span></div>`
+        : `<img src="${url}" style="width:100%;height:100%;object-fit:cover" />`
+      }
       <button onclick="deletePhoto(${i})" style="position:absolute;top:4px;right:4px;width:22px;height:22px;border-radius:50%;background:rgba(0,0,0,0.7);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;line-height:1">×</button>
       ${i === 0 ? '<div style="position:absolute;bottom:4px;left:4px;background:rgba(0,0,0,0.6);border-radius:6px;padding:2px 6px;font-size:10px;color:#fff">Main</div>' : ''}
     `
