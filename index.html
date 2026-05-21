@@ -341,6 +341,12 @@
         <button id="sub-tab-liked" onclick="switchDiscoverTab('liked')" style="flex:1;padding:12px;border:none;background:transparent;color:#6b6866;font-size:14px;font-weight:600;cursor:pointer;border-bottom:2px solid transparent">❤️ Liked</button>
       </div>
 
+      <!-- ANDROID BETA TESTER BANNER -->
+      <div id="android-beta-banner" style="display:none;position:absolute;top:44px;left:0;right:0;z-index:9;background:#e8503a;padding:12px 16px;align-items:center;gap:8px">
+        <a href="https://play.google.com/apps/testing/com.simplexlabs.simplex" target="_blank" rel="noopener" style="color:#fff;font-size:14px;font-weight:600;flex:1;text-decoration:none;line-height:1.3">🚀 Help us launch on Google Play! Tap to become a beta tester →</a>
+        <button onclick="dismissBetaBanner()" style="background:none;border:none;color:#fff;font-size:22px;cursor:pointer;padding:0 0 0 8px;line-height:1;flex-shrink:0">×</button>
+      </div>
+
       <!-- SWIPE VIEW -->
       <div id="discover-swipe-view" style="position:absolute;top:44px;left:0;right:0;bottom:0">
         <div class="card-stack" id="card-stack"></div>
@@ -1226,7 +1232,7 @@ async function enterApp(user) {
   show('app-shell')
   updateStreak()
   showOnboarding()
-  requestAnimationFrame(() => requestAnimationFrame(() => switchTab2('discover')))
+  requestAnimationFrame(() => requestAnimationFrame(() => { switchTab2('discover'); showBetaBanner() }))
   loadDiscover()
   renderProfileScreen()
   startRealtimeListeners()
@@ -2496,6 +2502,29 @@ function getAge(birthdate) {
   let age = n.getFullYear() - d.getFullYear()
   if (n < new Date(n.getFullYear(), d.getMonth(), d.getDate())) age--
   return age
+}
+
+function showBetaBanner() {
+  if (!navigator.userAgent.includes('Android')) return
+  if (localStorage.getItem('sx_tester_dismissed')) return
+  const banner = document.getElementById('android-beta-banner')
+  if (!banner) return
+  banner.style.display = 'flex'
+  const h = banner.offsetHeight || 44
+  ;['discover-swipe-view', 'discover-online-view', 'discover-liked-view'].forEach(id => {
+    const v = document.getElementById(id)
+    if (v) v.style.top = (44 + h) + 'px'
+  })
+}
+
+function dismissBetaBanner() {
+  localStorage.setItem('sx_tester_dismissed', '1')
+  const banner = document.getElementById('android-beta-banner')
+  if (banner) banner.style.display = 'none'
+  ;['discover-swipe-view', 'discover-online-view', 'discover-liked-view'].forEach(id => {
+    const v = document.getElementById(id)
+    if (v) v.style.top = '44px'
+  })
 }
 
 function isNewMember(profile) {
