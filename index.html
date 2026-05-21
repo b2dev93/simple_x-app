@@ -139,6 +139,8 @@
     .bubble.mine { background: #e8503a; border-radius: 18px 18px 4px 18px; align-self: flex-end; }
     .bubble.theirs { background: #1c1c1c; border-radius: 18px 18px 18px 4px; align-self: flex-start; }
     .bubble-time { font-size: 10px; color: rgba(255,255,255,0.55); margin-top: 4px; text-align: right; }
+    #chat-starters { display: none; padding: 8px 16px 4px; gap: 8px; flex-wrap: wrap; border-top: 1px solid #1c1c1c; background: #0a0a0a; flex-shrink: 0; }
+    .starter-btn { padding: 8px 14px; border-radius: 20px; border: 1px solid #252525; background: #141414; color: #9e9b97; font-size: 13px; cursor: pointer; white-space: nowrap; }
     .chat-input-bar { padding: 12px 16px; border-top: 1px solid #252525; display: flex; gap: 10px; flex-shrink: 0; background: #141414; padding-bottom: calc(12px + env(safe-area-inset-bottom)); position: sticky; bottom: 0; }
     .chat-input { flex: 1; padding: 12px 16px; border-radius: 24px; border: 1px solid #252525; background: #0a0a0a; color: #f0ede8; font-size: 15px; outline: none; }
     .chat-input::placeholder { color: #6b6866; }
@@ -537,6 +539,13 @@
         </div>
         <div id="viewers-list" style="display:flex;gap:10px;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch"></div>
       </div>
+      <div id="who-liked-section" style="margin-bottom:16px;display:none">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <p style="font-size:14px;font-weight:600;color:#f0ede8">❤️ Who liked you</p>
+          <span id="liked-count" style="font-size:12px;color:#6b6866"></span>
+        </div>
+        <div id="liked-list" style="display:flex;gap:10px;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch"></div>
+      </div>
       <div id="premium-card" class="premium-card" onclick="showUpgradePrompt('Unlock unlimited likes, unlimited conversations, and more with Simple-x Plus.')" style="cursor:pointer">
         <div>
           <p class="premium-title">Simple-x Plus</p>
@@ -605,6 +614,11 @@
         </button>
       </div>
       <div class="chat-messages" id="chat-messages"></div>
+      <div id="chat-starters">
+        <button class="starter-btn" onclick="useStarter(this)">Hey! How long have you been on Simple-x? 👋</button>
+        <button class="starter-btn" onclick="useStarter(this)">What's something you're passionate about? ✨</button>
+        <button class="starter-btn" onclick="useStarter(this)">Have you tried any good restaurants lately? 🍕</button>
+      </div>
       <div class="chat-input-bar">
         <input class="chat-input" id="chat-input" placeholder="Message..." />
         <button class="send-btn" id="send-btn" onclick="sendMessage()">
@@ -805,6 +819,7 @@ let currentUser = null
 let currentProfile = null
 let discoverProfiles = []
 let discoverIdx = 0
+let secondLookChecked = false
 let currentMatchId = null
 let chatSubscription = null
 let authTab = 'in'
@@ -1622,7 +1637,7 @@ function switchTab2(tab) {
   if (tab === 'messages') { loadMatches(); loadWinks() }
   if (tab === 'research') loadResearch()
   if (tab === 'community') loadCommunity()
-  if (tab === 'profile') { renderProfileScreen(); loadProfileViews() }
+  if (tab === 'profile') { renderProfileScreen(); loadProfileViews(); loadWhoLikedMe() }
 }
 
 
@@ -2058,6 +2073,7 @@ async function updateLastSeen() {
 }
 
 async function loadDiscover() {
+  secondLookChecked = false
   el('card-stack').innerHTML = '<div class="empty-state"><p style="color:#6b6866;font-size:14px">Finding people nearby...</p></div>'
   const { data: swipes } = await sb.from('swipes').select('swiped_id').eq('swiper_id', currentUser.id)
   const swipedIds = (swipes || []).map(s => s.swiped_id)
@@ -2100,20 +2116,15 @@ async function loadDiscover() {
 function renderCard() {
   const stack = el('card-stack')
   if (discoverIdx >= discoverProfiles.length) {
-    stack.innerHTML = `
-      <div class="empty-state">
-        <p class="empty-icon">🌿</p>
-        <p class="empty-title">All caught up</p>
-        <p class="empty-sub">Check back soon — new people join every day</p>
-        <button class="btn-ghost" style="margin-top:16px;width:auto;padding:12px 28px" onclick="loadDiscover()">Refresh</button>
-      </div>`
+    maybeShowSecondLook(stack)
     return
   }
   const p = discoverProfiles[discoverIdx]
   const color = AVATAR_COLORS[discoverIdx % AVATAR_COLORS.length]
   stack.innerHTML = `
     <div class="profile-card" id="current-card" style="background:${color}">
-      <div class="card-header">
+      ${p._secondLook ? `<div style="position:absolute;top:0;left:0;right:0;z-index:15;background:rgba(232,80,58,0.9);padding:9px 16px;text-align:center"><p style="color:#fff;font-size:13px;font-weight:600;letter-spacing:0.01em">We think you might like this person 👀</p></div>` : ''}
+      <div class="card-header" style="${p._secondLook ? 'top:38px' : ''}">
         <div class="stamp stamp-like" id="stamp-like">LIKE</div>
         <div class="stamp stamp-pass" id="stamp-pass">PASS</div>
       </div>
@@ -2154,6 +2165,44 @@ function renderCard() {
 
   currentCardPhotoIdx = 0
   setupSwipeGesture()
+}
+
+function renderEmptyState() {
+  el('card-stack').innerHTML = `
+    <div class="empty-state">
+      <p class="empty-icon">🌿</p>
+      <p class="empty-title">All caught up</p>
+      <p class="empty-sub">Check back soon — new people join every day</p>
+      <button class="btn-ghost" style="margin-top:16px;width:auto;padding:12px 28px" onclick="loadDiscover()">Refresh</button>
+    </div>`
+}
+
+async function maybeShowSecondLook(stack) {
+  const today = new Date().toISOString().slice(0, 10)
+  if (secondLookChecked || localStorage.getItem('sx_last_suggestion') === today) {
+    renderEmptyState()
+    return
+  }
+  secondLookChecked = true
+  stack.innerHTML = '<div class="empty-state"><p style="color:#6b6866;font-size:14px">Finding someone for you...</p></div>'
+
+  const { data: passes } = await sb.from('swipes')
+    .select('swiped_id')
+    .eq('swiper_id', currentUser.id)
+    .eq('direction', 'pass')
+    .limit(50)
+
+  if (!passes || passes.length === 0) { renderEmptyState(); return }
+
+  const randomId = passes[Math.floor(Math.random() * passes.length)].swiped_id
+  const { data: profile } = await sb.from('profiles').select('*').eq('id', randomId).single()
+
+  if (!profile) { renderEmptyState(); return }
+
+  localStorage.setItem('sx_last_suggestion', today)
+  profile._secondLook = true
+  discoverProfiles.push(profile)
+  renderCard()
 }
 
 let currentCardPhotoIdx = 0
@@ -2496,6 +2545,7 @@ function openChat(match) {
     .subscribe()
 
   el('chat-input').onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); sendMessage() } }
+  el('chat-input').oninput = () => { if (el('chat-input').value) hideStarters() }
 }
 
 function closeChat() {
@@ -2520,13 +2570,30 @@ async function markMessagesRead(matchId) {
 async function loadChatMessages() {
   const msgs = el('chat-messages')
   msgs.innerHTML = ''
+  hideStarters()
   const { data } = await sb.from('messages').select('*, read_at').eq('match_id', activeMatch.id).order('created_at')
   if (!data || data.length === 0) {
     const other = activeMatch.user_a === currentUser.id ? activeMatch.profiles_b : activeMatch.profiles_a
     msgs.innerHTML = `<p style="color:#6b6866;font-size:14px;text-align:center;margin-top:40px">You matched with ${other?.display_name}. Say hey!</p>`
+    showStarters()
     return
   }
   data.forEach(m => appendMessage(m))
+}
+
+function showStarters() {
+  const s = el('chat-starters')
+  if (s) s.style.display = 'flex'
+}
+function hideStarters() {
+  const s = el('chat-starters')
+  if (s) s.style.display = 'none'
+}
+function useStarter(btn) {
+  const input = el('chat-input')
+  input.value = btn.textContent
+  hideStarters()
+  input.focus()
 }
 
 function appendMessage(msg) {
@@ -2550,41 +2617,61 @@ function appendMessage(msg) {
   div.appendChild(textSpan)
   div.appendChild(timeDiv)
 
-  // Long press to delete own messages
-  if (mine) {
-    let pressTimer = null
-    div.addEventListener('touchstart', () => {
-      pressTimer = setTimeout(() => showDeleteMessageMenu(msg.id, div), 600)
-    })
-    div.addEventListener('touchend', () => clearTimeout(pressTimer))
-    div.addEventListener('touchmove', () => clearTimeout(pressTimer))
-    // Desktop right-click
-    div.addEventListener('contextmenu', e => {
-      e.preventDefault()
-      showDeleteMessageMenu(msg.id, div)
-    })
-  }
+  // Long-press (500ms) on any bubble → report/delete menu
+  let pressTimer = null
+  div.addEventListener('touchstart', () => { pressTimer = setTimeout(() => showMessageMenu(msg, div), 500) }, { passive: true })
+  div.addEventListener('touchend',   () => clearTimeout(pressTimer))
+  div.addEventListener('touchmove',  () => clearTimeout(pressTimer), { passive: true })
+  div.addEventListener('contextmenu', e => { e.preventDefault(); showMessageMenu(msg, div) })
 
+  hideStarters()
   msgs.appendChild(div)
   msgs.scrollTop = msgs.scrollHeight
 }
 
-function showDeleteMessageMenu(msgId, bubbleEl) {
-  const existing = document.getElementById('msg-delete-menu')
-  if (existing) existing.remove()
-
+function showMessageMenu(msg, bubbleEl) {
+  document.getElementById('msg-action-menu')?.remove()
+  const mine = msg.sender_id === currentUser.id
   const rect = bubbleEl.getBoundingClientRect()
   const menu = document.createElement('div')
-  menu.id = 'msg-delete-menu'
-  menu.style.cssText = `position:fixed;top:${rect.top - 48}px;right:16px;background:#1c1c1c;border:1px solid #252525;border-radius:12px;padding:4px;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,0.5)`
-  menu.innerHTML = `<button onclick="deleteMessage('${msgId}')" style="display:block;width:100%;padding:10px 20px;border:none;background:transparent;color:#e8503a;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap">🗑 Delete message</button>`
+  menu.id = 'msg-action-menu'
+  const top = Math.max(8, rect.top - (mine ? 100 : 52))
+  menu.style.cssText = `position:fixed;top:${top}px;${mine ? 'right:16px' : 'left:16px'};background:#1c1c1c;border:1px solid #252525;border-radius:12px;padding:4px;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,0.5);min-width:190px`
+
+  const reportBtn = document.createElement('button')
+  reportBtn.textContent = '🚩 Report message'
+  reportBtn.style.cssText = 'display:block;width:100%;padding:10px 20px;border:none;background:transparent;color:#f0ede8;font-size:14px;cursor:pointer;white-space:nowrap;text-align:left'
+  reportBtn.onclick = () => { menu.remove(); reportMessage(msg) }
+  menu.appendChild(reportBtn)
+
+  if (mine) {
+    const sep = document.createElement('div')
+    sep.style.cssText = 'height:1px;background:#252525;margin:0 4px'
+    menu.appendChild(sep)
+    const deleteBtn = document.createElement('button')
+    deleteBtn.textContent = '🗑 Delete message'
+    deleteBtn.style.cssText = 'display:block;width:100%;padding:10px 20px;border:none;background:transparent;color:#e8503a;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap;text-align:left'
+    deleteBtn.onclick = () => { menu.remove(); deleteMessage(msg.id) }
+    menu.appendChild(deleteBtn)
+  }
 
   document.body.appendChild(menu)
   setTimeout(() => document.addEventListener('click', () => menu.remove(), { once: true }), 10)
 }
 
+async function reportMessage(msg) {
+  const { error } = await sb.from('reports').insert({
+    reporter_id: currentUser.id,
+    reported_id: msg.sender_id,
+    type: 'message',
+    context: msg.content
+  })
+  if (error) { showToast('Could not submit report.'); return }
+  showToast('Message reported')
+}
+
 async function deleteMessage(msgId) {
-  document.getElementById('msg-delete-menu')?.remove()
+  document.getElementById('msg-action-menu')?.remove()
   const { error } = await sb.from('messages').delete().eq('id', msgId).eq('sender_id', currentUser.id)
   if (error) { showToast('Could not delete message.'); return }
 
@@ -2695,6 +2782,70 @@ async function loadProfileViews() {
           ${photo ? `<img src="${photo}" style="width:100%;height:100%;object-fit:cover"/>` : `<span style="color:#fff;font-size:20px;font-weight:700">${initial}</span>`}
         </div>
         <p style="font-size:10px;color:#9e9b97;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:64px">${s?.display_name || 'User'}</p>
+      </div>`
+  }).join('')
+}
+
+async function loadWhoLikedMe() {
+  const section = el('who-liked-section')
+  const list    = el('liked-list')
+  const countEl = el('liked-count')
+  if (!section) return
+
+  // Free users: blurred upgrade prompt with placeholder avatars
+  if (!currentProfile?.is_premium) {
+    section.style.display = ''
+    section.style.filter = 'blur(4px)'
+    section.style.pointerEvents = 'auto'
+    section.style.cursor = 'pointer'
+    section.onclick = () => showUpgradePrompt('Upgrade to Plus to see who liked your profile.')
+    countEl.textContent = 'Plus only'
+    list.innerHTML = Array(4).fill(0).map(() =>
+      `<div style="width:56px;height:56px;border-radius:50%;background:#1c1c1c;flex-shrink:0"></div>`
+    ).join('')
+    return
+  }
+
+  section.style.filter = ''
+  section.style.cursor = ''
+  section.onclick = null
+
+  // Fetch inbound likes (people who liked me)
+  const { data: inbound } = await sb.from('swipes')
+    .select('swiper_id')
+    .eq('swiped_id', currentUser.id)
+    .in('direction', ['like', 'super'])
+
+  if (!inbound || inbound.length === 0) { section.style.display = 'none'; return }
+
+  // Fetch my own swipes so we can exclude people I already responded to
+  const { data: mySwipes } = await sb.from('swipes')
+    .select('swiped_id')
+    .eq('swiper_id', currentUser.id)
+  const mySwipedSet = new Set((mySwipes || []).map(s => s.swiped_id))
+
+  const unreciprocated = [...new Set(inbound.map(r => r.swiper_id))].filter(id => !mySwipedSet.has(id))
+  if (unreciprocated.length === 0) { section.style.display = 'none'; return }
+
+  const { data: profiles } = await sb.from('profiles')
+    .select('id, display_name, photo_urls')
+    .in('id', unreciprocated)
+    .limit(20)
+
+  if (!profiles || profiles.length === 0) { section.style.display = 'none'; return }
+
+  section.style.display = ''
+  countEl.textContent = profiles.length + (profiles.length === 1 ? ' person' : ' people')
+  list.innerHTML = profiles.map((p, i) => {
+    const photo   = p.photo_urls?.[0]
+    const initial = (p.display_name || '?')[0].toUpperCase()
+    const color   = AVATAR_COLORS[i % AVATAR_COLORS.length]
+    return `
+      <div onclick="showProfilePreview('${p.id}')" style="flex-shrink:0;cursor:pointer;text-align:center;width:64px">
+        <div style="width:56px;height:56px;border-radius:50%;overflow:hidden;margin:0 auto 4px;background:${color};display:flex;align-items:center;justify-content:center;border:2px solid #e8503a">
+          ${photo ? `<img src="${photo}" style="width:100%;height:100%;object-fit:cover"/>` : `<span style="color:#fff;font-size:20px;font-weight:700">${initial}</span>`}
+        </div>
+        <p style="font-size:10px;color:#9e9b97;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:64px">${p.display_name || 'User'}</p>
       </div>`
   }).join('')
 }
