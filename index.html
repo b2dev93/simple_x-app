@@ -338,7 +338,7 @@
       <div style="display:flex;border-bottom:1px solid #1c1c1c;background:#0a0a0a;position:sticky;top:56px;z-index:10">
         <button id="sub-tab-swipe" onclick="switchDiscoverTab('swipe')" style="flex:1;padding:12px;border:none;background:transparent;color:#e8503a;font-size:14px;font-weight:600;cursor:pointer;border-bottom:2px solid #e8503a">Discover</button>
         <button id="sub-tab-online" onclick="switchDiscoverTab('online')" style="flex:1;padding:12px;border:none;background:transparent;color:#6b6866;font-size:14px;font-weight:600;cursor:pointer;border-bottom:2px solid transparent">● Online</button>
-        <button id="sub-tab-liked" onclick="switchDiscoverTab('liked')" style="flex:1;padding:12px;border:none;background:transparent;color:#6b6866;font-size:14px;font-weight:600;cursor:pointer;border-bottom:2px solid transparent">❤️ Liked</button>
+        <button id="sub-tab-liked" onclick="switchDiscoverTab('liked')" style="flex:1;padding:12px;border:none;background:transparent;color:#6b6866;font-size:14px;font-weight:600;cursor:pointer;border-bottom:2px solid transparent">📋 Contacts</button>
       </div>
 
       <!-- ANDROID BETA TESTER BANNER -->
@@ -368,17 +368,13 @@
         </div>
       </div>
 
-      <!-- LIKED RECENTLY VIEW -->
+      <!-- CONTACTS VIEW -->
       <div id="discover-liked-view" style="display:none;position:absolute;top:44px;left:0;right:0;bottom:0;overflow-y:auto">
-        <div style="padding:16px">
-        <div style="display:flex;gap:8px;margin-bottom:16px;overflow-x:auto;scrollbar-width:none">
-          <button onclick="setLikedSort('recent')" id="liked-sort-recent" style="flex-shrink:0;padding:6px 14px;border-radius:20px;border:1px solid #e8503a;background:#3a1a14;color:#e8503a;font-size:13px;font-weight:600;cursor:pointer">Most Recent</button>
-          <button onclick="setLikedSort('matched')" id="liked-sort-matched" style="flex-shrink:0;padding:6px 14px;border-radius:20px;border:1px solid #252525;background:transparent;color:#6b6866;font-size:13px;cursor:pointer">✓ Matched</button>
-          <button onclick="setLikedSort('pending')" id="liked-sort-pending" style="flex-shrink:0;padding:6px 14px;border-radius:20px;border:1px solid #252525;background:transparent;color:#6b6866;font-size:13px;cursor:pointer">⏳ Pending</button>
+        <div style="padding:20px 20px 0;margin-bottom:4px">
+          <h2 style="font-size:22px;font-weight:700">Contacts</h2>
         </div>
-        <div id="liked-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:3px">
-          <div style="grid-column:1/-1;text-align:center;padding:40px 0"><p style="color:#6b6866;font-size:14px">Loading...</p></div>
-        </div>
+        <div id="contacts-container">
+          <div style="text-align:center;padding:40px 0"><p style="color:#6b6866;font-size:14px">Loading...</p></div>
         </div>
       </div>
 
@@ -547,20 +543,7 @@
         </div>
         <button class="btn-primary" onclick="saveProfile()">Save changes</button>
       </div>
-      <div id="who-viewed-section" style="margin-bottom:16px;display:none">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-          <p style="font-size:14px;font-weight:600;color:#f0ede8">👀 Who viewed you</p>
-          <span id="viewers-count" style="font-size:12px;color:#6b6866"></span>
-        </div>
-        <div id="viewers-list" style="display:flex;gap:10px;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch"></div>
-      </div>
-      <div id="who-liked-section" style="margin-bottom:16px;display:none">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-          <p style="font-size:14px;font-weight:600;color:#f0ede8">❤️ Who liked you</p>
-          <span id="liked-count" style="font-size:12px;color:#6b6866"></span>
-        </div>
-        <div id="liked-list" style="display:flex;gap:10px;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch"></div>
-      </div>
+
       <div id="my-questions-section" style="margin-bottom:16px;display:none">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
           <p style="font-size:14px;font-weight:600;color:#f0ede8">❓ Questions for you</p>
@@ -1387,9 +1370,12 @@ async function loadCommunity() {
           <p style="color:#6b6866;font-size:12px">${new Date(p.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
         </div>
         ${isOwn || isAdminUser ? `
-        <button onclick="deletePost('${p.id}')" style="background:none;border:none;color:#6b6866;font-size:12px;cursor:pointer;padding:4px 8px;border-radius:8px;border:1px solid #252525">
-          ${isAdminUser && !isOwn ? 'Remove' : 'Delete'}
-        </button>` : ''}
+        <div style="display:flex;gap:6px">
+          ${isOwn ? `<button onclick="editPost('${p.id}')" style="background:none;border:none;color:#9e9b97;font-size:12px;cursor:pointer;padding:4px 8px;border-radius:8px;border:1px solid #252525">✏️ Edit</button>` : ''}
+          <button onclick="deletePost('${p.id}')" style="background:none;border:none;color:#6b6866;font-size:12px;cursor:pointer;padding:4px 8px;border-radius:8px;border:1px solid #252525">
+            ${isAdminUser && !isOwn ? 'Remove' : 'Delete'}
+          </button>
+        </div>` : ''}
       </div>
       ${p.title ? `<p style="color:#f0ede8;font-size:15px;font-weight:600;margin-bottom:6px">${escapeHtml(p.title)}</p>` : ''}
       <p style="color:#9e9b97;font-size:14px;line-height:1.6;white-space:pre-wrap">${escapeHtml(p.body)}</p>
@@ -1557,6 +1543,46 @@ async function deletePost(postId) {
   const { error } = await sb.from('community_posts').delete().eq('id', postId)
   if (error) { showToast('Could not remove post.'); return }
   showToast('Post removed.')
+  loadCommunity()
+}
+
+async function editPost(postId) {
+  const { data: post } = await sb.from('community_posts').select('title, body').eq('id', postId).single()
+  if (!post) return
+  const existing = document.getElementById('edit-post-modal')
+  if (existing) existing.remove()
+  const modal = document.createElement('div')
+  modal.id = 'edit-post-modal'
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);display:flex;align-items:flex-end;justify-content:center;z-index:10000'
+  modal.onclick = e => { if (e.target === modal) modal.remove() }
+  modal.innerHTML = `
+    <div style="background:#141414;border-radius:20px 20px 0 0;width:100%;max-width:480px;padding:24px;border-top:1px solid #252525">
+      <h3 style="color:#f0ede8;font-size:18px;font-weight:700;margin-bottom:16px">Edit Post</h3>
+      <input id="edit-post-title" placeholder="Title (optional)" style="width:100%;padding:12px;background:#1c1c1c;border:1px solid #252525;border-radius:12px;color:#f0ede8;font-size:14px;margin-bottom:12px;box-sizing:border-box;outline:none;font-family:inherit">
+      <textarea id="edit-post-body" rows="6" placeholder="What's on your mind?" style="width:100%;padding:12px;background:#1c1c1c;border:1px solid #252525;border-radius:12px;color:#f0ede8;font-size:14px;resize:vertical;box-sizing:border-box;font-family:inherit;outline:none"></textarea>
+      <div style="display:flex;gap:10px;margin-top:14px">
+        <button onclick="document.getElementById('edit-post-modal').remove()" style="flex:1;padding:14px;border-radius:12px;border:1px solid #252525;background:transparent;color:#9e9b97;font-size:15px;cursor:pointer">Cancel</button>
+        <button id="edit-post-save-btn" onclick="saveEditPost('${postId}')" style="flex:2;padding:14px;border-radius:12px;border:none;background:#e8503a;color:#fff;font-size:15px;font-weight:600;cursor:pointer">Save</button>
+      </div>
+    </div>`
+  document.body.appendChild(modal)
+  const titleInput = document.getElementById('edit-post-title')
+  const bodyTextarea = document.getElementById('edit-post-body')
+  if (titleInput) titleInput.value = post.title || ''
+  if (bodyTextarea) { bodyTextarea.value = post.body || ''; setTimeout(() => bodyTextarea.focus(), 50) }
+}
+
+async function saveEditPost(postId) {
+  const body = (document.getElementById('edit-post-body')?.value || '').trim()
+  const titleEl = document.getElementById('edit-post-title')
+  const title = titleEl ? titleEl.value.trim() : null
+  if (!body) { showToast('Post cannot be empty.'); return }
+  const btn = document.getElementById('edit-post-save-btn')
+  if (btn) { btn.textContent = 'Saving...'; btn.disabled = true }
+  const { error } = await sb.from('community_posts').update({ body, title: title || null }).eq('id', postId)
+  if (error) { showToast('Could not save changes.'); if (btn) { btn.textContent = 'Save'; btn.disabled = false } return }
+  document.getElementById('edit-post-modal')?.remove()
+  showToast('Post updated.')
   loadCommunity()
 }
 
@@ -1731,7 +1757,7 @@ function switchTab2(tab) {
   if (tab === 'messages') { loadMatches(); loadWinks(); loadGroups() }
   if (tab === 'research') loadResearch()
   if (tab === 'community') loadCommunity()
-  if (tab === 'profile') { renderProfileScreen(); loadProfileViews(); loadWhoLikedMe(); loadMyQuestions() }
+  if (tab === 'profile') { renderProfileScreen(); loadMyQuestions() }
 }
 
 
@@ -1739,7 +1765,8 @@ function switchTab2(tab) {
 // ── DISCOVER SUB-TABS ─────────────────────────────
 let currentDiscoverTab = 'swipe'
 let currentOnlineSort = 'recent'
-let currentLikedSort = 'recent'
+let _contactsProfileCache = {}
+let _contactsData = {}
 
 function switchDiscoverTab(tab) {
   currentDiscoverTab = tab
@@ -1755,7 +1782,7 @@ function switchDiscoverTab(tab) {
     if (view) view.style.display = isActive ? '' : 'none'
   })
   if (tab === 'online') loadOnlineNow()
-  if (tab === 'liked') loadLikedRecently()
+  if (tab === 'liked') loadContacts()
 }
 
 function setOnlineSort(sort) {
@@ -1773,20 +1800,6 @@ function setOnlineSort(sort) {
   loadOnlineNow()
 }
 
-function setLikedSort(sort) {
-  currentLikedSort = sort
-  const sorts = ['recent', 'matched', 'pending']
-  sorts.forEach(s => {
-    const btn = el(`liked-sort-${s}`)
-    if (!btn) return
-    const isActive = s === sort
-    btn.style.borderColor = isActive ? '#e8503a' : '#252525'
-    btn.style.background = isActive ? '#3a1a14' : 'transparent'
-    btn.style.color = isActive ? '#e8503a' : '#6b6866'
-    btn.style.fontWeight = isActive ? '600' : '400'
-  })
-  loadLikedRecently()
-}
 
 function renderProfileGrid(profiles, containerId, emptyMsg) {
   const grid = el(containerId)
@@ -1902,70 +1915,127 @@ function renderOnlineFeed(profiles) {
   }).join('')
 }
 
-async function loadLikedRecently() {
-  const grid = el('liked-grid')
-  grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:40px 0"><p style="color:#6b6866;font-size:14px">Loading...</p></div>`
+async function loadContacts() {
+  const container = document.getElementById('contacts-container')
+  if (!container) return
+  container.innerHTML = '<div style="text-align:center;padding:40px 0"><p style="color:#6b6866;font-size:14px">Loading...</p></div>'
 
-  const { data: swipes } = await sb.from('swipes')
-    .select('swiped_id, created_at')
-    .eq('swiper_id', currentUser.id)
-    .in('direction', ['like', 'super'])
-    .order('created_at', { ascending: false })
-    .limit(60)
+  const isPremium = !!(currentProfile?.is_premium || currentProfile?.is_admin)
 
-  if (!swipes || swipes.length === 0) {
-    grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:60px 20px"><p style="color:#6b6866;font-size:14px">You haven't liked anyone yet. Start swiping!</p></div>`
-    return
-  }
-
-  const ids = swipes.map(s => s.swiped_id)
-  const [{ data: profiles }, { data: matches }] = await Promise.all([
-    sb.from('profiles').select('*').in('id', ids),
-    sb.from('matches')
-      .select('user_a, user_b')
-      .or(`user_a.eq.${currentUser.id},user_b.eq.${currentUser.id}`)
+  const [{ data: views }, { data: likedMe }, { data: iLiked }, { data: matchRows }] = await Promise.all([
+    sb.from('profile_views').select('viewer_id').eq('viewed_id', currentUser.id).order('created_at', { ascending: false }).limit(50),
+    sb.from('swipes').select('swiper_id').eq('swiped_id', currentUser.id).in('direction', ['like', 'super']).order('created_at', { ascending: false }).limit(50),
+    sb.from('swipes').select('swiped_id').eq('swiper_id', currentUser.id).in('direction', ['like', 'super']).order('created_at', { ascending: false }).limit(50),
+    sb.from('matches').select('user_a, user_b').or(`user_a.eq.${currentUser.id},user_b.eq.${currentUser.id}`).order('created_at', { ascending: false }).limit(50)
   ])
 
-  const profileMap = Object.fromEntries((profiles || []).map(p => [p.id, p]))
-  const matchedIds = new Set(
-    (matches || []).map(m => m.user_a === currentUser.id ? m.user_b : m.user_a)
-  )
+  const viewerIds = [...new Set((views || []).map(v => v.viewer_id).filter(id => id !== currentUser.id))]
+  const likedMeIds = [...new Set((likedMe || []).map(l => l.swiper_id).filter(id => id !== currentUser.id))]
+  const iLikedIds = [...new Set((iLiked || []).map(l => l.swiped_id))]
+  const matchIds = (matchRows || []).map(m => m.user_a === currentUser.id ? m.user_b : m.user_a)
 
-  let ordered = swipes.map(s => profileMap[s.swiped_id]).filter(Boolean)
+  _contactsData = { viewed: viewerIds, 'liked-me': likedMeIds, 'i-liked': iLikedIds, matches: matchIds }
 
-  if (currentLikedSort === 'matched') {
-    ordered = ordered.filter(p => matchedIds.has(p.id))
-  } else if (currentLikedSort === 'pending') {
-    ordered = ordered.filter(p => !matchedIds.has(p.id))
+  const fetchIds = isPremium
+    ? [...new Set([...viewerIds, ...likedMeIds, ...iLikedIds, ...matchIds])]
+    : [...new Set([...iLikedIds, ...matchIds])]
+
+  _contactsProfileCache = {}
+  if (fetchIds.length > 0) {
+    const { data: profiles } = await sb.from('profiles').select('id, display_name, photo_urls').in('id', fetchIds)
+    ;(profiles || []).forEach(p => { _contactsProfileCache[p.id] = p })
   }
 
-  if (ordered.length === 0) {
-    const msg = currentLikedSort === 'matched'
-      ? "No matches yet — keep liking!"
-      : currentLikedSort === 'pending'
-      ? "Everyone you liked has matched with you! 🎉"
-      : "No liked profiles found."
-    grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:60px 20px"><p style="color:#6b6866;font-size:14px">${msg}</p></div>`
-    return
-  }
-
-  grid.innerHTML = ordered.map(p => {
+  function avatarItem(p) {
     const photo = p.photo_urls?.[0]
-    const name = p.display_name || 'Member'
-    const isOnline = p.last_seen && (Date.now() - new Date(p.last_seen).getTime()) < 15 * 60 * 1000
-    const isMatch = matchedIds.has(p.id)
-    return `
-    <div onclick="showProfilePreview('${p.id}')" style="cursor:pointer;position:relative;aspect-ratio:1;background:#1c1c1c;overflow:hidden">
-      ${photo
-        ? `<img src="${photo}" style="width:100%;height:100%;object-fit:cover">`
-        : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:32px;color:#f0ede8;font-weight:700">${name.charAt(0).toUpperCase()}</div>`}
-      ${isOnline ? `<span style="position:absolute;top:6px;right:6px;width:10px;height:10px;background:#2ecc71;border-radius:50%;border:2px solid #0a0a0a"></span>` : ''}
-      ${isMatch ? `<span style="position:absolute;top:6px;left:6px;background:#e8503a;border-radius:20px;padding:2px 6px;font-size:10px;font-weight:700;color:#fff">✓</span>` : ''}
-      <div style="position:absolute;bottom:0;left:0;right:0;background:linear-gradient(transparent,rgba(0,0,0,0.75));padding:16px 8px 6px">
-        <p style="color:#fff;font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${name.split(' ')[0]}</p>
+    const name = p.display_name || 'User'
+    const color = AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length]
+    return `<div onclick="showProfilePreview('${p.id}')" style="flex-shrink:0;cursor:pointer;text-align:center;width:68px">
+      <div style="width:56px;height:56px;border-radius:50%;overflow:hidden;margin:0 auto 6px;background:${color};display:flex;align-items:center;justify-content:center">
+        ${photo ? `<img src="${photo}" style="width:100%;height:100%;object-fit:cover">` : `<span style="color:#fff;font-size:20px;font-weight:700">${name[0].toUpperCase()}</span>`}
+      </div>
+      <p style="font-size:11px;color:#9e9b97;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:68px">${escapeHtml(name.split(' ')[0])}</p>
+    </div>`
+  }
+
+  function renderSection(title, ids, sectionKey, gated) {
+    if (ids.length === 0) return ''
+    const profiles = ids.map(id => _contactsProfileCache[id]).filter(Boolean)
+    const rowContent = gated
+      ? Array(Math.min(ids.length, 6)).fill(0).map(() =>
+          `<div style="flex-shrink:0;width:68px;text-align:center">
+            <div style="width:56px;height:56px;border-radius:50%;background:#252525;margin:0 auto 6px"></div>
+            <div style="height:9px;width:36px;background:#252525;border-radius:4px;margin:0 auto"></div>
+          </div>`).join('')
+      : profiles.slice(0, 10).map(avatarItem).join('')
+    if (!rowContent) return ''
+    return `<div style="margin-bottom:24px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <p style="font-size:14px;font-weight:700;color:#f0ede8">${title}</p>
+        <button onclick="showContactsAll('${sectionKey}')" style="background:none;border:none;color:#e8503a;font-size:13px;font-weight:600;cursor:pointer">See all</button>
+      </div>
+      <div style="position:relative">
+        <div style="display:flex;gap:10px;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch;scrollbar-width:none">${rowContent}</div>
+        ${gated ? `<div onclick="showUpgradePrompt('Upgrade to Plus to see who ${sectionKey === 'viewed' ? 'viewed' : 'liked'} your profile.')" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;cursor:pointer;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);background:rgba(10,10,10,0.55);border-radius:12px">
+          <div style="text-align:center"><p style="font-size:14px;font-weight:700;color:#f0ede8;margin-bottom:3px">🔒 Plus only</p><p style="color:#9e9b97;font-size:12px">Tap to upgrade</p></div>
+        </div>` : ''}
       </div>
     </div>`
+  }
+
+  const html = [
+    renderSection('👀 Who Viewed You', viewerIds, 'viewed', !isPremium),
+    renderSection('❤️ Who Liked You', likedMeIds, 'liked-me', !isPremium),
+    renderSection('💙 You Liked', iLikedIds, 'i-liked', false),
+    renderSection('✓ Matches', matchIds, 'matches', false),
+  ].join('')
+
+  container.innerHTML = html
+    ? `<div style="padding:16px">${html}</div>`
+    : `<div style="text-align:center;padding:60px 20px">
+        <p style="font-size:40px;margin-bottom:12px">💫</p>
+        <p style="color:#f0ede8;font-size:16px;font-weight:600;margin-bottom:8px">Nothing here yet</p>
+        <p style="color:#6b6866;font-size:14px">Start swiping to build your contacts.</p>
+      </div>`
+}
+
+function showContactsAll(sectionKey) {
+  const isPremium = !!(currentProfile?.is_premium || currentProfile?.is_admin)
+  if ((sectionKey === 'viewed' || sectionKey === 'liked-me') && !isPremium) {
+    showUpgradePrompt('Upgrade to Plus to see all contacts.')
+    return
+  }
+  const titles = { viewed: '👀 Who Viewed You', 'liked-me': '❤️ Who Liked You', 'i-liked': '💙 You Liked', matches: '✓ Matches' }
+  const ids = _contactsData[sectionKey] || []
+  const profiles = ids.map(id => _contactsProfileCache[id]).filter(Boolean)
+  if (!profiles.length) { showToast('No contacts to show yet.'); return }
+
+  const existing = document.getElementById('contacts-all-modal')
+  if (existing) existing.remove()
+  const modal = document.createElement('div')
+  modal.id = 'contacts-all-modal'
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.88);display:flex;align-items:flex-end;justify-content:center;z-index:10000'
+  modal.onclick = e => { if (e.target === modal) modal.remove() }
+  const grid = profiles.map(p => {
+    const photo = p.photo_urls?.[0]
+    const name = p.display_name || 'User'
+    const color = AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length]
+    return `<div onclick="document.getElementById('contacts-all-modal').remove();showProfilePreview('${p.id}')" style="cursor:pointer;text-align:center">
+      <div style="width:56px;height:56px;border-radius:50%;overflow:hidden;margin:0 auto 5px;background:${color};display:flex;align-items:center;justify-content:center">
+        ${photo ? `<img src="${photo}" style="width:100%;height:100%;object-fit:cover">` : `<span style="color:#fff;font-size:18px;font-weight:700">${name[0].toUpperCase()}</span>`}
+      </div>
+      <p style="font-size:11px;color:#9e9b97;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:68px">${escapeHtml(name.split(' ')[0])}</p>
+    </div>`
   }).join('')
+  modal.innerHTML = `
+    <div style="background:#141414;border-radius:20px 20px 0 0;width:100%;max-width:480px;max-height:80vh;overflow-y:auto;padding:24px;border-top:1px solid #252525">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+        <h3 style="color:#f0ede8;font-size:18px;font-weight:700">${titles[sectionKey] || 'Contacts'}</h3>
+        <button onclick="document.getElementById('contacts-all-modal').remove()" style="background:none;border:none;color:#6b6866;font-size:24px;cursor:pointer;line-height:1">×</button>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px 8px">${grid}</div>
+    </div>`
+  document.body.appendChild(modal)
 }
 
 async function showProfilePreview(userId) {
@@ -2335,7 +2405,7 @@ async function likeFromPreview(userId) {
   } else {
     showToast('Liked! ❤️')
   }
-  loadLikedRecently()
+  if (currentDiscoverTab === 'liked') loadContacts()
 }
 
 async function feedLike(userId, btn) {
