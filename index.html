@@ -402,10 +402,7 @@
     </div>
 
     <!-- RESEARCH TAB -->
-    <div id="research-content" style="display:none;position:absolute;top:56px;left:0;right:0;bottom:64px;overflow-y:auto;padding:20px 20px 20px">
-      <h2 style="font-size:22px;font-weight:700;margin-bottom:4px">HSV Research</h2>
-      <p style="color:#6b6866;font-size:13px;margin-bottom:24px">Latest updates on treatments and cures</p>
-
+    <div id="research-content" style="display:none;position:absolute;top:56px;left:0;right:0;bottom:64px;overflow-y:auto;">
       <div id="research-list">
         <div style="text-align:center;padding:40px 0"><p style="color:#6b6866;font-size:14px">Loading updates...</p></div>
       </div>
@@ -3560,6 +3557,7 @@ const RESEARCH_ARTICLES = [
   {
     title: "L-Lysine: the most evidence-backed supplement for outbreak prevention",
     date: "Holistic — Evidence Based",
+    oneLiner: "An amino acid supplement with real evidence for reducing outbreak frequency.",
     summary: "L-Lysine is an amino acid that competes with arginine, which HSV needs to replicate. Multiple clinical studies show that 1,000–3,000mg daily of L-Lysine reduces outbreak frequency and severity for many people. High-lysine foods include chicken, fish, eggs, and legumes. Pairing supplementation with a low-arginine diet (reducing nuts, seeds, and chocolate during stress) is the most consistently supported dietary approach to HSV management.",
     tag: "Holistic",
     tagColor: "#27ae60",
@@ -3570,6 +3568,7 @@ const RESEARCH_ARTICLES = [
   {
     title: "Zinc: topical and oral evidence for reducing outbreak severity",
     date: "Holistic — Evidence Based",
+    oneLiner: "Zinc cream or supplements can cut how bad and how long outbreaks last.",
     summary: "Topical zinc sulfate (0.25–4%) applied at the first sign of an outbreak has been shown in controlled trials to reduce healing time and symptom severity. Oral zinc supplementation (25–50mg zinc gluconate daily) is associated with reduced outbreak frequency in some studies. Zinc supports immune function broadly and is inexpensive and well-tolerated. Avoid taking zinc on an empty stomach.",
     tag: "Holistic",
     tagColor: "#27ae60",
@@ -3580,6 +3579,7 @@ const RESEARCH_ARTICLES = [
   {
     title: "Lemon balm (Melissa officinalis): clinically tested topical for outbreaks",
     date: "Holistic — Evidence Based",
+    oneLiner: "An herbal cream proven to cut cold sore healing time in half.",
     summary: "Lemon balm extract is one of the few herbal remedies with genuine clinical trial data for HSV. Topical lemon balm cream applied several times daily at the first sign of a cold sore or genital outbreak reduced healing time from 10 days to 5–6 days in double-blind studies. It also significantly reduced recurrence at treated sites. Available as cream or lip balm at health food stores.",
     tag: "Holistic",
     tagColor: "#27ae60",
@@ -3590,6 +3590,7 @@ const RESEARCH_ARTICLES = [
   {
     title: "Diet, stress and HSV: what actually triggers outbreaks",
     date: "Holistic — Lifestyle",
+    oneLiner: "Learn what actually triggers outbreaks and how to reduce them naturally.",
     summary: "The most consistent outbreak triggers identified in research are: psychological stress (elevated cortisol suppresses immune response), poor sleep, sun exposure on the face/lips, illness or fever, and hormonal changes. Dietary triggers vary by person but arginine-rich foods (nuts, seeds, dark chocolate) are commonly reported. Practical management: prioritize sleep, use daily SPF on lips, consider daily suppressive therapy during high-stress periods, and track your personal triggers.",
     tag: "Holistic",
     tagColor: "#27ae60",
@@ -3600,6 +3601,7 @@ const RESEARCH_ARTICLES = [
   {
     title: "ABI-5366: 94% viral shedding reduction — Phase II launching mid-2026",
     date: "2026 — New",
+    oneLiner: "A new drug that cuts herpes shedding by 94% — the biggest treatment breakthrough in decades.",
     summary: "ABI-5366, developed by Assembly Bio in partnership with Gilead Sciences, reduced HSV-2 viral shedding by 94% in a Phase Ib trial — far exceeding the 80-85% target. Phase II trials are expected to launch mid-2026. The drug has potential for once-weekly or once-monthly oral dosing, a major improvement over daily antivirals. Not a cure, but possibly the most significant treatment advance in decades.",
     tag: "Treatment",
     tagColor: "#3498db",
@@ -3610,6 +3612,7 @@ const RESEARCH_ARTICLES = [
   {
     title: "Pritelivir: Phase 3 complete — FDA filing expected 2026",
     date: "2026 — Updated",
+    oneLiner: "A new antiviral almost done with FDA approval that works differently from Valtrex.",
     summary: "Pritelivir has completed a successful Phase 3 trial and the company plans to file for FDA approval in 2026. It targets the viral helicase-primase complex differently than acyclovir-class drugs, making it effective for patients with drug-resistant HSV. This is the most advanced new antiviral in the approval pipeline.",
     tag: "Treatment",
     tagColor: "#3498db",
@@ -3620,6 +3623,7 @@ const RESEARCH_ARTICLES = [
   {
     title: "BioNTech HSV-2 preventive vaccine (BNT163) in Phase 1 trials",
     date: "2026 — New",
+    oneLiner: "BioNTech (the COVID vaccine company) is testing a preventive HSV-2 vaccine.",
     summary: "BioNTech — the company behind one of the COVID-19 vaccines — has a preventive HSV-2 vaccine called BNT163 in Phase 1 clinical trials. Early data shows it is safe and producing an immune response in participants. Note: Moderna dropped their HSV vaccine program in late 2025. BNT163 is a preventive vaccine for people who do not yet have HSV-2, not a therapeutic cure.",
     tag: "Vaccine",
     tagColor: "#e8503a",
@@ -3630,6 +3634,7 @@ const RESEARCH_ARTICLES = [
   {
     title: "CRISPR & gene drive: Fred Hutch eliminates 90%+ of latent HSV",
     date: "2024–2026",
+    oneLiner: "Scientists deleted 90% of hidden herpes virus from nerve cells using gene editing.",
     summary: "Fred Hutch researchers have eliminated 90% or more of latent HSV-1 in preclinical animal models using dual gene-editing scissors (meganucleases + CRISPR). In a 2024 follow-up, the same team demonstrated a gene drive approach — using a modified herpes virus to target and rewrite HSV DNA in infected neurons. Human clinical trials are being planned. This remains the most credible path toward a functional cure.",
     tag: "Cure Research",
     tagColor: "#2ecc71",
@@ -3639,6 +3644,7 @@ const RESEARCH_ARTICLES = [
   {
     title: "Suppressive therapy: what the evidence actually shows",
     date: "Established",
+    oneLiner: "Daily Valtrex cuts transmission risk by 48% and outbreaks by 75%.",
     summary: "Daily valacyclovir (Valtrex) reduces HSV-2 transmission to uninfected partners by approximately 48% in clinical studies when combined with consistent condom use. It also reduces outbreak frequency by 70–80% for most people. This is the most evidence-backed tool currently available for managing HSV.",
     tag: "Treatment",
     tagColor: "#3498db",
@@ -3648,6 +3654,7 @@ const RESEARCH_ARTICLES = [
   {
     title: "HSV prevalence: understanding the actual numbers",
     date: "CDC / WHO Data",
+    oneLiner: "Most people with herpes don't know it — you're far from alone.",
     summary: "HSV-1 affects roughly 67% of adults globally under 50. HSV-2 affects approximately 11% of adults in the US aged 14–49. The majority of people with HSV are undiagnosed. Stigma significantly outpaces medical risk — most people with HSV live without symptoms or with manageable, infrequent outbreaks.",
     tag: "Education",
     tagColor: "#f5c518",
@@ -3657,6 +3664,7 @@ const RESEARCH_ARTICLES = [
   {
     title: "Mental health and HSV: addressing the stigma gap",
     date: "Research Review",
+    oneLiner: "The emotional impact of HSV is real but manageable — you are not your diagnosis.",
     summary: "Studies consistently show the psychological impact of an HSV diagnosis — including anxiety, depression, and social withdrawal — often exceeds the physical burden of the virus. Communities, support networks, and accurate education are cited as the most effective interventions. You are not alone and the stigma does not reflect the medical reality.",
     tag: "Wellbeing",
     tagColor: "#9b59b6",
@@ -3666,6 +3674,7 @@ const RESEARCH_ARTICLES = [
   {
     title: "Prunella vulgaris (Self-Heal): antiviral herb with HSV research backing",
     date: "Holistic",
+    oneLiner: "A well-studied herb that lab tests show can block herpes replication.",
     summary: "Prunella vulgaris is one of the most studied herbs in relation to HSV. Lab studies have found rosmarinic acid and other polyphenols in Prunella inhibit HSV-1 and HSV-2 replication. It's available as a tea, tincture, or topical extract. While not a replacement for antivirals, it's a well-tolerated complementary option with a real evidence base — unlike many herbal claims.",
     tag: "Holistic",
     tagColor: "#27ae60",
@@ -3675,6 +3684,7 @@ const RESEARCH_ARTICLES = [
   {
     title: "Lysine vs. arginine: the amino acid balance and outbreaks",
     date: "Holistic",
+    oneLiner: "How balancing two amino acids through diet can help keep outbreaks at bay.",
     summary: "HSV replication depends on arginine. Lysine competes with arginine for absorption, and research suggests high-lysine, low-arginine diets may reduce outbreak frequency. Foods to favor: fish, chicken, eggs, legumes. Foods to limit during outbreaks: nuts (especially peanuts), chocolate, seeds, and oats. Lysine supplements (1,000–3,000mg/day) are widely used by HSV-positive people, though study results are mixed.",
     tag: "Holistic",
     tagColor: "#27ae60",
@@ -3684,6 +3694,7 @@ const RESEARCH_ARTICLES = [
   {
     title: "Immune support: key nutrients that may reduce outbreak frequency",
     date: "Holistic",
+    oneLiner: "Key vitamins and minerals that support your immune system and may reduce outbreaks.",
     summary: "HSV outbreaks are often triggered by a suppressed immune system. Nutrients with the strongest supporting evidence include: Vitamin D (deficiency is correlated with more frequent outbreaks), Zinc (shown to inhibit HSV replication topically and orally), Vitamin C (supports immune response), and B-complex vitamins (support nervous system where HSV lies dormant). Getting bloodwork to check levels is a practical first step.",
     tag: "Holistic",
     tagColor: "#27ae60",
@@ -3693,6 +3704,7 @@ const RESEARCH_ARTICLES = [
   {
     title: "Stress, sleep, and HSV: the outbreak trigger most people underestimate",
     date: "Holistic",
+    oneLiner: "Poor sleep and stress are major outbreak triggers — here's what to do about it.",
     summary: "Psychological stress and poor sleep are among the most consistently reported outbreak triggers. Cortisol suppresses immune function and can reactivate latent HSV. Practical interventions with evidence behind them: consistent sleep schedule, magnesium glycinate before bed, adaptogenic herbs like ashwagandha to blunt cortisol, and regular moderate exercise. Overtraining is itself a trigger — intense prolonged exercise spikes cortisol.",
     tag: "Holistic",
     tagColor: "#27ae60",
@@ -3702,6 +3714,7 @@ const RESEARCH_ARTICLES = [
   {
     title: "Anti-inflammatory diet and HSV: what to eat and what to avoid",
     date: "Holistic",
+    oneLiner: "Eat foods that fight inflammation and cut your risk of triggering outbreaks.",
     summary: "Chronic inflammation creates an environment where HSV reactivates more easily. An anti-inflammatory diet emphasizes: leafy greens, berries, fatty fish (omega-3s), turmeric with black pepper, garlic, and olive oil. Foods commonly associated with increased outbreaks: alcohol, refined sugar, processed foods, and excessive caffeine. No diet eliminates HSV, but reducing inflammatory load is a legitimate and low-risk strategy.",
     tag: "Holistic",
     tagColor: "#27ae60",
@@ -3712,6 +3725,7 @@ const RESEARCH_ARTICLES = [
 
 
 const RESEARCH_SEEN_KEY = 'sx_research_seen_v2'
+let currentResearchTab = 'All'
 
 function checkResearchBadge() {
   const seen = JSON.parse(localStorage.getItem(RESEARCH_SEEN_KEY) || '[]')
@@ -3739,41 +3753,67 @@ function clearResearchBadge() {
 
 function loadResearch() {
   const list = el('research-list')
-  const medical = RESEARCH_ARTICLES.filter(a => a.tag !== 'Holistic')
-  const holistic = RESEARCH_ARTICLES.filter(a => a.tag === 'Holistic')
+  if (!list) return
+  const TABS = ['All', 'Treatment', 'Vaccine', 'Cure Research', 'Holistic', 'Education', 'Wellbeing']
+  const filtered = currentResearchTab === 'All'
+    ? RESEARCH_ARTICLES
+    : RESEARCH_ARTICLES.filter(a => a.tag === currentResearchTab)
 
-  function renderCard(a) {
+  function renderCard(a, i) {
     return `
-    <div style="background:#1c1c1c;border-radius:16px;border:1px solid #252525;padding:18px;margin-bottom:14px">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
-        <div style="display:flex;align-items:center;gap:6px"><span style="background:${a.tagBg};color:${a.tagColor};font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px">${a.tag}</span>${a.isNew ? '<span style="background:#e8503a;color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px">NEW</span>' : ''}</div>
-        <span style="color:#6b6866;font-size:12px">${a.date}</span>
+    <div style="background:#1c1c1c;border-radius:16px;border:1px solid #252525;margin-bottom:12px;overflow:hidden">
+      <div onclick="toggleResearchCard(${i})" style="padding:16px 18px;cursor:pointer;display:flex;align-items:center;gap:12px">
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
+            <span style="background:${a.tagBg};color:${a.tagColor};font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px;white-space:nowrap">${a.tag}</span>
+            ${a.isNew ? '<span style="background:#e8503a;color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px">NEW</span>' : ''}
+          </div>
+          <h3 style="color:#f0ede8;font-size:14px;font-weight:600;line-height:1.4;margin-bottom:6px">${a.title}</h3>
+          <p style="color:#9e9b97;font-size:13px;line-height:1.4">${a.oneLiner}</p>
+        </div>
+        <span id="rc-chevron-${i}" style="color:#6b6866;font-size:11px;flex-shrink:0;margin-left:4px">▼</span>
       </div>
-      <h3 style="color:#f0ede8;font-size:15px;font-weight:600;margin-bottom:8px;line-height:1.4">${a.title}</h3>
-      <p style="color:#9e9b97;font-size:13px;line-height:1.6;margin-bottom:12px">${a.summary}</p>
-      <a href="${a.link}" target="_blank" style="color:#e8503a;font-size:13px;text-decoration:none;font-weight:500">Read more →</a>
+      <div id="rc-expanded-${i}" style="display:none;padding:0 18px 18px;border-top:1px solid #252525">
+        <p style="color:#9e9b97;font-size:13px;line-height:1.6;margin-bottom:14px;padding-top:14px">${a.summary}</p>
+        <a href="${a.link}" target="_blank" style="display:inline-block;padding:10px 18px;background:#e8503a;color:#fff;border-radius:10px;font-size:13px;font-weight:600;text-decoration:none">Read Full Article →</a>
+      </div>
     </div>`
   }
 
   list.innerHTML = `
-    <div style="margin-bottom:20px">
-      <h2 style="color:#f0ede8;font-size:18px;font-weight:700;margin-bottom:6px">HSV Research & Education</h2>
-      <p style="color:#6b6866;font-size:13px;line-height:1.5">Summaries of current research, treatments, and resources. Always consult your healthcare provider for medical advice.</p>
+    <div style="padding:20px 20px 12px">
+      <h2 style="color:#f0ede8;font-size:20px;font-weight:700;margin-bottom:4px">HSV Research & Education</h2>
+      <p style="color:#6b6866;font-size:13px">Treatments, vaccines, and holistic approaches.</p>
     </div>
-
-    ${medical.map(renderCard).join('')}
-
-    <div style="margin:24px 0 16px">
-      <h2 style="color:#f0ede8;font-size:18px;font-weight:700;margin-bottom:6px">🌿 Holistic Approaches</h2>
-      <p style="color:#6b6866;font-size:13px;line-height:1.5">Lifestyle, diet, and natural strategies for managing outbreaks. Complementary to — not a replacement for — medical treatment.</p>
+    <div style="display:flex;gap:8px;overflow-x:auto;padding:0 20px 16px;-webkit-overflow-scrolling:touch">
+      ${TABS.map(t => `<button onclick="setResearchTab('${t}')" style="flex-shrink:0;padding:7px 14px;border-radius:20px;border:${currentResearchTab===t?'none':'1px solid #252525'};background:${currentResearchTab===t?'#e8503a':'transparent'};color:${currentResearchTab===t?'#fff':'#9e9b97'};font-size:13px;font-weight:${currentResearchTab===t?'600':'400'};cursor:pointer;white-space:nowrap">${t}</button>`).join('')}
     </div>
-
-    ${holistic.map(renderCard).join('')}
-
-    <div style="background:#141414;border-radius:16px;border:1px solid #252525;padding:16px;margin-top:8px;margin-bottom:20px">
-      <p style="color:#6b6866;font-size:12px;line-height:1.6;text-align:center">Simple-x does not provide medical advice. Research summaries are for informational purposes only. Speak with a healthcare provider about treatment options.</p>
+    <div style="padding:0 20px">
+      ${filtered.length > 0
+        ? filtered.map((a, i) => renderCard(a, i)).join('')
+        : '<p style="color:#6b6866;font-size:14px;text-align:center;padding:40px 0">No articles in this category yet.</p>'
+      }
+    </div>
+    <div style="padding:0 20px 24px">
+      <div style="background:#141414;border-radius:16px;border:1px solid #252525;padding:16px;margin-top:8px">
+        <p style="color:#6b6866;font-size:12px;line-height:1.6;text-align:center">Simple-x does not provide medical advice. Research summaries are for informational purposes only. Speak with a healthcare provider about treatment options.</p>
+      </div>
     </div>
   `
+}
+
+function setResearchTab(tab) {
+  currentResearchTab = tab
+  loadResearch()
+}
+
+function toggleResearchCard(i) {
+  const expanded = document.getElementById('rc-expanded-' + i)
+  const chevron = document.getElementById('rc-chevron-' + i)
+  if (!expanded) return
+  const isOpen = expanded.style.display !== 'none'
+  expanded.style.display = isOpen ? 'none' : 'block'
+  if (chevron) chevron.textContent = isOpen ? '▼' : '▲'
 }
 
 // ── FILTERS & LOCATION ───────────────────────────
