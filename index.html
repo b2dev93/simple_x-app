@@ -596,9 +596,10 @@
         <span class="nav-label">Research</span>
         <span id="research-badge" style="display:none;position:absolute;top:4px;right:18px;background:#e8503a;color:#fff;font-size:10px;font-weight:700;border-radius:50%;width:16px;height:16px;align-items:center;justify-content:center;line-height:1"></span>
       </button>
-      <button class="nav-btn" id="nav-community" onclick="switchTab2('community')">
+      <button class="nav-btn" id="nav-community" onclick="switchTab2('community');clearCommunityBadge()" style="position:relative">
         <span class="nav-icon">👥</span>
         <span class="nav-label">Community</span>
+        <span id="community-badge" style="display:none;position:absolute;top:4px;right:18px;background:#e8503a;color:#fff;font-size:10px;font-weight:700;border-radius:50%;width:16px;height:16px;align-items:center;justify-content:center;line-height:1"></span>
       </button>
       <button class="nav-btn" id="nav-profile" onclick="switchTab2('profile')">
         <span class="nav-icon">👤</span>
@@ -1338,6 +1339,7 @@ async function checkPremiumExpiry() {
 // ── APP ENTRY ─────────────────────────────────────
 async function enterApp(user) {
   setTimeout(checkResearchBadge, 500)
+  setTimeout(checkCommunityBadge, 600)
   currentUser = user
   const { data } = await sb.from('profiles').select('*').eq('id', user.id).single()
   currentProfile = data
@@ -1481,6 +1483,14 @@ async function loadCommunity() {
   if (error) {
     list.innerHTML = '<div style="text-align:center;padding:40px 0"><p style="color:#6b6866;font-size:14px">Could not load posts.</p></div>'
     return
+  }
+
+  const _commLastSeen = localStorage.getItem(COMMUNITY_SEEN_KEY) || new Date(0).toISOString()
+  const _commNewCount = posts ? posts.filter(p => p.created_at > _commLastSeen).length : 0
+  const _commBadge = document.getElementById('community-badge')
+  if (_commBadge) {
+    if (_commNewCount > 0) { _commBadge.textContent = _commNewCount > 9 ? '9+' : _commNewCount; _commBadge.style.display = 'flex' }
+    else _commBadge.style.display = 'none'
   }
 
   if (!posts || posts.length === 0) {
@@ -3911,6 +3921,30 @@ function clearResearchBadge() {
   })
   localStorage.setItem(RESEARCH_SEEN_KEY, JSON.stringify(seen))
   const badge = document.getElementById('research-badge')
+  if (badge) badge.style.display = 'none'
+}
+
+const COMMUNITY_SEEN_KEY = 'sx_last_community_seen'
+
+async function checkCommunityBadge() {
+  const lastSeen = localStorage.getItem(COMMUNITY_SEEN_KEY) || new Date(0).toISOString()
+  const { count } = await sb
+    .from('community_posts')
+    .select('id', { count: 'exact', head: true })
+    .gt('created_at', lastSeen)
+  const badge = document.getElementById('community-badge')
+  if (!badge) return
+  if (count > 0) {
+    badge.textContent = count > 9 ? '9+' : count
+    badge.style.display = 'flex'
+  } else {
+    badge.style.display = 'none'
+  }
+}
+
+function clearCommunityBadge() {
+  localStorage.setItem(COMMUNITY_SEEN_KEY, new Date().toISOString())
+  const badge = document.getElementById('community-badge')
   if (badge) badge.style.display = 'none'
 }
 
