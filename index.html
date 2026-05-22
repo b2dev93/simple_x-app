@@ -137,7 +137,7 @@
     .chat-header { display: flex; align-items: center; gap: 12px; padding: 16px; border-bottom: 1px solid #252525; flex-shrink: 0; }
     .back-btn { border: none; background: transparent; cursor: pointer; padding: 4px; display: flex; }
     .chat-messages { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 8px; overscroll-behavior: none; }
-    .bubble { max-width: 75%; padding: 10px 14px; font-size: 15px; line-height: 1.4; color: #fff; }
+    .bubble { max-width: 75%; padding: 10px 14px; font-size: 15px; line-height: 1.4; color: #fff; word-break: break-word; overflow-wrap: break-word; }
     .bubble.mine { background: #e8503a; border-radius: 18px 18px 4px 18px; align-self: flex-end; }
     .bubble.theirs { background: #1c1c1c; border-radius: 18px 18px 18px 4px; align-self: flex-start; }
     .bubble-time { font-size: 10px; color: rgba(255,255,255,0.55); margin-top: 4px; text-align: right; }
@@ -3387,7 +3387,22 @@ function appendMessage(msg) {
   const readMark = mine ? (msg.read_at ? ' ✓✓' : ' ✓') : ''
   const textSpan = document.createElement('span')
   textSpan.className = 'bubble-text'
-  textSpan.textContent = msg.content
+  const urlRegex = /https?:\/\/[^\s]+/g
+  const urlMatches = msg.content.match(urlRegex) || []
+  const textParts = msg.content.split(urlRegex)
+  textParts.forEach((part, i) => {
+    if (part) textSpan.appendChild(document.createTextNode(part))
+    if (urlMatches[i]) {
+      const a = document.createElement('a')
+      a.href = urlMatches[i]
+      a.textContent = urlMatches[i]
+      a.target = '_blank'
+      a.rel = 'noopener noreferrer'
+      a.style.color = 'inherit'
+      a.style.textDecorationColor = 'rgba(255,255,255,0.5)'
+      textSpan.appendChild(a)
+    }
+  })
   const timeDiv = document.createElement('div')
   timeDiv.className = 'bubble-time'
   timeDiv.textContent = time + readMark
@@ -3859,6 +3874,17 @@ const RESEARCH_ARTICLES = [
     tagBg: "#0a1f12",
     link: "https://pubmed.ncbi.nlm.nih.gov/?term=diet+inflammation+herpes"
   },
+  {
+    title: "Monolaurin + L-Lysine: a popular natural protocol for outbreak prevention",
+    date: "Holistic — Emerging Evidence",
+    oneLiner: "Coconut oil-derived monolaurin combined with L-Lysine is a widely used natural stack with antiviral properties.",
+    summary: "Monolaurin is a fatty acid derived from coconut oil (also found in breast milk) that has demonstrated antiviral activity against enveloped viruses including herpes simplex in lab studies. Many people with HSV combine 300-600mg of monolaurin daily with L-Lysine supplementation as a natural outbreak prevention stack. While large clinical trials are limited, the combination is well-tolerated, inexpensive, and widely reported in the HSV community to reduce outbreak frequency. Look for monolaurin sold as 'Lauricidin' pellets or capsules. As always consult your doctor before starting any supplement regimen.",
+    tag: "Holistic",
+    tagColor: "#27ae60",
+    tagBg: "#0d2e1a",
+    link: "https://pubmed.ncbi.nlm.nih.gov/15650258/",
+    isNew: true
+  },
 ]
 
 
@@ -3916,7 +3942,7 @@ function loadResearch() {
           <h3 style="color:#f0ede8;font-size:14px;font-weight:600;line-height:1.4;margin-bottom:6px">${a.title}</h3>
           <p style="color:#9e9b97;font-size:13px;line-height:1.4">${a.oneLiner}</p>
         </div>
-        <span id="rc-chevron-${i}" style="color:#6b6866;font-size:11px;flex-shrink:0;margin-left:4px">▼</span>
+        <span id="rc-chevron-${i}" style="color:#e8503a;font-size:11px;flex-shrink:0;margin-left:4px">▼</span>
       </div>
       <div id="rc-expanded-${i}" style="display:none;padding:0 18px 18px;border-top:1px solid #252525">
         <p style="color:#9e9b97;font-size:13px;line-height:1.6;margin-bottom:14px;padding-top:14px">${a.summary}</p>
