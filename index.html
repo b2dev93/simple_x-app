@@ -45,9 +45,11 @@
 
     /* NAV */
     #nav {
-      position: absolute; bottom: 0; left: 0; right: 0; height: 64px;
+      position: absolute; bottom: 0; left: 0; right: 0;
+      height: calc(64px + env(safe-area-inset-bottom));
       background: #141414; border-top: 1px solid #252525;
-      display: flex; align-items: center; z-index: 20;
+      display: flex; align-items: flex-start; z-index: 20;
+      padding-bottom: env(safe-area-inset-bottom);
     }
     .nav-btn { flex: 1; border: none; background: transparent; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 8px 0; }
     .nav-label { font-size: 10px; font-weight: 400; color: #6b6866; }
@@ -56,7 +58,7 @@
     .nav-btn.active .nav-icon { opacity: 1; }
 
     /* ONBOARDING */
-    #onboarding { position: fixed; inset: 0; background: #0a0a0a; z-index: 500; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0 32px 48px; }
+    #onboarding { position: fixed; inset: 0; background: #0a0a0a; z-index: 500; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0 32px calc(48px + env(safe-area-inset-bottom)); }
     #onboarding .ob-dots { display: flex; gap: 8px; position: absolute; top: 52px; left: 50%; transform: translateX(-50%); }
     #onboarding .ob-dot { width: 6px; height: 6px; border-radius: 50%; background: #2a2a2a; transition: background 0.25s; }
     #onboarding .ob-dot.active { background: #e8503a; }
@@ -87,7 +89,7 @@
     .auth-switch a { color: #e8503a; cursor: pointer; }
 
     /* DISCOVER */
-    #discover-content { position: absolute; top: 56px; left: 0; right: 0; bottom: 64px; }
+    #discover-content { position: absolute; top: 56px; left: 0; right: 0; bottom: calc(64px + env(safe-area-inset-bottom)); }
     .card-stack { position: absolute; inset: 0; }
     .profile-card {
       position: absolute; inset: 12px 12px 80px;
@@ -121,7 +123,7 @@
     .empty-sub { color: #6b6866; font-size: 14px; }
 
     /* MESSAGES */
-    #messages-content { position: absolute; top: 56px; left: 0; right: 0; bottom: 64px; overflow-y: auto; }
+    #messages-content { position: absolute; top: 56px; left: 0; right: 0; bottom: calc(64px + env(safe-area-inset-bottom)); overflow-y: auto; }
     .match-item { display: flex; align-items: center; gap: 14px; padding: 14px 20px; border-bottom: 1px solid #252525; cursor: pointer; }
     .match-item:active { background: #141414; }
     .avatar { border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600; color: #f0ede8; flex-shrink: 0; }
@@ -148,7 +150,7 @@
     .send-btn:disabled { opacity: 0.3; background: #252525; }
 
     /* PROFILE */
-    #profile-content { position: absolute; top: 56px; left: 0; right: 0; bottom: 64px; overflow-y: auto; padding: 20px 24px 40px; }
+    #profile-content { position: absolute; top: 56px; left: 0; right: 0; bottom: calc(64px + env(safe-area-inset-bottom)); overflow-y: auto; padding: 20px 24px 40px; }
     .avatar-wrap { position: relative; cursor: pointer; }
     .avatar-cam { position: absolute; bottom: 0; right: 0; width: 24px; height: 24px; background: #e8503a; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 2px solid #0a0a0a; }
     .uploading-ring { position: absolute; inset: 0; border-radius: 50%; border: 3px solid #e8503a; border-top-color: transparent; animation: spin 0.8s linear infinite; }
@@ -398,14 +400,14 @@
     </div>
 
     <!-- RESEARCH TAB -->
-    <div id="research-content" style="display:none;position:absolute;top:56px;left:0;right:0;bottom:64px;overflow-y:auto;">
+    <div id="research-content" style="display:none;position:absolute;top:56px;left:0;right:0;bottom:calc(64px + env(safe-area-inset-bottom));overflow-y:auto;">
       <div id="research-list">
         <div style="text-align:center;padding:40px 0"><p style="color:#6b6866;font-size:14px">Loading updates...</p></div>
       </div>
     </div>
 
     <!-- COMMUNITY TAB -->
-    <div id="community-content" style="display:none;position:absolute;top:56px;left:0;right:0;bottom:64px;overflow-y:auto;padding:20px">
+    <div id="community-content" style="display:none;position:absolute;top:56px;left:0;right:0;bottom:calc(64px + env(safe-area-inset-bottom));overflow-y:auto;padding:20px">
 
       <!-- Header -->
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
@@ -1020,11 +1022,6 @@ function selectGender(btn, val) {
 }
 
 
-function selectRelType(btn, val) {
-  selectedRelType = val
-  document.querySelectorAll('#rel-type-options .hsv-btn').forEach(b => b.classList.remove('selected'))
-  btn.classList.add('selected')
-}
 
 function selectEditRelType(btn, val) {
   editRelType = val
@@ -1756,7 +1753,7 @@ function switchTab2(tab) {
   })
   el('location-pill').style.display = tab === 'discover' ? '' : 'none'
   el('settings-gear-btn').style.display = tab === 'profile' ? '' : 'none'
-  if (tab === 'messages') { loadMatches(); loadWinks(); loadGroups() }
+  if (tab === 'messages') { loadMatches(); loadGroups() }
   if (tab === 'research') loadResearch()
   if (tab === 'community') loadCommunity()
   if (tab === 'profile') { renderProfileScreen(); loadMyQuestions() }
@@ -2368,7 +2365,7 @@ async function openDirectMessage(userId) {
   let { data: match } = await sb.from('matches')
     .select('*, profiles_a:profiles!matches_user_a_fkey(*), profiles_b:profiles!matches_user_b_fkey(*)')
     .or(`and(user_a.eq.${currentUser.id},user_b.eq.${userId}),and(user_a.eq.${userId},user_b.eq.${currentUser.id})`)
-    .single()
+    .maybeSingle()
 
   // If no match exists and user is Plus/admin, create one
   if (!match) {
@@ -2811,9 +2808,6 @@ function dismissProfileNudge() {
 }
 
 // ── MESSAGES ──────────────────────────────────────
-async function loadWinks() {
-  // Winks are now rendered inline in the matches list by loadMatches
-}
 
 async function loadMatches() {
   const list = el('matches-list')
@@ -2930,7 +2924,7 @@ async function openChatById(matchId) {
   const { data: match } = await sb.from('matches')
     .select('*, profiles_a:profiles!matches_user_a_fkey(*), profiles_b:profiles!matches_user_b_fkey(*)')
     .eq('id', matchId)
-    .single()
+    .maybeSingle()
   if (match) openChat(match)
 }
 
@@ -3085,7 +3079,7 @@ async function showCreateGroupModal() {
 
 async function openGroupChat(groupId, groupName) {
   if (!groupName) {
-    const { data: g } = await sb.from('group_chats').select('name, members').eq('id', groupId).single()
+    const { data: g } = await sb.from('group_chats').select('name, members').eq('id', groupId).maybeSingle()
     groupName = g?.name || 'Group'
     activeGroupId = groupId
     document.getElementById('group-chat-name').textContent = groupName
@@ -3330,127 +3324,6 @@ async function sendMessage() {
 }
 
 // ── PROFILE ───────────────────────────────────────
-
-async function loadProfileViews() {
-  if (!currentProfile?.is_premium) {
-    const section = el('who-viewed-section')
-    if (section) {
-      section.style.display = ''
-      section.style.filter = 'blur(4px)'
-      section.style.pointerEvents = 'none'
-      section.onclick = () => showUpgradePrompt('Upgrade to Plus to see who viewed your profile.')
-      section.style.pointerEvents = 'auto'
-      section.style.cursor = 'pointer'
-      el('viewers-count').textContent = 'Plus only'
-      el('viewers-list').innerHTML = Array(4).fill(0).map(() => `<div style="width:56px;height:56px;border-radius:50%;background:#1c1c1c;flex-shrink:0"></div>`).join('')
-    }
-    return
-  }
-  const { data: views } = await sb.from('profile_views')
-    .select('*, viewer:profiles!profile_views_viewer_id_fkey(id, display_name, photo_urls, birthdate)')
-    .eq('viewed_id', currentUser.id)
-    .order('created_at', { ascending: false })
-    .limit(20)
-
-  const section = el('who-viewed-section')
-  const list = el('viewers-list')
-  const count = el('viewers-count')
-  if (!section) return
-
-  if (!views || views.length === 0) {
-    section.style.display = 'none'
-    return
-  }
-
-  section.style.display = ''
-  count.textContent = views.length + ' views'
-
-  // Dedupe by viewer
-  const seen = new Set()
-  const unique = views.filter(v => {
-    if (seen.has(v.viewer_id)) return false
-    seen.add(v.viewer_id)
-    return true
-  })
-
-  list.innerHTML = unique.map(v => {
-    const s = v.viewer
-    const photo = s?.photo_urls?.[0]
-    const initial = (s?.display_name || '?')[0].toUpperCase()
-    const color = AVATAR_COLORS[0]
-    return `
-      <div onclick="showProfilePreview('${s?.id}')" style="flex-shrink:0;cursor:pointer;text-align:center;width:64px">
-        <div style="width:56px;height:56px;border-radius:50%;overflow:hidden;margin:0 auto 4px;background:${color};display:flex;align-items:center;justify-content:center">
-          ${photo ? `<img src="${photo}" style="width:100%;height:100%;object-fit:cover"/>` : `<span style="color:#fff;font-size:20px;font-weight:700">${initial}</span>`}
-        </div>
-        <p style="font-size:10px;color:#9e9b97;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:64px">${s?.display_name || 'User'}</p>
-      </div>`
-  }).join('')
-}
-
-async function loadWhoLikedMe() {
-  const section = el('who-liked-section')
-  const list    = el('liked-list')
-  const countEl = el('liked-count')
-  if (!section) return
-
-  // Free users: blurred upgrade prompt with placeholder avatars
-  if (!currentProfile?.is_premium) {
-    section.style.display = ''
-    section.style.filter = 'blur(4px)'
-    section.style.pointerEvents = 'auto'
-    section.style.cursor = 'pointer'
-    section.onclick = () => showUpgradePrompt('Upgrade to Plus to see who liked your profile.')
-    countEl.textContent = 'Plus only'
-    list.innerHTML = Array(4).fill(0).map(() =>
-      `<div style="width:56px;height:56px;border-radius:50%;background:#1c1c1c;flex-shrink:0"></div>`
-    ).join('')
-    return
-  }
-
-  section.style.filter = ''
-  section.style.cursor = ''
-  section.onclick = null
-
-  // Fetch inbound likes (people who liked me)
-  const { data: inbound } = await sb.from('swipes')
-    .select('swiper_id')
-    .eq('swiped_id', currentUser.id)
-    .in('direction', ['like', 'super'])
-
-  if (!inbound || inbound.length === 0) { section.style.display = 'none'; return }
-
-  // Fetch my own swipes so we can exclude people I already responded to
-  const { data: mySwipes } = await sb.from('swipes')
-    .select('swiped_id')
-    .eq('swiper_id', currentUser.id)
-  const mySwipedSet = new Set((mySwipes || []).map(s => s.swiped_id))
-
-  const unreciprocated = [...new Set(inbound.map(r => r.swiper_id))].filter(id => !mySwipedSet.has(id))
-  if (unreciprocated.length === 0) { section.style.display = 'none'; return }
-
-  const { data: profiles } = await sb.from('profiles')
-    .select('id, display_name, photo_urls')
-    .in('id', unreciprocated)
-    .limit(20)
-
-  if (!profiles || profiles.length === 0) { section.style.display = 'none'; return }
-
-  section.style.display = ''
-  countEl.textContent = profiles.length + (profiles.length === 1 ? ' person' : ' people')
-  list.innerHTML = profiles.map((p, i) => {
-    const photo   = p.photo_urls?.[0]
-    const initial = (p.display_name || '?')[0].toUpperCase()
-    const color   = AVATAR_COLORS[i % AVATAR_COLORS.length]
-    return `
-      <div onclick="showProfilePreview('${p.id}')" style="flex-shrink:0;cursor:pointer;text-align:center;width:64px">
-        <div style="width:56px;height:56px;border-radius:50%;overflow:hidden;margin:0 auto 4px;background:${color};display:flex;align-items:center;justify-content:center;border:2px solid #e8503a">
-          ${photo ? `<img src="${photo}" style="width:100%;height:100%;object-fit:cover"/>` : `<span style="color:#fff;font-size:20px;font-weight:700">${initial}</span>`}
-        </div>
-        <p style="font-size:10px;color:#9e9b97;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:64px">${p.display_name || 'User'}</p>
-      </div>`
-  }).join('')
-}
 
 // ── ACTIVITY STREAK ───────────────────────────────
 function updateStreak() {
