@@ -3888,47 +3888,21 @@ function clearResearchBadge() {
   if (badge) badge.style.display = 'none'
 }
 
+let currentResearchTab = 'All'
+
+function setResearchTab(tab) {
+  currentResearchTab = tab
+  loadResearch()
+}
+
 function loadResearch() {
   const list = el('research-list')
   if (!list) return
 
-  const TOPICS = [
-    { tag: 'Treatment',     icon: '💊', label: 'Treatments' },
-    { tag: 'Vaccine',       icon: '💉', label: 'Vaccines' },
-    { tag: 'Cure Research', icon: '🔬', label: 'Cure Research' },
-    { tag: 'Holistic',      icon: '🌿', label: 'Holistic' },
-    { tag: 'Education',     icon: '📚', label: 'Education' },
-    { tag: 'Wellbeing',     icon: '🧠', label: 'Wellbeing' },
-  ]
-
-  function topicCard(t) {
-    const count = RESEARCH_ARTICLES.filter(a => a.tag === t.tag).length
-    return `<div onclick="openResearchCategory('${t.tag}')" style="background:#1c1c1c;border-radius:20px;border:1px solid #252525;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;aspect-ratio:1;padding:20px 12px;text-align:center;gap:10px">
-      <span style="font-size:40px;line-height:1">${t.icon}</span>
-      <p style="color:#f0ede8;font-size:14px;font-weight:700;line-height:1.3">${t.label}</p>
-      <span style="background:#e8503a;color:#fff;font-size:12px;font-weight:700;padding:3px 14px;border-radius:20px">${count}</span>
-    </div>`
-  }
-
-  list.innerHTML = `
-    <div style="padding:20px 20px 12px">
-      <h2 style="color:#f0ede8;font-size:20px;font-weight:700;margin-bottom:4px">HSV Research & Education</h2>
-      <p style="color:#6b6866;font-size:13px">Treatments, vaccines, and holistic approaches.</p>
-    </div>
-    <div style="padding:0 16px 24px;display:grid;grid-template-columns:repeat(2,1fr);gap:12px">
-      ${TOPICS.map(t => topicCard(t)).join('')}
-    </div>`
-}
-
-function openResearchCategory(tag) {
-  const TOPIC_LABELS = { Treatment: '💊 Treatments', Vaccine: '💉 Vaccines', 'Cure Research': '🔬 Cure Research', Holistic: '🌿 Holistic', Education: '📚 Education', Wellbeing: '🧠 Wellbeing' }
-  const articles = RESEARCH_ARTICLES.filter(a => a.tag === tag)
-
-  const existing = document.getElementById('research-category-page')
-  if (existing) existing.remove()
-  const page = document.createElement('div')
-  page.id = 'research-category-page'
-  page.style.cssText = 'position:fixed;inset:0;background:#0a0a0a;z-index:10000;overflow-y:auto'
+  const TABS = ['All', 'Treatment', 'Vaccine', 'Cure Research', 'Holistic', 'Education', 'Wellbeing']
+  const filtered = currentResearchTab === 'All'
+    ? RESEARCH_ARTICLES
+    : RESEARCH_ARTICLES.filter(a => a.tag === currentResearchTab)
 
   function renderCard(a, i) {
     return `
@@ -3951,16 +3925,17 @@ function openResearchCategory(tag) {
     </div>`
   }
 
-  page.innerHTML = `
-    <div style="position:sticky;top:0;background:#0a0a0a;border-bottom:1px solid #1c1c1c;z-index:1;padding:52px 16px 16px;display:flex;align-items:center;gap:12px">
-      <button onclick="document.getElementById('research-category-page').remove()" style="background:rgba(255,255,255,0.08);border:none;border-radius:50%;width:40px;height:40px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0">
-        <span style="color:#f0ede8;font-size:22px;line-height:1">‹</span>
-      </button>
-      <h2 style="color:#f0ede8;font-size:20px;font-weight:700">${TOPIC_LABELS[tag] || tag}</h2>
+  list.innerHTML = `
+    <div style="padding:20px 20px 12px">
+      <h2 style="color:#f0ede8;font-size:20px;font-weight:700;margin-bottom:4px">HSV Research & Education</h2>
+      <p style="color:#6b6866;font-size:13px">Treatments, vaccines, and holistic approaches.</p>
     </div>
-    <div style="padding:16px 20px">
-      ${articles.length > 0
-        ? articles.map(a => renderCard(a, RESEARCH_ARTICLES.indexOf(a))).join('')
+    <div style="display:flex;gap:8px;overflow-x:auto;padding:0 20px 16px;-webkit-overflow-scrolling:touch;scrollbar-width:none">
+      ${TABS.map(t => `<button onclick="setResearchTab('${t}')" style="flex-shrink:0;padding:7px 16px;border-radius:20px;border:${currentResearchTab===t?'none':'1px solid #252525'};background:${currentResearchTab===t?'#e8503a':'transparent'};color:${currentResearchTab===t?'#fff':'#9e9b97'};font-size:13px;font-weight:${currentResearchTab===t?'700':'400'};cursor:pointer;white-space:nowrap;transition:all 0.15s">${t}</button>`).join('')}
+    </div>
+    <div style="padding:0 20px">
+      ${filtered.length > 0
+        ? filtered.map(a => renderCard(a, RESEARCH_ARTICLES.indexOf(a))).join('')
         : '<p style="color:#6b6866;font-size:14px;text-align:center;padding:40px 0">No articles in this category yet.</p>'
       }
     </div>
@@ -3969,7 +3944,6 @@ function openResearchCategory(tag) {
         <p style="color:#6b6866;font-size:12px;line-height:1.6;text-align:center">Simple-x does not provide medical advice. Research summaries are for informational purposes only. Speak with a healthcare provider about treatment options.</p>
       </div>
     </div>`
-  document.body.appendChild(page)
 }
 
 function toggleResearchCard(i) {
