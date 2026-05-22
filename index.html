@@ -424,6 +424,7 @@
     <!-- PROFILE TAB -->
     <div id="profile-content" style="display:none">
       <input type="file" id="photo-input" accept="image/*,video/*,.heic,.heif" style="display:none" onchange="uploadPhoto(this)" multiple />
+      <input type="file" id="private-photo-input" accept="image/*,.heic,.heif" style="display:none" onchange="uploadPrivatePhoto(this)" multiple />
       <div id="profile-completion-nudge" onclick="toggleEdit()">
         <span>Complete your profile to get more matches ✏️</span>
         <button onclick="event.stopPropagation();dismissProfileNudge()" aria-label="Dismiss">×</button>
@@ -993,6 +994,146 @@ async function deletePhoto(idx) {
   await sb.from('profiles').update({ photo_urls: urls }).eq('id', currentUser.id)
   currentProfile.photo_urls = urls
   renderProfileScreen()
+}
+
+// ── PRIVATE ALBUM ─────────────────────────────────
+
+async function uploadPrivatePhoto(input) {
+  const files = Array.from(input.files)
+  if (!files.length) return
+  const existing = currentProfile.private_photo_urls || []
+  const slots = 20 - existing.length
+  if (slots <= 0) { showToast('Private album is full. Remove a photo first.'); input.value = ''; return }
+  const toUpload = files.slice(0, slots)
+  if (files.length > slots) showToast(`Only ${slots} slot(s) left. Uploading first ${slots}.`)
+  showToast('Uploading to private album...')
+  const newUrls = []
+  for (const file of toUpload) {
+    let uploadBlob = file, contentType = file.type, ext = 'jpg'
+    try {
+      uploadBlob = await convertToJpeg(file)
+      contentType = 'image/jpeg'
+    } catch (e) { showToast('Could not process image.'); continue }
+    const path = `private/${currentUser.id}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`
+    const { error: upErr } = await sb.storage.from('avatars').upload(path, uploadBlob, { upsert: false, contentType })
+    if (upErr) { showToast('Upload failed: ' + upErr.message); continue }
+    const { data: urlData } = sb.storage.from('avatars').getPublicUrl(path)
+    newUrls.push(urlData.publicUrl)
+  }
+  if (!newUrls.length) { input.value = ''; return }
+  const updated = [...existing, ...newUrls]
+  await sb.from('profiles').update({ private_photo_urls: updated }).eq('id', currentUser.id)
+  currentProfile.private_photo_urls = updated
+  renderPrivateAlbum()
+  input.value = ''
+  showToast(`${newUrls.length} photo${newUrls.length > 1 ? 's' : ''} added to private album.`)
+}
+
+async function deletePrivatePhoto(idx) {
+  if (!confirm('Remove this photo from your private album?')) return
+  const urls = [...(currentProfile.private_photo_urls || [])]
+  urls.splice(idx, 1)
+  await sb.from('profiles').update({ private_photo_urls: urls }).eq('id', currentUser.id)
+  currentProfile.private_photo_urls = urls
+  renderPrivateAlbum()
+}
+
+async function requestPrivateAlbum(ownerId) {
+  const btn = document.getElementById('private-album-btn')
+  if (btn) { btn.textContent = '⏳ Request Sent'; btn.disabled = true; btn.style.opacity = '0.6' }
+  const { error } = await sb.from('private_album_access').insert({ owner_id: ownerId, viewer_id: currentUser.id, status: 'pending' })
+  if (error) {
+    if (btn) { btn.textContent = '🔒 Request Private Album'; btn.disabled = false; btn.style.opacity = '1' }
+    showToast(error.code === '23505' ? 'You already sent a request.' : 'Could not send request.')
+    return
+  }
+  sendPush(ownerId, '🔒 Private album request', `${currentProfile?.display_name || 'Someone'} wants to see your private album`, 'view')
+  showToast('Request sent!')
+}
+
+async function approvePrivateAlbumRequest(viewerId, name) {
+  await sb.from('private_album_access').update({ status: 'approved' }).eq('owner_id', currentUser.id).eq('viewer_id', viewerId)
+  sendPush(viewerId, '🔒 Private album approved', `${currentProfile?.display_name || 'Someone'} approved your album request on Simple-x`, 'view')
+  showToast(`${name} can now see your private album.`)
+  loadPrivateAlbumRequests()
+}
+
+async function denyPrivateAlbumRequest(viewerId, name) {
+  await sb.from('private_album_access').delete().eq('owner_id', currentUser.id).eq('viewer_id', viewerId)
+  showToast(`Request from ${name} denied.`)
+  loadPrivateAlbumRequests()
+}
+
+function renderPrivateAlbum() {
+  const profileContent = el('profile-content')
+  if (!profileContent) return
+  const old = document.getElementById('private-album-section')
+  if (old) old.remove()
+  const photos = currentProfile.private_photo_urls || []
+  const section = document.createElement('div')
+  section.id = 'private-album-section'
+  section.style.cssText = 'margin-bottom:20px'
+  let html = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <p style="color:#f0ede8;font-size:14px;font-weight:600">🔒 Private Album</p>
+      <span style="color:#6b6866;font-size:12px">${photos.length}/20</span>
+    </div>
+    ${photos.length === 0 ? `<p style="color:#6b6866;font-size:13px;margin-bottom:10px">Add photos only approved connections can see.</p>` : ''}
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px">
+  `
+  photos.forEach((url, i) => {
+    html += `<div style="position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;background:#1c1c1c">
+      <img src="${url}" style="width:100%;height:100%;object-fit:cover" />
+      <button onclick="deletePrivatePhoto(${i})" style="position:absolute;top:4px;right:4px;width:22px;height:22px;border-radius:50%;background:rgba(0,0,0,0.7);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;line-height:1">×</button>
+    </div>`
+  })
+  if (photos.length < 20) {
+    html += `<div onclick="el('private-photo-input').click()" style="aspect-ratio:1;border-radius:10px;border:1px dashed #3a2a14;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;gap:4px;background:#1a1208">
+      <span style="font-size:20px">🔒</span>
+      <span style="color:#6b6866;font-size:11px">Add private</span>
+    </div>`
+  }
+  html += '</div>'
+  section.innerHTML = html
+  const photoGrid = document.getElementById('photo-grid')
+  if (photoGrid) photoGrid.insertAdjacentElement('afterend', section)
+}
+
+async function loadPrivateAlbumRequests() {
+  const old = document.getElementById('private-requests-section')
+  if (old) old.remove()
+  const { data: requests } = await sb.from('private_album_access')
+    .select('viewer_id, status')
+    .eq('owner_id', currentUser.id)
+    .eq('status', 'pending')
+  if (!requests?.length) return
+  const { data: viewers } = await sb.from('profiles').select('id, display_name, photo_urls').in('id', requests.map(r => r.viewer_id))
+  const viewerMap = {}
+  ;(viewers || []).forEach(v => { viewerMap[v.id] = v })
+  const section = document.createElement('div')
+  section.id = 'private-requests-section'
+  section.style.cssText = 'margin-bottom:20px'
+  let html = `<p style="color:#f0ede8;font-size:14px;font-weight:600;margin-bottom:10px">🔒 Album Requests <span style="background:#e8503a;color:#fff;font-size:11px;padding:2px 7px;border-radius:20px;font-weight:700;margin-left:4px">${requests.length}</span></p>`
+  for (const req of requests) {
+    const v = viewerMap[req.viewer_id] || {}
+    const photo = v.photo_urls?.[0]
+    const name = v.display_name || 'User'
+    const safeName = name.split(' ')[0].replace(/'/g, '&#39;')
+    const color = AVATAR_COLORS[(name.charCodeAt(0) || 0) % AVATAR_COLORS.length]
+    html += `<div style="display:flex;align-items:center;gap:12px;padding:12px;background:#1c1c1c;border-radius:14px;border:1px solid #252525;margin-bottom:8px">
+      <div onclick="showProfilePreview('${v.id}')" style="width:44px;height:44px;border-radius:50%;overflow:hidden;flex-shrink:0;background:${color};display:flex;align-items:center;justify-content:center;cursor:pointer">
+        ${photo ? `<img src="${photo}" style="width:100%;height:100%;object-fit:cover">` : `<span style="color:#fff;font-size:16px;font-weight:700">${escapeHtml(name[0].toUpperCase())}</span>`}
+      </div>
+      <p style="color:#f0ede8;font-size:14px;flex:1">${escapeHtml(name)}</p>
+      <div style="display:flex;gap:6px">
+        <button onclick="approvePrivateAlbumRequest('${v.id}','${safeName}')" style="padding:8px 14px;border-radius:20px;border:none;background:#e8503a;color:#fff;font-size:13px;font-weight:600;cursor:pointer">Approve</button>
+        <button onclick="denyPrivateAlbumRequest('${v.id}','${safeName}')" style="padding:8px 14px;border-radius:20px;border:1px solid #252525;background:transparent;color:#6b6866;font-size:13px;cursor:pointer">Deny</button>
+      </div>
+    </div>`
+  }
+  section.innerHTML = html
+  const albumSection = document.getElementById('private-album-section')
+  if (albumSection) albumSection.insertAdjacentElement('afterend', section)
 }
 
 // ── AUTH ──────────────────────────────────────────
@@ -2087,6 +2228,12 @@ async function showProfilePreview(userId) {
     .order('created_at', { ascending: false })
     .limit(10)
 
+  // Check private album access (only relevant when viewing someone else)
+  const { data: albumAccess } = userId !== currentUser.id
+    ? await sb.from('private_album_access').select('status').eq('owner_id', userId).eq('viewer_id', currentUser.id).maybeSingle()
+    : { data: null }
+  const albumStatus = albumAccess?.status || null
+
   // Set up preview carousel state
   previewPhotos = p.photo_urls || []
   previewPhotoIdx = 0
@@ -2162,6 +2309,14 @@ async function showProfilePreview(userId) {
               <p style="color:#f0ede8;font-size:13px;font-weight:600;margin-bottom:4px">${escapeHtml(q.question)}</p>
               <p style="color:#9e9b97;font-size:13px;line-height:1.5">${escapeHtml(q.answer)}</p>
             </div>`).join('')}
+        </div>` : ''}
+
+        ${albumStatus === 'approved' && p.private_photo_urls?.length ? `
+        <div style="background:#1c1c1c;border-radius:14px;padding:16px;margin-bottom:16px;border:1px solid #3a2a14">
+          <p style="color:#9e9b97;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:12px">🔒 Private Album</p>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px">
+            ${p.private_photo_urls.map(url => `<div style="aspect-ratio:1;border-radius:10px;overflow:hidden;background:#0a0a0a"><img src="${url}" style="width:100%;height:100%;object-fit:cover"></div>`).join('')}
+          </div>
         </div>` : ''}
 
         ${!isMatched && alreadyLiked && !currentProfile?.is_premium ? `
@@ -2242,6 +2397,32 @@ async function showProfilePreview(userId) {
       btnsContainer.appendChild(winkB)
       btnsContainer.appendChild(msgB)
       btnsContainer.appendChild(askB)
+    }
+
+    // Private album button — only when viewing someone else's profile
+    if (userId !== currentUser.id && (p.private_photo_urls?.length > 0 || albumStatus)) {
+      const albumRow = document.createElement('div')
+      albumRow.style.cssText = 'margin-top:10px'
+      const albumB = document.createElement('button')
+      albumB.id = 'private-album-btn'
+      albumB.style.cssText = 'width:100%;padding:13px;border-radius:12px;border:1px solid #252525;background:transparent;font-size:14px;font-weight:500;cursor:pointer;text-align:center'
+      if (albumStatus === 'approved') {
+        albumB.textContent = '📸 Private Album Unlocked'
+        albumB.style.color = '#e8503a'
+        albumB.style.borderColor = '#3a1a14'
+        albumB.disabled = true
+      } else if (albumStatus === 'pending') {
+        albumB.textContent = '⏳ Album Request Sent'
+        albumB.style.color = '#6b6866'
+        albumB.disabled = true
+        albumB.style.opacity = '0.6'
+      } else {
+        albumB.textContent = '🔒 Request Private Album'
+        albumB.style.color = '#9e9b97'
+        albumB.onclick = () => requestPrivateAlbum(p.id)
+      }
+      albumRow.appendChild(albumB)
+      btnsContainer.insertAdjacentElement('afterend', albumRow)
     }
   }
 }
@@ -3389,6 +3570,8 @@ function renderProfileScreen() {
     }
   }
   renderPhotoGrid()
+  renderPrivateAlbum()
+  loadPrivateAlbumRequests()
   renderStreakBadge()
   checkProfileNudge()
 }
