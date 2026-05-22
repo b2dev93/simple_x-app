@@ -1203,6 +1203,8 @@ async function enterApp(user) {
   currentUser = user
   const { data } = await sb.from('profiles').select('*').eq('id', user.id).single()
   currentProfile = data
+  if (data?.lat) userLat = data.lat
+  if (data?.lng) userLng = data.lng
   // Backfill email if missing
   if (data && !data.email && user.email) {
     await sb.from('profiles').update({ email: user.email }).eq('id', user.id)
@@ -2448,7 +2450,8 @@ async function loadDiscover() {
   const swipedIds = (swipes || []).map(s => s.swiped_id)
   swipedIds.push(currentUser.id)
 
-  let query = sb.from('profiles').select('*').or('incognito.is.null,incognito.eq.false').limit(20)
+  const fetchLimit = filterDistance !== null ? 200 : 20
+  let query = sb.from('profiles').select('*').or('incognito.is.null,incognito.eq.false').limit(fetchLimit)
   if (swipedIds.length > 0) query = query.not('id', 'in', `(${swipedIds.join(',')})`)
   // Filter by gender/seeking
   if (currentProfile?.seeking && currentProfile.seeking !== 'Everyone') {
@@ -3955,6 +3958,10 @@ function applyFilters() {
   filterAgeMin = 18
   filterAgeMax = parseInt(el('filter-age-max').value)
   hide('filter-panel')
+  if (filterDistance !== null && !userLat) {
+    requestLocation()
+    showToast('Requesting your location to filter by distance…')
+  }
   loadDiscover()
 }
 
