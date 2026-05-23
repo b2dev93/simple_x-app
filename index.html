@@ -1772,9 +1772,12 @@ async function loadCommunityNotifs() {
 }
 
 async function loadPostStats(postId) {
-  const [{ data: likes }, { data: comments }] = await Promise.all([
+  const [{ data: likes }, { data: allComments }] = await Promise.all([
     sb.from('post_likes').select('user_id').eq('post_id', postId),
-    sb.from('post_comments').select('id, user_id, body, created_at, profiles(display_name)').eq('post_id', postId).order('created_at')
+    sb.from('post_comments')
+      .select('id, user_id, body, created_at, parent_comment_id, profiles(display_name)')
+      .eq('post_id', postId)
+      .order('created_at')
   ])
 
   const likeEl = document.getElementById('like-count-' + postId)
@@ -1782,23 +1785,26 @@ async function loadPostStats(postId) {
   const likeBtn = document.querySelector(`[data-post="${postId}"]`)
 
   if (likeEl) likeEl.textContent = likes?.length || 0
-  if (commentEl) commentEl.textContent = comments?.length || 0
-  if (likeBtn && likes?.some(l => l.user_id === currentUser?.id)) {
-    likeBtn.style.color = '#e8503a'
-  }
+  if (commentEl) commentEl.textContent = allComments?.length || 0
+  if (likeBtn && likes?.some(l => l.user_id === currentUser?.id)) likeBtn.style.color = '#e8503a'
 
   const listEl = document.getElementById('comments-list-' + postId)
-  if (!listEl || !comments?.length) return
+  if (!listEl) return
+  if (!allComments?.length) { listEl.innerHTML = ''; return }
 
-  // Fetch comment likes for all comments in one query
-  const commentIds = comments.map(c => c.id)
-  const { data: commentLikes } = await sb.from('comment_likes')
-    .select('comment_id, user_id')
-    .in('comment_id', commentIds)
+  // Separate top-level comments from replies
+  const topLevel = allComments.filter(c => !c.parent_comment_id)
+  const repliesMap = {}
+  allComments.filter(c => c.parent_comment_id).forEach(c => {
+    if (!repliesMap[c.parent_comment_id]) repliesMap[c.parent_comment_id] = []
+    repliesMap[c.parent_comment_id].push(c)
+  })
 
-  // Build lookup: commentId -> { count, iLiked }
+  // Fetch all comment likes in one batch
+  const allIds = allComments.map(c => c.id)
   const clMap = {}
-  commentIds.forEach(id => { clMap[id] = { count: 0, iLiked: false } })
+  allIds.forEach(id => { clMap[id] = { count: 0, iLiked: false } })
+  const { data: commentLikes } = await sb.from('comment_likes').select('comment_id, user_id').in('comment_id', allIds)
   ;(commentLikes || []).forEach(cl => {
     if (clMap[cl.comment_id]) {
       clMap[cl.comment_id].count++
@@ -1807,48 +1813,137 @@ async function loadPostStats(postId) {
   })
 
   listEl.innerHTML = ''
-  comments.forEach(c => {
+
+  function buildCommentEl(c, isReply, parentName) {
     const { count, iLiked } = clMap[c.id] || { count: 0, iLiked: false }
-    const row = document.createElement('div')
-    row.style.cssText = 'display:flex;gap:8px;margin-bottom:8px;align-items:flex-start'
+    const name = c.profiles?.display_name || 'Member'
+    const fs = isReply ? '12px' : '13px'
+
+    const wrap = document.createElement('div')
+    wrap.id = 'comment-wrap-' + c.id
+    wrap.style.cssText = isReply
+      ? 'margin-left:20px;padding-left:10px;border-left:2px solid #252525;margin-bottom:6px'
+      : 'margin-bottom:10px'
+
+    // Name + body row
+    const bodyRow = document.createElement('div')
+    bodyRow.style.cssText = 'display:flex;gap:6px;align-items:flex-start'
 
     const textWrap = document.createElement('div')
-    textWrap.style.cssText = 'flex:1;min-width:0'
-    textWrap.innerHTML = `<span style="color:#e8503a;font-size:13px;font-weight:600">${escapeHtml(c.profiles?.display_name || 'Member')}: </span><span style="color:#9e9b97;font-size:13px">${escapeHtml(c.body)}</span>`
+    textWrap.style.cssText = 'flex:1;min-width:0;line-height:1.5'
 
-    const likeWrap = document.createElement('div')
-    likeWrap.style.cssText = 'display:flex;align-items:center;gap:3px;flex-shrink:0;margin-top:1px'
+    const nameEl = document.createElement('span')
+    nameEl.style.cssText = `color:#e8503a;font-size:${fs};font-weight:600`
+    nameEl.textContent = name + ': '
+    textWrap.appendChild(nameEl)
+
+    if (isReply && parentName) {
+      const mention = document.createElement('span')
+      mention.style.cssText = `color:#4fc3f7;font-size:${fs}`
+      mention.textContent = '@' + parentName + ' '
+      textWrap.appendChild(mention)
+    }
+
+    const bodyEl = document.createElement('span')
+    bodyEl.style.cssText = `color:#9e9b97;font-size:${fs}`
+    bodyEl.textContent = c.body
+    textWrap.appendChild(bodyEl)
+
+    // Actions: ❤️ + Reply
+    const actions = document.createElement('div')
+    actions.style.cssText = 'display:flex;align-items:center;gap:4px;flex-shrink:0;padding-top:2px'
 
     const heartBtn = document.createElement('button')
-    heartBtn.style.cssText = `background:none;border:none;cursor:pointer;padding:2px 4px;font-size:12px;color:${iLiked ? '#e8503a' : '#6b6866'};line-height:1`
-    heartBtn.textContent = '❤️'
-    const countSpan = document.createElement('span')
-    countSpan.style.cssText = `font-size:11px;color:${iLiked ? '#e8503a' : '#6b6866'}`
-    countSpan.textContent = count || ''
-    heartBtn.onclick = () => toggleCommentLike(c.id, heartBtn, countSpan)
+    heartBtn.style.cssText = `background:none;border:none;cursor:pointer;padding:1px 3px;display:flex;align-items:center;gap:2px;line-height:1;color:${iLiked ? '#e8503a' : '#6b6866'}`
+    const heartIcon = document.createElement('span')
+    heartIcon.style.fontSize = '11px'
+    heartIcon.textContent = '❤️'
+    const cntSpan = document.createElement('span')
+    cntSpan.style.cssText = `font-size:11px;color:${iLiked ? '#e8503a' : '#6b6866'};min-width:8px`
+    cntSpan.textContent = count > 0 ? String(count) : ''
+    heartBtn.appendChild(heartIcon)
+    heartBtn.appendChild(cntSpan)
+    heartBtn.addEventListener('click', () => toggleCommentLike(c.id, heartBtn, cntSpan))
 
-    likeWrap.appendChild(heartBtn)
-    likeWrap.appendChild(countSpan)
-    row.appendChild(textWrap)
-    row.appendChild(likeWrap)
-    listEl.appendChild(row)
-  })
+    const replyBtn = document.createElement('button')
+    replyBtn.style.cssText = 'background:none;border:none;cursor:pointer;color:#6b6866;font-size:11px;padding:1px 3px'
+    replyBtn.textContent = 'Reply'
+    replyBtn.addEventListener('click', () => {
+      const ri = document.getElementById('reply-input-' + c.id)
+      if (!ri) return
+      const open = ri.style.display !== 'none'
+      ri.style.display = open ? 'none' : ''
+      if (!open) ri.querySelector('input')?.focus()
+    })
+
+    actions.appendChild(heartBtn)
+    actions.appendChild(replyBtn)
+    bodyRow.appendChild(textWrap)
+    bodyRow.appendChild(actions)
+    wrap.appendChild(bodyRow)
+
+    // Hidden reply input
+    const replyWrap = document.createElement('div')
+    replyWrap.id = 'reply-input-' + c.id
+    replyWrap.style.cssText = 'display:none;margin-top:6px'
+    const replyFlex = document.createElement('div')
+    replyFlex.style.cssText = 'display:flex;gap:6px'
+    const replyInput = document.createElement('input')
+    replyInput.placeholder = 'Reply to ' + name + '...'
+    replyInput.style.cssText = 'flex:1;background:#252525;border:none;border-radius:8px;padding:8px 12px;color:#f0ede8;font-size:12px;outline:none'
+    const replySubmit = document.createElement('button')
+    replySubmit.textContent = '↑'
+    replySubmit.style.cssText = 'background:#e8503a;border:none;border-radius:8px;padding:8px 12px;color:#fff;font-size:13px;cursor:pointer;flex-shrink:0'
+    replySubmit.addEventListener('click', () => submitReply(postId, c.id, name, replyInput, replyWrap))
+    replyInput.addEventListener('keydown', e => { if (e.key === 'Enter') replySubmit.click() })
+    replyFlex.appendChild(replyInput)
+    replyFlex.appendChild(replySubmit)
+    replyWrap.appendChild(replyFlex)
+    wrap.appendChild(replyWrap)
+
+    // Append replies under this comment
+    ;(repliesMap[c.id] || []).forEach(reply => wrap.appendChild(buildCommentEl(reply, true, name)))
+
+    return wrap
+  }
+
+  // Render top-level comments (fall back to all if parent_comment_id column not yet added)
+  const roots = topLevel.length > 0 ? topLevel : allComments
+  roots.forEach(c => listEl.appendChild(buildCommentEl(c, false, null)))
 }
 
-async function toggleCommentLike(commentId, btn, countSpan) {
+async function submitReply(postId, parentCommentId, parentName, inputEl, wrapEl) {
+  const body = inputEl.value.trim()
+  if (!body) return
+  inputEl.disabled = true
+  const { error } = await sb.from('post_comments').insert({
+    post_id: postId,
+    user_id: currentUser.id,
+    body,
+    parent_comment_id: parentCommentId
+  })
+  inputEl.disabled = false
+  if (error) { showToast('Could not post reply.'); return }
+  inputEl.value = ''
+  if (wrapEl) wrapEl.style.display = 'none'
+  loadPostStats(postId)
+  sendCommentNotifications(postId, body)
+}
+
+async function toggleCommentLike(commentId, btn, cntSpan) {
   const isLiked = btn.style.color === 'rgb(232, 80, 58)'
   if (isLiked) {
     await sb.from('comment_likes').delete().eq('comment_id', commentId).eq('user_id', currentUser.id)
     btn.style.color = '#6b6866'
-    countSpan.style.color = '#6b6866'
-    const n = parseInt(countSpan.textContent || '0') - 1
-    countSpan.textContent = n > 0 ? n : ''
+    cntSpan.style.color = '#6b6866'
+    const n = parseInt(cntSpan.textContent || '0') - 1
+    cntSpan.textContent = n > 0 ? String(n) : ''
   } else {
     await sb.from('comment_likes').insert({ comment_id: commentId, user_id: currentUser.id })
     btn.style.color = '#e8503a'
-    countSpan.style.color = '#e8503a'
-    const n = parseInt(countSpan.textContent || '0') + 1
-    countSpan.textContent = n
+    cntSpan.style.color = '#e8503a'
+    const n = parseInt(cntSpan.textContent || '0') + 1
+    cntSpan.textContent = String(n)
   }
 }
 
