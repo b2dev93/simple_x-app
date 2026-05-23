@@ -1793,9 +1793,12 @@ async function loadPostStats(postId) {
   if (!allComments?.length) { listEl.innerHTML = ''; return }
 
   // Separate top-level comments from replies
-  const topLevel = allComments.filter(c => !c.parent_comment_id)
+  console.log('[loadPostStats] fetched comments:', allComments.map(c => ({
+    id: c.id?.slice(0,8), parent_comment_id: c.parent_comment_id?.slice(0,8) ?? null, body: c.body?.slice(0,30)
+  })))
+  const topLevel = allComments.filter(c => c.parent_comment_id == null)
   const repliesMap = {}
-  allComments.filter(c => c.parent_comment_id).forEach(c => {
+  allComments.filter(c => c.parent_comment_id != null).forEach(c => {
     if (!repliesMap[c.parent_comment_id]) repliesMap[c.parent_comment_id] = []
     repliesMap[c.parent_comment_id].push(c)
   })
@@ -1907,23 +1910,22 @@ async function loadPostStats(postId) {
     return wrap
   }
 
-  // Render top-level comments (fall back to all if parent_comment_id column not yet added)
-  const roots = topLevel.length > 0 ? topLevel : allComments
-  roots.forEach(c => listEl.appendChild(buildCommentEl(c, false, null)))
+  topLevel.forEach(c => listEl.appendChild(buildCommentEl(c, false, null)))
 }
 
 async function submitReply(postId, parentCommentId, parentName, inputEl, wrapEl) {
   const body = inputEl.value.trim()
   if (!body) return
   inputEl.disabled = true
-  const { error } = await sb.from('post_comments').insert({
+  const { data: inserted, error } = await sb.from('post_comments').insert({
     post_id: postId,
     user_id: currentUser.id,
     body,
     parent_comment_id: parentCommentId
-  })
+  }).select('id, parent_comment_id').single()
   inputEl.disabled = false
-  if (error) { showToast('Could not post reply.'); return }
+  if (error) { console.error('[submitReply] insert error:', error); showToast('Could not post reply.'); return }
+  console.log('[submitReply] inserted row:', { id: inserted?.id?.slice(0,8), parent_comment_id: inserted?.parent_comment_id?.slice(0,8) ?? null })
   inputEl.value = ''
   if (wrapEl) wrapEl.style.display = 'none'
   loadPostStats(postId)
