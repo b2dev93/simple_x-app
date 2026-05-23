@@ -3603,6 +3603,8 @@ function renderStreakBadge() {
 
 function renderProfileScreen() {
   if (!currentProfile) return
+  const editForm = el('profile-edit-form')
+  if (editForm) editForm.style.display = 'none'
   const p = currentProfile
   avatarEl(p.display_name || '?', 76, 2, el('profile-avatar'), p.photo_urls?.[0])
   el('profile-display-name').textContent = p.display_name || ''
@@ -3684,6 +3686,7 @@ function renderPhotoGrid() {
 
 function toggleEdit() {
   const form = el('profile-edit-form')
+  if (!form) return
   const showing = form.style.display === 'flex'
   if (!showing) {
     el('edit-name').value = currentProfile?.display_name || ''
@@ -3716,6 +3719,7 @@ function toggleEdit() {
     document.querySelectorAll('#edit-seeking-options .hsv-btn').forEach(b => b.classList.toggle('selected', b.textContent === editSeeking))
   }
   form.style.display = showing ? 'none' : 'flex'
+  if (!showing) setTimeout(() => form.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
 }
 
 function selectEditHsv(btn, val) {
