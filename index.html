@@ -1051,6 +1051,33 @@ async function deletePhoto(idx) {
   if (el('edit-profile-page')?.style.display === 'flex') renderEditPhotos()
 }
 
+// ── LIGHTBOX ──────────────────────────────────────
+
+function showLightbox(url) {
+  document.getElementById('sx-lightbox')?.remove()
+  const box = document.createElement('div')
+  box.id = 'sx-lightbox'
+  box.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.95);z-index:99999;display:flex;align-items:center;justify-content:center;cursor:pointer'
+  box.onclick = () => box.remove()
+  if (isVideoUrl(url)) {
+    const v = document.createElement('video')
+    v.src = url; v.autoplay = true; v.controls = true; v.playsinline = true
+    v.style.cssText = 'max-width:100%;max-height:100%;object-fit:contain'
+    box.appendChild(v)
+  } else {
+    const img = document.createElement('img')
+    img.src = url
+    img.style.cssText = 'max-width:100%;max-height:100%;object-fit:contain;pointer-events:none'
+    box.appendChild(img)
+  }
+  const closeBtn = document.createElement('button')
+  closeBtn.textContent = '×'
+  closeBtn.style.cssText = 'position:absolute;top:20px;right:20px;background:rgba(0,0,0,0.6);border:none;color:#fff;font-size:32px;width:44px;height:44px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1'
+  closeBtn.onclick = e => { e.stopPropagation(); box.remove() }
+  box.appendChild(closeBtn)
+  document.body.appendChild(box)
+}
+
 // ── PRIVATE ALBUM ─────────────────────────────────
 
 async function uploadPrivatePhoto(input) {
@@ -1102,13 +1129,45 @@ async function requestPrivateAlbum(ownerId) {
     showToast(error.code === '23505' ? 'You already sent a request.' : 'Could not send request.')
     return
   }
-  sendPush(ownerId, '🔒 Private album request', `${currentProfile?.display_name || 'Someone'} wants to see your private album`, 'view')
+  sendPush(ownerId, '🔒 Private album request', `${currentProfile?.display_name || 'Someone'} wants to see your private album on Simple-x`, 'view')
   showToast('Request sent!')
+}
+
+function showPrivateAlbumModal(photos, personName) {
+  document.getElementById('private-album-modal')?.remove()
+  const modal = document.createElement('div')
+  modal.id = 'private-album-modal'
+  modal.style.cssText = 'position:fixed;inset:0;background:#0a0a0a;z-index:10001;display:flex;flex-direction:column;overflow:hidden'
+  const header = document.createElement('div')
+  header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid #1e1e1e;flex-shrink:0'
+  header.innerHTML = `<span style="color:#f0ede8;font-size:16px;font-weight:600">🔒 ${escapeHtml(personName)}'s Private Album</span>`
+  const closeBtn = document.createElement('button')
+  closeBtn.textContent = '×'
+  closeBtn.style.cssText = 'background:rgba(255,255,255,0.08);border:none;border-radius:50%;width:36px;height:36px;color:#f0ede8;font-size:22px;cursor:pointer'
+  closeBtn.onclick = () => modal.remove()
+  header.appendChild(closeBtn)
+  modal.appendChild(header)
+  const body = document.createElement('div')
+  body.style.cssText = 'flex:1;overflow-y:auto;padding:16px'
+  const grid = document.createElement('div')
+  grid.style.cssText = 'display:grid;grid-template-columns:repeat(3,1fr);gap:6px'
+  photos.forEach(url => {
+    const cell = document.createElement('div')
+    cell.style.cssText = 'aspect-ratio:1;border-radius:10px;overflow:hidden;background:#1a1208;cursor:pointer'
+    const img = document.createElement('img')
+    img.src = url; img.style.cssText = 'width:100%;height:100%;object-fit:cover'
+    img.onclick = () => showLightbox(url)
+    cell.appendChild(img)
+    grid.appendChild(cell)
+  })
+  body.appendChild(grid)
+  modal.appendChild(body)
+  document.body.appendChild(modal)
 }
 
 async function approvePrivateAlbumRequest(viewerId, name) {
   await sb.from('private_album_access').update({ status: 'approved' }).eq('owner_id', currentUser.id).eq('viewer_id', viewerId)
-  sendPush(viewerId, '🔒 Private album approved', `${currentProfile?.display_name || 'Someone'} approved your album request on Simple-x`, 'view')
+  sendPush(viewerId, '🔒 Private album approved!', `${currentProfile?.display_name || 'Someone'} approved your private album request on Simple-x`, 'view')
   showToast(`${name} can now see your private album.`)
   loadPrivateAlbumRequests()
 }
@@ -1125,31 +1184,48 @@ function renderPrivateAlbum() {
   const old = document.getElementById('private-album-section')
   if (old) old.remove()
   const photos = currentProfile.private_photo_urls || []
+
   const section = document.createElement('div')
   section.id = 'private-album-section'
-  section.style.cssText = 'margin-bottom:20px'
-  let html = `
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+  section.style.cssText = 'margin-bottom:20px;border-top:1px solid #1e1e1e;padding-top:20px'
+
+  // Header
+  const header = document.createElement('div')
+  header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:6px'
+  header.innerHTML = `
+    <div>
       <p style="color:#f0ede8;font-size:14px;font-weight:600">🔒 Private Album</p>
-      <span style="color:#6b6866;font-size:12px">${photos.length}/20</span>
+      <p style="color:#6b6866;font-size:12px;margin-top:2px">Only visible to connections you approve</p>
     </div>
-    ${photos.length === 0 ? `<p style="color:#6b6866;font-size:13px;margin-bottom:10px">Add photos only approved connections can see.</p>` : ''}
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px">
-  `
+    <span style="color:#6b6866;font-size:12px">${photos.length}/20</span>`
+  section.appendChild(header)
+
+  // Grid
+  const grid = document.createElement('div')
+  grid.style.cssText = 'display:grid;grid-template-columns:repeat(3,1fr);gap:6px'
   photos.forEach((url, i) => {
-    html += `<div style="position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;background:#1c1c1c">
-      <img src="${url}" style="width:100%;height:100%;object-fit:cover" />
-      <button onclick="deletePrivatePhoto(${i})" style="position:absolute;top:4px;right:4px;width:22px;height:22px;border-radius:50%;background:rgba(0,0,0,0.7);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;line-height:1">×</button>
-    </div>`
+    const cell = document.createElement('div')
+    cell.style.cssText = 'position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;background:#1a1208;border:1px solid #3a2a14;cursor:pointer'
+    const img = document.createElement('img')
+    img.src = url; img.style.cssText = 'width:100%;height:100%;object-fit:cover'
+    img.onclick = () => showLightbox(url)
+    cell.appendChild(img)
+    const del = document.createElement('button')
+    del.onclick = e => { e.stopPropagation(); deletePrivatePhoto(i) }
+    del.style.cssText = 'position:absolute;top:4px;right:4px;width:22px;height:22px;border-radius:50%;background:rgba(0,0,0,0.7);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;line-height:1'
+    del.textContent = '×'
+    cell.appendChild(del)
+    grid.appendChild(cell)
   })
   if (photos.length < 20) {
-    html += `<div onclick="el('private-photo-input').click()" style="aspect-ratio:1;border-radius:10px;border:1px dashed #3a2a14;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;gap:4px;background:#1a1208">
-      <span style="font-size:20px">🔒</span>
-      <span style="color:#6b6866;font-size:11px">Add private</span>
-    </div>`
+    const add = document.createElement('div')
+    add.style.cssText = 'aspect-ratio:1;border-radius:10px;border:1px dashed #3a2a14;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;gap:4px;background:#1a1208'
+    add.onclick = () => el('private-photo-input').click()
+    add.innerHTML = '<span style="font-size:20px">🔒</span><span style="color:#6b6866;font-size:11px">Add private</span>'
+    grid.appendChild(add)
   }
-  html += '</div>'
-  section.innerHTML = html
+  section.appendChild(grid)
+
   const photoGrid = document.getElementById('photo-grid')
   if (photoGrid) photoGrid.insertAdjacentElement('afterend', section)
 }
@@ -2473,20 +2549,25 @@ async function showProfilePreview(userId) {
       btnsContainer.appendChild(askB)
     }
 
-    // Private album button — only when viewing someone else's profile
-    if (userId !== currentUser.id && (p.private_photo_urls?.length > 0 || albumStatus)) {
+    // Private album button — always shown when viewing someone else
+    if (userId !== currentUser.id) {
       const albumRow = document.createElement('div')
       albumRow.style.cssText = 'margin-top:10px'
       const albumB = document.createElement('button')
       albumB.id = 'private-album-btn'
       albumB.style.cssText = 'width:100%;padding:13px;border-radius:12px;border:1px solid #252525;background:transparent;font-size:14px;font-weight:500;cursor:pointer;text-align:center'
-      if (albumStatus === 'approved') {
-        albumB.textContent = '📸 Private Album Unlocked'
+      if (albumStatus === 'approved' && p.private_photo_urls?.length > 0) {
+        albumB.textContent = '🔓 View Private Album'
         albumB.style.color = '#e8503a'
         albumB.style.borderColor = '#3a1a14'
+        albumB.onclick = () => showPrivateAlbumModal(p.private_photo_urls, name)
+      } else if (albumStatus === 'approved') {
+        albumB.textContent = '🔓 Album Access Granted — No Photos Yet'
+        albumB.style.color = '#6b6866'
         albumB.disabled = true
+        albumB.style.opacity = '0.6'
       } else if (albumStatus === 'pending') {
-        albumB.textContent = '⏳ Album Request Sent'
+        albumB.textContent = '✓ Request Sent'
         albumB.style.color = '#6b6866'
         albumB.disabled = true
         albumB.style.opacity = '0.6'
@@ -3937,16 +4018,31 @@ function renderEditPhotos() {
   const grid = el('edit-photo-grid')
   if (!grid) return
   grid.innerHTML = ''
-  grid.style.cssText = 'display:grid;grid-template-columns:repeat(3,1fr);gap:6px'
+  // Public photos
+  const pubLabel = document.createElement('p')
+  pubLabel.style.cssText = 'color:#9e9b97;font-size:11px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:8px'
+  pubLabel.textContent = 'Public Photos'
+  grid.appendChild(pubLabel)
+  const pubGrid = document.createElement('div')
+  pubGrid.style.cssText = 'display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:20px'
   const photos = currentProfile?.photo_urls || []
   photos.forEach((url, i) => {
     const cell = document.createElement('div')
-    cell.style.cssText = 'position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;background:#1c1c1c'
-    cell.innerHTML = isVideoUrl(url)
-      ? `<video src="${url}" style="width:100%;height:100%;object-fit:cover" muted playsinline preload="metadata"></video><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none"><span style="font-size:24px;opacity:0.85">▶️</span></div>`
-      : `<img src="${url}" style="width:100%;height:100%;object-fit:cover" />`
+    cell.style.cssText = 'position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;background:#1c1c1c;cursor:pointer'
+    const media = document.createElement(isVideoUrl(url) ? 'video' : 'img')
+    media.src = url
+    media.style.cssText = 'width:100%;height:100%;object-fit:cover'
+    if (media.tagName === 'VIDEO') { media.muted = true; media.setAttribute('playsinline',''); media.setAttribute('preload','metadata') }
+    media.onclick = () => showLightbox(url)
+    cell.appendChild(media)
+    if (isVideoUrl(url)) {
+      const overlay = document.createElement('div')
+      overlay.style.cssText = 'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none'
+      overlay.innerHTML = '<span style="font-size:24px;opacity:0.85">▶️</span>'
+      cell.appendChild(overlay)
+    }
     const del = document.createElement('button')
-    del.onclick = () => deletePhoto(i)
+    del.onclick = e => { e.stopPropagation(); deletePhoto(i) }
     del.style.cssText = 'position:absolute;top:4px;right:4px;width:22px;height:22px;border-radius:50%;background:rgba(0,0,0,0.7);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;line-height:1'
     del.textContent = '×'
     cell.appendChild(del)
@@ -3956,15 +4052,51 @@ function renderEditPhotos() {
       lbl.textContent = 'Main'
       cell.appendChild(lbl)
     }
-    grid.appendChild(cell)
+    pubGrid.appendChild(cell)
   })
   if (photos.length < 20) {
     const add = document.createElement('div')
     add.style.cssText = 'aspect-ratio:1;border-radius:10px;border:1px dashed #252525;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;gap:4px'
     add.onclick = () => el('photo-input').click()
     add.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#6b6866" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg><span style="color:#6b6866;font-size:11px">' + (20 - photos.length) + ' left</span>'
-    grid.appendChild(add)
+    pubGrid.appendChild(add)
   }
+  grid.appendChild(pubGrid)
+
+  // Private photos — completely separate grid
+  const privLabel = document.createElement('p')
+  privLabel.style.cssText = 'color:#9e9b97;font-size:11px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:4px'
+  privLabel.textContent = '🔒 Private Album'
+  const privSub = document.createElement('p')
+  privSub.style.cssText = 'color:#6b6866;font-size:12px;margin-bottom:8px'
+  privSub.textContent = 'Only visible to connections you approve.'
+  grid.appendChild(privLabel)
+  grid.appendChild(privSub)
+  const privGrid = document.createElement('div')
+  privGrid.style.cssText = 'display:grid;grid-template-columns:repeat(3,1fr);gap:6px'
+  const privPhotos = currentProfile?.private_photo_urls || []
+  privPhotos.forEach((url, i) => {
+    const cell = document.createElement('div')
+    cell.style.cssText = 'position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;background:#1a1208;border:1px solid #3a2a14;cursor:pointer'
+    const img = document.createElement('img')
+    img.src = url; img.style.cssText = 'width:100%;height:100%;object-fit:cover'
+    img.onclick = () => showLightbox(url)
+    cell.appendChild(img)
+    const del = document.createElement('button')
+    del.onclick = e => { e.stopPropagation(); deletePrivatePhoto(i) }
+    del.style.cssText = 'position:absolute;top:4px;right:4px;width:22px;height:22px;border-radius:50%;background:rgba(0,0,0,0.7);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;line-height:1'
+    del.textContent = '×'
+    cell.appendChild(del)
+    privGrid.appendChild(cell)
+  })
+  if (privPhotos.length < 20) {
+    const add = document.createElement('div')
+    add.style.cssText = 'aspect-ratio:1;border-radius:10px;border:1px dashed #3a2a14;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;gap:4px;background:#1a1208'
+    add.onclick = () => el('private-photo-input').click()
+    add.innerHTML = '<span style="font-size:18px">🔒</span><span style="color:#6b6866;font-size:11px">Add private</span>'
+    privGrid.appendChild(add)
+  }
+  grid.appendChild(privGrid)
 }
 
 function selectEditHsv(btn, val) {
