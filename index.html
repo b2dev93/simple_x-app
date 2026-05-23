@@ -442,7 +442,10 @@
         </div>
         <p id="top-member-label" style="display:none;color:#f5c518;font-size:12px;font-weight:600;text-align:center;margin-top:-4px">Top Member ⭐</p>
         <p class="profile-city-label" id="profile-city-label"></p>
-        <button class="edit-btn" onclick="toggleEdit()">Edit profile</button>
+        <div style="display:flex;gap:8px;justify-content:center">
+          <button class="edit-btn" onclick="toggleEdit()">Edit profile</button>
+          <button class="edit-btn" onclick="showProfilePreview(currentUser.id)" style="background:#1c1c1c;border:1px solid #252525;color:#9e9b97">Preview</button>
+        </div>
       </div>
       <div id="profile-fields"></div>
 
@@ -838,6 +841,41 @@
           <span style="color:#6b6866;font-size:13px">to</span>
           <input type="number" id="edit-age-max" class="input" min="18" max="99" placeholder="Max" style="flex:1" />
         </div>
+      </div>
+      <div>
+        <p style="color:#6b6866;font-size:12px;margin-bottom:8px">Relationship status</p>
+        <select id="edit-rel-status" class="input" style="color:#f0ede8;background:#1e1e1e">
+          <option value="">Select status</option>
+          <option>Single</option><option>Married</option><option>Polyamorous</option><option>ENM</option><option>Exploring/Unsure</option><option>Divorced</option>
+        </select>
+      </div>
+      <div>
+        <p style="color:#6b6866;font-size:12px;margin-bottom:8px">Alcohol use</p>
+        <select id="edit-alcohol" class="input" style="color:#f0ede8;background:#1e1e1e">
+          <option value="">Select</option>
+          <option>Non-drinker</option><option>Social drinker</option><option>Frequent drinker</option><option>Sober/Recovery</option>
+        </select>
+      </div>
+      <div>
+        <p style="color:#6b6866;font-size:12px;margin-bottom:8px">Cannabis</p>
+        <select id="edit-cannabis" class="input" style="color:#f0ede8;background:#1e1e1e">
+          <option value="">Select</option>
+          <option>420 friendly</option><option>Occasional use</option><option>Not 420 friendly</option><option>Sober/Recovery</option>
+        </select>
+      </div>
+      <div>
+        <p style="color:#6b6866;font-size:12px;margin-bottom:8px">Children</p>
+        <select id="edit-children" class="input" style="color:#f0ede8;background:#1e1e1e">
+          <option value="">Select</option>
+          <option>No children</option><option>One child</option><option>Multiple children</option><option>Wants children</option><option>Does not want children</option><option>Open to children</option>
+        </select>
+      </div>
+      <div>
+        <p style="color:#6b6866;font-size:12px;margin-bottom:8px">Religion</p>
+        <select id="edit-religion" class="input" style="color:#f0ede8;background:#1e1e1e">
+          <option value="">Select</option>
+          <option>Spiritual but not religious</option><option>Christian</option><option>Catholic</option><option>Jewish</option><option>Muslim</option><option>Hindu</option><option>Buddhist</option><option>Agnostic</option><option>Atheist</option><option>Prefer not to say</option><option>Other</option>
+        </select>
       </div>
       <div>
         <p style="color:#6b6866;font-size:12px;margin-bottom:10px">My type</p>
@@ -2090,17 +2128,19 @@ async function loadContacts() {
 
   const [{ data: views }, { data: likedMe }, { data: iLiked }, { data: matchRows }] = await Promise.all([
     sb.from('profile_views').select('viewer_id').eq('viewed_id', currentUser.id).order('created_at', { ascending: false }).limit(50),
-    sb.from('swipes').select('swiper_id').eq('swiped_id', currentUser.id).in('direction', ['like', 'super']).order('created_at', { ascending: false }).limit(50),
+    sb.from('swipes').select('swiper_id, direction').eq('swiped_id', currentUser.id).in('direction', ['like', 'super']).order('created_at', { ascending: false }).limit(50),
     sb.from('swipes').select('swiped_id').eq('swiper_id', currentUser.id).in('direction', ['like', 'super']).order('created_at', { ascending: false }).limit(50),
     sb.from('matches').select('user_a, user_b').or(`user_a.eq.${currentUser.id},user_b.eq.${currentUser.id}`).order('created_at', { ascending: false }).limit(50)
   ])
 
   const viewerIds = [...new Set((views || []).map(v => v.viewer_id).filter(id => id !== currentUser.id))]
-  const likedMeIds = [...new Set((likedMe || []).map(l => l.swiper_id).filter(id => id !== currentUser.id))]
+  const superLikedMeIds = [...new Set((likedMe || []).filter(l => l.direction === 'super' && l.swiper_id !== currentUser.id).map(l => l.swiper_id))]
+  const regularLikedMeIds = [...new Set((likedMe || []).filter(l => l.direction !== 'super' && l.swiper_id !== currentUser.id).map(l => l.swiper_id))]
+  const likedMeIds = [...superLikedMeIds, ...regularLikedMeIds.filter(id => !superLikedMeIds.includes(id))]
   const iLikedIds = [...new Set((iLiked || []).map(l => l.swiped_id))]
   const matchIds = (matchRows || []).map(m => m.user_a === currentUser.id ? m.user_b : m.user_a)
 
-  _contactsData = { viewed: viewerIds, 'liked-me': likedMeIds, 'i-liked': iLikedIds, matches: matchIds }
+  _contactsData = { viewed: viewerIds, 'liked-me': likedMeIds, 'liked-me-super': superLikedMeIds, 'i-liked': iLikedIds, matches: matchIds }
 
   const fetchIds = isPremium
     ? [...new Set([...viewerIds, ...likedMeIds, ...iLikedIds, ...matchIds])]
@@ -2172,6 +2212,7 @@ async function openContactsSection(sectionKey) {
     return
   }
 
+  const superIds = new Set(_contactsData['liked-me-super'] || [])
   const ordered = ids.map(id => profiles.find(p => p.id === id)).filter(Boolean)
 
   feed.innerHTML = ordered.map(p => {
@@ -2184,6 +2225,7 @@ async function openContactsSection(sectionKey) {
     const bio = escapeHtml(p.bio || '')
     const city = escapeHtml(p.city || '')
     const winkName = (p.display_name || '').split(' ')[0].replace(/\\/g, '\\\\').replace(/'/g, "\\'")
+    const isSuper = sectionKey === 'liked-me' && superIds.has(p.id)
     return `
     <div onclick="showProfilePreview('${p.id}')">
       <div style="position:relative">
@@ -2192,6 +2234,7 @@ async function openContactsSection(sectionKey) {
           : `<div style="width:100%;height:420px;background:#1c1c1c;display:flex;align-items:center;justify-content:center;font-size:80px;color:#f0ede8">${(p.display_name||'?')[0].toUpperCase()}</div>`
         }
         <div style="position:absolute;top:12px;left:12px;display:flex;flex-direction:column;gap:4px;z-index:5">
+          ${isSuper ? '<div style="background:#3a2e0a;color:#f5c518;font-size:12px;font-weight:700;padding:4px 10px;border-radius:20px">⭐ Super Like</div>' : ''}
           ${isOnline ? '<div style="background:#0d2e1a;color:#2ecc71;font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px">● Online</div>' : ''}
           ${isNewMember(p) ? '<div style="background:#0d2838;color:#4fc3f7;font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px">✦ NEW</div>' : ''}
         </div>
@@ -2269,12 +2312,17 @@ async function showProfilePreview(userId) {
   modal.style.cssText = 'position:fixed;inset:0;background:#0a0a0a;z-index:9999'
   const basicsItems = [
     p.hsv_type ? `HSV type: ${p.hsv_type}` : null,
+    p.relationship_status ? `Status: ${p.relationship_status}` : null,
     p.relationship_type ? `Looking for: ${p.relationship_type}` : null,
     p.height ? `Height: ${p.height}` : null,
     p.body_type ? `Body type: ${p.body_type}` : null,
     (p.hair_color && p.eye_color) ? `Hair / Eyes: ${p.hair_color} / ${p.eye_color}` : p.hair_color ? `Hair: ${p.hair_color}` : p.eye_color ? `Eyes: ${p.eye_color}` : null,
     p.ethnicity ? `Ethnicity: ${p.ethnicity}` : null,
     (p.looking_for_age_min || p.looking_for_age_max) ? `Looking for ages: ${p.looking_for_age_min ?? 18}–${p.looking_for_age_max ?? 99}` : null,
+    p.alcohol ? `Alcohol: ${p.alcohol}` : null,
+    p.cannabis ? `Cannabis: ${p.cannabis}` : null,
+    p.children ? `Children: ${p.children}` : null,
+    p.religion ? `Religion: ${p.religion}` : null,
   ].filter(Boolean)
 
   modal.innerHTML = `
@@ -2737,7 +2785,7 @@ function renderCard() {
       </div>
     </div>
     <div class="card-actions">
-      <button class="action-btn pass" onclick="swipe('pass')">
+      <button class="action-btn pass" onclick="showPassSheet()">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6b6866" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
       <button class="action-btn like" onclick="swipe('like')">
@@ -2895,7 +2943,7 @@ function setupSwipeGesture() {
     if (!isDragging) return
     isDragging = false
     const dx = e.changedTouches[0].clientX - startX
-    if (Math.abs(dx) > 80) swipe(dx > 0 ? 'like' : 'pass')
+    if (Math.abs(dx) > 80) { if (dx > 0) swipe('like'); else showPassSheet() }
     else { card.style.transition = 'transform 0.3s ease-out'; card.style.transform = '' }
   })
 }
@@ -2933,7 +2981,45 @@ async function checkSuperLikeLimit() {
 let lastSwipedProfile = null
 let lastSwipedDirection = null
 
-async function swipe(direction) {
+function showPassSheet() {
+  document.getElementById('pass-sheet')?.remove()
+  const sheet = document.createElement('div')
+  sheet.id = 'pass-sheet'
+  sheet.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;justify-content:flex-end'
+
+  const backdrop = document.createElement('div')
+  backdrop.style.cssText = 'position:absolute;inset:0;background:rgba(0,0,0,0.5)'
+  backdrop.onclick = () => sheet.remove()
+  sheet.appendChild(backdrop)
+
+  const panel = document.createElement('div')
+  panel.style.cssText = 'position:relative;background:#1c1c1c;border-radius:20px 20px 0 0;padding:20px 16px 40px'
+
+  const title = document.createElement('p')
+  title.textContent = 'Why are you passing?'
+  title.style.cssText = 'color:#9e9b97;font-size:13px;font-weight:600;text-align:center;margin-bottom:16px'
+  panel.appendChild(title)
+
+  const opts = [
+    { label: 'Hard No 🚫', desc: 'Never show again', direction: 'hard_no', reason: 'hard_no' },
+    { label: 'Pass for Now ⏭️', desc: 'May show again later', direction: 'pass', reason: 'pass_for_now' },
+    { label: 'Not My Type 👋', desc: 'Standard pass', direction: 'pass', reason: 'not_my_type' },
+    { label: 'Incomplete Profile 📝', desc: 'Standard pass', direction: 'pass', reason: 'incomplete_profile' },
+  ]
+
+  opts.forEach(opt => {
+    const btn = document.createElement('button')
+    btn.style.cssText = 'display:flex;align-items:center;justify-content:space-between;width:100%;padding:14px 16px;margin-bottom:8px;border-radius:12px;border:1px solid #252525;background:#141414;cursor:pointer;text-align:left'
+    btn.innerHTML = `<div><p style="color:#f0ede8;font-size:15px;font-weight:600;margin:0">${opt.label}</p><p style="color:#6b6866;font-size:12px;margin:2px 0 0">${opt.desc}</p></div>`
+    btn.onclick = () => { sheet.remove(); swipe(opt.direction, opt.reason) }
+    panel.appendChild(btn)
+  })
+
+  sheet.appendChild(panel)
+  document.body.appendChild(sheet)
+}
+
+async function swipe(direction, reason = null) {
   const card = el('current-card')
   const profile = discoverProfiles[discoverIdx]
   if (!profile || !card) return
@@ -2942,10 +3028,12 @@ async function swipe(direction) {
   if ((direction === 'like' || direction === 'super') && !(await checkLikeLimit())) return
 
   card.style.transition = 'transform 0.28s ease-in'
-  card.style.transform = direction === 'like' || direction === 'super'
+  card.style.transform = (direction === 'like' || direction === 'super')
     ? 'translateX(150%) rotate(12deg)' : 'translateX(-150%) rotate(-12deg)'
 
-  await sb.from('swipes').insert({ swiper_id: currentUser.id, swiped_id: profile.id, direction })
+  const swipeRow = { swiper_id: currentUser.id, swiped_id: profile.id, direction }
+  if (reason) swipeRow.reason = reason
+  await sb.from('swipes').insert(swipeRow)
 
   if (direction === 'super') {
     sendPush(profile.id, 'Someone super liked you! ⭐', `${currentProfile?.display_name || 'Someone'} super liked you on Simple-x`, 'view')
@@ -3093,7 +3181,8 @@ async function loadMatches() {
     })
   }
 
-  list.innerHTML = (data || []).map((m, i) => {
+  const matchFragment = document.createDocumentFragment()
+  ;(data || []).forEach((m, i) => {
     const other = m.user_a === currentUser.id ? m.profiles_b : m.profiles_a
     const color = AVATAR_COLORS[i % AVATAR_COLORS.length]
     const initial = (other?.display_name || '?')[0].toUpperCase()
@@ -3107,21 +3196,43 @@ async function loadMatches() {
     const msgTime = lastMsg ? new Date(lastMsg.created_at).getTime() : 0
     const seenTime = lastSeen ? new Date(lastSeen).getTime() : 0
     const unread = lastMsg && lastMsg.sender_id !== currentUser.id && msgTime > seenTime
-    return `
-      <div class="match-item" onclick="openChatById('${m.id}')">
-        <div style="position:relative">
-          <div class="avatar" style="width:50px;height:50px;font-size:18px;background:${color}">${initial}</div>
-          ${unread ? '<div style="position:absolute;top:0;right:0;width:12px;height:12px;border-radius:50%;background:#e8503a;border:2px solid #0a0a0a"></div>' : ''}
+
+    const wrapper = document.createElement('div')
+    wrapper.dataset.matchWrapper = m.id
+    wrapper.style.cssText = 'position:relative;overflow:hidden'
+
+    const delBtn = document.createElement('button')
+    delBtn.style.cssText = 'position:absolute;right:0;top:0;bottom:0;width:80px;background:#e8503a;border:none;cursor:pointer;color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center'
+    delBtn.textContent = 'Delete'
+    delBtn.onclick = e => { e.stopPropagation(); deleteConversation(m.id, delBtn) }
+    wrapper.appendChild(delBtn)
+
+    const photo = other?.photo_urls?.[0]
+    const row = document.createElement('div')
+    row.className = 'match-item'
+    row.style.cssText = 'position:relative;background:#0a0a0a'
+    row.onclick = () => openChatById(m.id)
+    row.innerHTML = `
+      <div style="position:relative">
+        ${photo
+          ? `<div style="width:50px;height:50px;border-radius:50%;overflow:hidden;flex-shrink:0"><img src="${photo}" style="width:100%;height:100%;object-fit:cover"/></div>`
+          : `<div class="avatar" style="width:50px;height:50px;font-size:18px;background:${color}">${initial}</div>`
+        }
+        ${unread ? '<div style="position:absolute;top:0;right:0;width:12px;height:12px;border-radius:50%;background:#e8503a;border:2px solid #0a0a0a"></div>' : ''}
+      </div>
+      <div class="match-info">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span class="match-name" style="${unread ? 'color:#fff;font-weight:700' : ''}">${escapeHtml(other?.display_name || 'User')}</span>
+          <span class="match-time">${age}</span>
         </div>
-        <div class="match-info">
-          <div style="display:flex;justify-content:space-between;align-items:center">
-            <span class="match-name" style="${unread ? 'color:#fff;font-weight:700' : ''}">${other?.display_name || 'User'}</span>
-            <span class="match-time">${age}</span>
-          </div>
-          <p class="match-preview" style="${unread ? 'color:#f0ede8' : ''}">${preview}</p>
-        </div>
+        <p class="match-preview" style="${unread ? 'color:#f0ede8' : ''}">${preview}</p>
       </div>`
-  }).join('')
+    wrapper.appendChild(row)
+    attachMatchRowGestures(wrapper, m.id)
+    matchFragment.appendChild(wrapper)
+  })
+  list.innerHTML = ''
+  list.appendChild(matchFragment)
 
   // Append winks at the top if any
   if (winks && winks.length > 0) {
@@ -3161,8 +3272,68 @@ function timeAgo(ts) {
   return Math.floor(diff / 1440) + 'd'
 }
 
+async function deleteConversation(matchId, rowEl) {
+  if (!confirm('Delete this conversation? This cannot be undone.')) return
+  await sb.from('messages').delete().eq('match_id', matchId)
+  await sb.from('matches').delete().eq('id', matchId)
+  localStorage.removeItem('sx_last_seen_' + matchId)
+  rowEl?.closest('[data-match-wrapper]')?.remove()
+}
+
+function attachMatchRowGestures(wrapperEl, matchId) {
+  const row = wrapperEl.querySelector('.match-item')
+  if (!row) return
+  let startX = 0, startY = 0, isDragging = false
+  let revealed = false
+
+  row.addEventListener('touchstart', e => {
+    startX = e.touches[0].clientX
+    startY = e.touches[0].clientY
+    isDragging = false
+  }, { passive: true })
+
+  row.addEventListener('touchmove', e => {
+    const dx = e.touches[0].clientX - startX
+    const dy = e.touches[0].clientY - startY
+    if (!isDragging && Math.abs(dy) > Math.abs(dx)) return
+    isDragging = true
+    if (dx < 0) {
+      const clamped = Math.max(dx, -80)
+      row.style.transform = `translateX(${clamped}px)`
+      row.style.transition = 'none'
+    } else if (revealed) {
+      row.style.transform = `translateX(0)`
+    }
+  }, { passive: true })
+
+  row.addEventListener('touchend', e => {
+    const dx = e.changedTouches[0].clientX - startX
+    row.style.transition = 'transform 0.2s ease'
+    if (dx < -50) {
+      row.style.transform = 'translateX(-80px)'
+      revealed = true
+    } else {
+      row.style.transform = 'translateX(0)'
+      revealed = false
+    }
+  }, { passive: true })
+
+  // Long-press to reveal delete
+  let pressTimer = null
+  row.addEventListener('touchstart', () => {
+    pressTimer = setTimeout(() => {
+      row.style.transition = 'transform 0.2s ease'
+      row.style.transform = 'translateX(-80px)'
+      revealed = true
+    }, 600)
+  }, { passive: true })
+  row.addEventListener('touchend', () => clearTimeout(pressTimer))
+  row.addEventListener('touchmove', () => clearTimeout(pressTimer), { passive: true })
+}
+
 // ── CHAT ──────────────────────────────────────────
 let activeMatch = null
+let lastMessageDate = null
 
 async function openChatById(matchId) {
   const { data: match } = await sb.from('matches')
@@ -3174,6 +3345,7 @@ async function openChatById(matchId) {
 
 function openChat(match) {
   activeMatch = match
+  lastMessageDate = null
   localStorage.setItem('sx_last_seen_' + match.id, new Date().toISOString())
   setUnreadDot(false)
   markMessagesRead(match.id)
@@ -3443,7 +3615,31 @@ function appendMessage(msg) {
   const placeholder = msgs.querySelector('p')
   if (placeholder) placeholder.remove()
   const mine = msg.sender_id === currentUser.id
-  const time = new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  const msgDate = new Date(msg.created_at)
+  const dateKey = msgDate.toDateString()
+
+  // Day divider
+  if (dateKey !== lastMessageDate) {
+    lastMessageDate = dateKey
+    const divider = document.createElement('div')
+    divider.style.cssText = 'display:flex;align-items:center;gap:8px;margin:8px 0'
+    const line1 = document.createElement('div')
+    line1.style.cssText = 'flex:1;height:1px;background:#252525'
+    const label = document.createElement('span')
+    const today = new Date().toDateString()
+    const yesterday = new Date(Date.now() - 86400000).toDateString()
+    label.textContent = dateKey === today ? 'Today' : dateKey === yesterday ? 'Yesterday' : msgDate.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })
+    label.style.cssText = 'color:#6b6866;font-size:11px;font-weight:600;white-space:nowrap'
+    const line2 = document.createElement('div')
+    line2.style.cssText = 'flex:1;height:1px;background:#252525'
+    divider.appendChild(line1)
+    divider.appendChild(label)
+    divider.appendChild(line2)
+    msgs.appendChild(divider)
+  }
+
+  const timeStr = msgDate.toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+    .replace(',', ' ·')
   const div = document.createElement('div')
   div.className = 'bubble ' + (mine ? 'mine' : 'theirs')
   div.dataset.msgId = msg.id
@@ -3468,7 +3664,7 @@ function appendMessage(msg) {
   })
   const timeDiv = document.createElement('div')
   timeDiv.className = 'bubble-time'
-  timeDiv.textContent = time + readMark
+  timeDiv.textContent = timeStr + readMark
   div.appendChild(textSpan)
   div.appendChild(timeDiv)
 
@@ -3714,6 +3910,11 @@ function toggleEdit() {
   el('edit-age-max').value = currentProfile?.looking_for_age_max ?? 99
   el('edit-birthdate').value = currentProfile?.birthdate || ''
   setDobSelects('edit', currentProfile?.birthdate || '')
+  el('edit-rel-status').value = currentProfile?.relationship_status || ''
+  el('edit-alcohol').value = currentProfile?.alcohol || ''
+  el('edit-cannabis').value = currentProfile?.cannabis || ''
+  el('edit-children').value = currentProfile?.children || ''
+  el('edit-religion').value = currentProfile?.religion || ''
   editHsv = currentProfile?.hsv_type || ''
   editGender = currentProfile?.gender || ''
   editSeeking = currentProfile?.seeking || ''
@@ -3793,6 +3994,11 @@ async function saveProfile() {
     seeking: editSeeking || currentProfile?.seeking,
     relationship_type: editRelType || currentProfile?.relationship_type || null,
     birthdate: el('edit-birthdate').value || currentProfile?.birthdate || null,
+    relationship_status: el('edit-rel-status').value || null,
+    alcohol: el('edit-alcohol').value || null,
+    cannabis: el('edit-cannabis').value || null,
+    children: el('edit-children').value || null,
+    religion: el('edit-religion').value || null,
   }
   await sb.from('profiles').upsert(updates)
   currentProfile = { ...currentProfile, ...updates }
