@@ -445,107 +445,6 @@
         <button class="edit-btn" onclick="toggleEdit()">Edit profile</button>
       </div>
       <div id="profile-fields"></div>
-      <div id="profile-edit-form" style="display:none;flex-direction:column;gap:12px;margin-bottom:24px">
-        <input class="input" id="edit-name" placeholder="Display name" />
-        <input class="input" id="edit-city" placeholder="City" />
-        <textarea class="input" id="edit-bio" placeholder="Bio" rows="3" style="resize:vertical"></textarea>
-        <input class="input" id="edit-quote" placeholder="A headline about yourself" />
-        <input class="input" id="edit-occupation" placeholder="Occupation" />
-        <textarea class="input" id="edit-about-match" placeholder="What are you looking for in a partner?" rows="3" style="resize:vertical"></textarea>
-        <div>
-          <p style="color:#6b6866;font-size:12px;margin-bottom:8px">Height</p>
-          <select id="edit-height" class="input" style="color:#f0ede8;background:#1e1e1e">
-            <option value="">Select height</option>
-            <option>4'0"</option><option>4'1"</option><option>4'2"</option><option>4'3"</option><option>4'4"</option><option>4'5"</option><option>4'6"</option><option>4'7"</option><option>4'8"</option><option>4'9"</option><option>4'10"</option><option>4'11"</option>
-            <option>5'0"</option><option>5'1"</option><option>5'2"</option><option>5'3"</option><option>5'4"</option><option>5'5"</option><option>5'6"</option><option>5'7"</option><option>5'8"</option><option>5'9"</option><option>5'10"</option><option>5'11"</option>
-            <option>6'0"</option><option>6'1"</option><option>6'2"</option><option>6'3"</option><option>6'4"</option><option>6'5"</option><option>6'6"</option><option>6'7"</option><option>6'8"</option><option>6'9"</option><option>6'10"</option><option>6'11"</option>
-            <option>7'0"</option>
-          </select>
-        </div>
-        <div>
-          <p style="color:#6b6866;font-size:12px;margin-bottom:8px">Body type</p>
-          <select id="edit-body-type" class="input" style="color:#f0ede8;background:#1e1e1e">
-            <option value="">Select body type</option>
-            <option>Slim</option><option>Athletic</option><option>Average</option><option>Curvy</option><option>Full-figured</option><option>Prefer not to say</option>
-          </select>
-        </div>
-        <div>
-          <p style="color:#6b6866;font-size:12px;margin-bottom:8px">Hair color</p>
-          <select id="edit-hair-color" class="input" style="color:#f0ede8;background:#1e1e1e">
-            <option value="">Select hair color</option>
-            <option>Black</option><option>Brown</option><option>Blonde</option><option>Red</option><option>Gray</option><option>White</option><option>Bald</option><option>Other</option>
-          </select>
-        </div>
-        <div>
-          <p style="color:#6b6866;font-size:12px;margin-bottom:8px">Eye color</p>
-          <select id="edit-eye-color" class="input" style="color:#f0ede8;background:#1e1e1e">
-            <option value="">Select eye color</option>
-            <option>Brown</option><option>Blue</option><option>Green</option><option>Hazel</option><option>Gray</option><option>Other</option>
-          </select>
-        </div>
-        <div>
-          <p style="color:#6b6866;font-size:12px;margin-bottom:8px">Ethnicity</p>
-          <select id="edit-ethnicity" class="input" style="color:#f0ede8;background:#1e1e1e">
-            <option value="">Select ethnicity</option>
-            <option>Asian</option><option>Black/African</option><option>Caucasian/White</option><option>Hispanic/Latino</option><option>Middle Eastern</option><option>Mixed</option><option>Native American</option><option>Pacific Islander</option><option>Other</option><option>Prefer not to say</option>
-          </select>
-        </div>
-        <div>
-          <p style="color:#6b6866;font-size:12px;margin-bottom:8px">Looking for age range</p>
-          <div style="display:flex;gap:8px;align-items:center">
-            <input type="number" id="edit-age-min" class="input" min="18" max="99" placeholder="Min" style="flex:1" />
-            <span style="color:#6b6866;font-size:13px">to</span>
-            <input type="number" id="edit-age-max" class="input" min="18" max="99" placeholder="Max" style="flex:1" />
-          </div>
-        </div>
-        <div>
-          <p style="color:#6b6866;font-size:12px;margin-bottom:10px">My type</p>
-          <div class="hsv-options" id="edit-hsv-options">
-            <button class="hsv-btn" onclick="selectEditHsv(this,'HSV-1')">HSV-1</button>
-            <button class="hsv-btn" onclick="selectEditHsv(this,'HSV-2')">HSV-2</button>
-            <button class="hsv-btn" onclick="selectEditHsv(this,'Both')">Both</button>
-          </div>
-          <p style="color:#6b6866;font-size:12px;margin:14px 0 10px">I am</p>
-          <div class="hsv-options" id="edit-gender-options">
-            <button class="hsv-btn" onclick="selectEditGender(this,'Man')">Man</button>
-            <button class="hsv-btn" onclick="selectEditGender(this,'Woman')">Woman</button>
-            <button class="hsv-btn" onclick="selectEditGender(this,'Other')">Other</button>
-          </div>
-          <p style="color:#6b6866;font-size:12px;margin:14px 0 10px">Looking for</p>
-          <div class="hsv-options" id="edit-seeking-options">
-            <button class="hsv-btn" onclick="selectEditSeeking(this,'Men')">Men</button>
-            <button class="hsv-btn" onclick="selectEditSeeking(this,'Women')">Women</button>
-            <button class="hsv-btn" onclick="selectEditSeeking(this,'Everyone')">Everyone</button>
-          </div>
-          <p style="color:#6b6866;font-size:12px;margin:14px 0 10px">Relationship type</p>
-          <div class="hsv-options" id="edit-rel-type-options">
-            <button class="hsv-btn" onclick="selectEditRelType(this,'Serious')">Serious</button>
-            <button class="hsv-btn" onclick="selectEditRelType(this,'Casual')">Casual</button>
-            <button class="hsv-btn" onclick="selectEditRelType(this,'Friends')">Friends</button>
-            <button class="hsv-btn" onclick="selectEditRelType(this,'Open')">Open to anything</button>
-          </div>
-          <p style="color:#6b6866;font-size:12px;margin:14px 0 10px">Date of birth</p>
-          <div style="display:flex;gap:8px">
-            <select id="edit-dob-month" class="input" style="flex:1.2;color:#f0ede8;background:#1e1e1e">
-              <option value="">Month</option>
-              <option value="01">January</option><option value="02">February</option><option value="03">March</option>
-              <option value="04">April</option><option value="05">May</option><option value="06">June</option>
-              <option value="07">July</option><option value="08">August</option><option value="09">September</option>
-              <option value="10">October</option><option value="11">November</option><option value="12">December</option>
-            </select>
-            <select id="edit-dob-day" class="input" style="flex:0.8;color:#f0ede8;background:#1e1e1e">
-              <option value="">Day</option>
-              <option value="01">1</option><option value="02">2</option><option value="03">3</option><option value="04">4</option><option value="05">5</option><option value="06">6</option><option value="07">7</option><option value="08">8</option><option value="09">9</option><option value="10">10</option><option value="11">11</option><option value="12">12</option><option value="13">13</option><option value="14">14</option><option value="15">15</option><option value="16">16</option><option value="17">17</option><option value="18">18</option><option value="19">19</option><option value="20">20</option><option value="21">21</option><option value="22">22</option><option value="23">23</option><option value="24">24</option><option value="25">25</option><option value="26">26</option><option value="27">27</option><option value="28">28</option><option value="29">29</option><option value="30">30</option><option value="31">31</option>
-            </select>
-            <select id="edit-dob-year" class="input" style="flex:1;color:#f0ede8;background:#1e1e1e">
-              <option value="">Year</option>
-              <option value="2006">2006</option><option value="2005">2005</option><option value="2004">2004</option><option value="2003">2003</option><option value="2002">2002</option><option value="2001">2001</option><option value="2000">2000</option><option value="1999">1999</option><option value="1998">1998</option><option value="1997">1997</option><option value="1996">1996</option><option value="1995">1995</option><option value="1994">1994</option><option value="1993">1993</option><option value="1992">1992</option><option value="1991">1991</option><option value="1990">1990</option><option value="1989">1989</option><option value="1988">1988</option><option value="1987">1987</option><option value="1986">1986</option><option value="1985">1985</option><option value="1984">1984</option><option value="1983">1983</option><option value="1982">1982</option><option value="1981">1981</option><option value="1980">1980</option><option value="1979">1979</option><option value="1978">1978</option><option value="1977">1977</option><option value="1976">1976</option><option value="1975">1975</option><option value="1974">1974</option><option value="1973">1973</option><option value="1972">1972</option><option value="1971">1971</option><option value="1970">1970</option><option value="1969">1969</option><option value="1968">1968</option><option value="1967">1967</option><option value="1966">1966</option><option value="1965">1965</option><option value="1964">1964</option><option value="1963">1963</option><option value="1962">1962</option><option value="1961">1961</option><option value="1960">1960</option><option value="1959">1959</option><option value="1958">1958</option><option value="1957">1957</option><option value="1956">1956</option><option value="1955">1955</option><option value="1954">1954</option><option value="1953">1953</option><option value="1952">1952</option><option value="1951">1951</option><option value="1950">1950</option><option value="1949">1949</option><option value="1948">1948</option><option value="1947">1947</option><option value="1946">1946</option><option value="1945">1945</option><option value="1944">1944</option><option value="1943">1943</option><option value="1942">1942</option><option value="1941">1941</option><option value="1940">1940</option><option value="1939">1939</option><option value="1938">1938</option><option value="1937">1937</option><option value="1936">1936</option><option value="1935">1935</option><option value="1934">1934</option><option value="1933">1933</option><option value="1932">1932</option><option value="1931">1931</option><option value="1930">1930</option><option value="1929">1929</option><option value="1928">1928</option><option value="1927">1927</option><option value="1926">1926</option>
-            </select>
-          </div>
-          <input type="hidden" id="edit-birthdate" />
-        </div>
-        <button class="btn-primary" onclick="saveProfile()">Save changes</button>
-      </div>
 
       <div id="my-questions-section" style="margin-bottom:16px;display:none">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
@@ -875,6 +774,121 @@
 
 </div>
 
+<!-- EDIT PROFILE PAGE -->
+<div id="edit-profile-page" style="display:none;position:fixed;inset:0;background:#0a0a0a;flex-direction:column;z-index:200;overflow:hidden">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid #1e1e1e;flex-shrink:0;background:#0a0a0a">
+    <button onclick="closeEditPage()" style="background:none;border:none;cursor:pointer;padding:4px;color:#f0ede8;display:flex;align-items:center">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+    </button>
+    <span style="font-size:17px;font-weight:600;color:#f0ede8">Edit Profile</span>
+    <button onclick="saveProfile()" style="background:none;border:none;cursor:pointer;color:#e8503a;font-size:15px;font-weight:600;padding:4px 8px">Save</button>
+  </div>
+  <div style="flex:1;overflow-y:auto;padding:20px 20px 40px">
+    <p style="color:#9e9b97;font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:12px">Photos</p>
+    <div id="edit-photo-grid" style="margin-bottom:24px"></div>
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <input class="input" id="edit-name" placeholder="Display name" />
+      <input class="input" id="edit-city" placeholder="City" />
+      <textarea class="input" id="edit-bio" placeholder="Bio" rows="3" style="resize:vertical"></textarea>
+      <input class="input" id="edit-quote" placeholder="A headline about yourself" />
+      <input class="input" id="edit-occupation" placeholder="Occupation" />
+      <textarea class="input" id="edit-about-match" placeholder="What are you looking for in a partner?" rows="3" style="resize:vertical"></textarea>
+      <div>
+        <p style="color:#6b6866;font-size:12px;margin-bottom:8px">Height</p>
+        <select id="edit-height" class="input" style="color:#f0ede8;background:#1e1e1e">
+          <option value="">Select height</option>
+          <option>4'0"</option><option>4'1"</option><option>4'2"</option><option>4'3"</option><option>4'4"</option><option>4'5"</option><option>4'6"</option><option>4'7"</option><option>4'8"</option><option>4'9"</option><option>4'10"</option><option>4'11"</option>
+          <option>5'0"</option><option>5'1"</option><option>5'2"</option><option>5'3"</option><option>5'4"</option><option>5'5"</option><option>5'6"</option><option>5'7"</option><option>5'8"</option><option>5'9"</option><option>5'10"</option><option>5'11"</option>
+          <option>6'0"</option><option>6'1"</option><option>6'2"</option><option>6'3"</option><option>6'4"</option><option>6'5"</option><option>6'6"</option><option>6'7"</option><option>6'8"</option><option>6'9"</option><option>6'10"</option><option>6'11"</option>
+          <option>7'0"</option>
+        </select>
+      </div>
+      <div>
+        <p style="color:#6b6866;font-size:12px;margin-bottom:8px">Body type</p>
+        <select id="edit-body-type" class="input" style="color:#f0ede8;background:#1e1e1e">
+          <option value="">Select body type</option>
+          <option>Slim</option><option>Athletic</option><option>Average</option><option>Curvy</option><option>Full-figured</option><option>Prefer not to say</option>
+        </select>
+      </div>
+      <div>
+        <p style="color:#6b6866;font-size:12px;margin-bottom:8px">Hair color</p>
+        <select id="edit-hair-color" class="input" style="color:#f0ede8;background:#1e1e1e">
+          <option value="">Select hair color</option>
+          <option>Black</option><option>Brown</option><option>Blonde</option><option>Red</option><option>Gray</option><option>White</option><option>Bald</option><option>Other</option>
+        </select>
+      </div>
+      <div>
+        <p style="color:#6b6866;font-size:12px;margin-bottom:8px">Eye color</p>
+        <select id="edit-eye-color" class="input" style="color:#f0ede8;background:#1e1e1e">
+          <option value="">Select eye color</option>
+          <option>Brown</option><option>Blue</option><option>Green</option><option>Hazel</option><option>Gray</option><option>Other</option>
+        </select>
+      </div>
+      <div>
+        <p style="color:#6b6866;font-size:12px;margin-bottom:8px">Ethnicity</p>
+        <select id="edit-ethnicity" class="input" style="color:#f0ede8;background:#1e1e1e">
+          <option value="">Select ethnicity</option>
+          <option>Asian</option><option>Black/African</option><option>Caucasian/White</option><option>Hispanic/Latino</option><option>Middle Eastern</option><option>Mixed</option><option>Native American</option><option>Pacific Islander</option><option>Other</option><option>Prefer not to say</option>
+        </select>
+      </div>
+      <div>
+        <p style="color:#6b6866;font-size:12px;margin-bottom:8px">Looking for age range</p>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="number" id="edit-age-min" class="input" min="18" max="99" placeholder="Min" style="flex:1" />
+          <span style="color:#6b6866;font-size:13px">to</span>
+          <input type="number" id="edit-age-max" class="input" min="18" max="99" placeholder="Max" style="flex:1" />
+        </div>
+      </div>
+      <div>
+        <p style="color:#6b6866;font-size:12px;margin-bottom:10px">My type</p>
+        <div class="hsv-options" id="edit-hsv-options">
+          <button class="hsv-btn" onclick="selectEditHsv(this,'HSV-1')">HSV-1</button>
+          <button class="hsv-btn" onclick="selectEditHsv(this,'HSV-2')">HSV-2</button>
+          <button class="hsv-btn" onclick="selectEditHsv(this,'Both')">Both</button>
+        </div>
+        <p style="color:#6b6866;font-size:12px;margin:14px 0 10px">I am</p>
+        <div class="hsv-options" id="edit-gender-options">
+          <button class="hsv-btn" onclick="selectEditGender(this,'Man')">Man</button>
+          <button class="hsv-btn" onclick="selectEditGender(this,'Woman')">Woman</button>
+          <button class="hsv-btn" onclick="selectEditGender(this,'Other')">Other</button>
+        </div>
+        <p style="color:#6b6866;font-size:12px;margin:14px 0 10px">Looking for</p>
+        <div class="hsv-options" id="edit-seeking-options">
+          <button class="hsv-btn" onclick="selectEditSeeking(this,'Men')">Men</button>
+          <button class="hsv-btn" onclick="selectEditSeeking(this,'Women')">Women</button>
+          <button class="hsv-btn" onclick="selectEditSeeking(this,'Everyone')">Everyone</button>
+        </div>
+        <p style="color:#6b6866;font-size:12px;margin:14px 0 10px">Relationship type</p>
+        <div class="hsv-options" id="edit-rel-type-options">
+          <button class="hsv-btn" onclick="selectEditRelType(this,'Serious')">Serious</button>
+          <button class="hsv-btn" onclick="selectEditRelType(this,'Casual')">Casual</button>
+          <button class="hsv-btn" onclick="selectEditRelType(this,'Friends')">Friends</button>
+          <button class="hsv-btn" onclick="selectEditRelType(this,'Open')">Open to anything</button>
+        </div>
+        <p style="color:#6b6866;font-size:12px;margin:14px 0 10px">Date of birth</p>
+        <div style="display:flex;gap:8px">
+          <select id="edit-dob-month" class="input" style="flex:1.2;color:#f0ede8;background:#1e1e1e">
+            <option value="">Month</option>
+            <option value="01">January</option><option value="02">February</option><option value="03">March</option>
+            <option value="04">April</option><option value="05">May</option><option value="06">June</option>
+            <option value="07">July</option><option value="08">August</option><option value="09">September</option>
+            <option value="10">October</option><option value="11">November</option><option value="12">December</option>
+          </select>
+          <select id="edit-dob-day" class="input" style="flex:0.8;color:#f0ede8;background:#1e1e1e">
+            <option value="">Day</option>
+            <option value="01">1</option><option value="02">2</option><option value="03">3</option><option value="04">4</option><option value="05">5</option><option value="06">6</option><option value="07">7</option><option value="08">8</option><option value="09">9</option><option value="10">10</option><option value="11">11</option><option value="12">12</option><option value="13">13</option><option value="14">14</option><option value="15">15</option><option value="16">16</option><option value="17">17</option><option value="18">18</option><option value="19">19</option><option value="20">20</option><option value="21">21</option><option value="22">22</option><option value="23">23</option><option value="24">24</option><option value="25">25</option><option value="26">26</option><option value="27">27</option><option value="28">28</option><option value="29">29</option><option value="30">30</option><option value="31">31</option>
+          </select>
+          <select id="edit-dob-year" class="input" style="flex:1;color:#f0ede8;background:#1e1e1e">
+            <option value="">Year</option>
+            <option value="2006">2006</option><option value="2005">2005</option><option value="2004">2004</option><option value="2003">2003</option><option value="2002">2002</option><option value="2001">2001</option><option value="2000">2000</option><option value="1999">1999</option><option value="1998">1998</option><option value="1997">1997</option><option value="1996">1996</option><option value="1995">1995</option><option value="1994">1994</option><option value="1993">1993</option><option value="1992">1992</option><option value="1991">1991</option><option value="1990">1990</option><option value="1989">1989</option><option value="1988">1988</option><option value="1987">1987</option><option value="1986">1986</option><option value="1985">1985</option><option value="1984">1984</option><option value="1983">1983</option><option value="1982">1982</option><option value="1981">1981</option><option value="1980">1980</option><option value="1979">1979</option><option value="1978">1978</option><option value="1977">1977</option><option value="1976">1976</option><option value="1975">1975</option><option value="1974">1974</option><option value="1973">1973</option><option value="1972">1972</option><option value="1971">1971</option><option value="1970">1970</option><option value="1969">1969</option><option value="1968">1968</option><option value="1967">1967</option><option value="1966">1966</option><option value="1965">1965</option><option value="1964">1964</option><option value="1963">1963</option><option value="1962">1962</option><option value="1961">1961</option><option value="1960">1960</option><option value="1959">1959</option><option value="1958">1958</option><option value="1957">1957</option><option value="1956">1956</option><option value="1955">1955</option><option value="1954">1954</option><option value="1953">1953</option><option value="1952">1952</option><option value="1951">1951</option><option value="1950">1950</option><option value="1949">1949</option><option value="1948">1948</option><option value="1947">1947</option><option value="1946">1946</option><option value="1945">1945</option><option value="1944">1944</option><option value="1943">1943</option><option value="1942">1942</option><option value="1941">1941</option><option value="1940">1940</option><option value="1939">1939</option><option value="1938">1938</option><option value="1937">1937</option><option value="1936">1936</option><option value="1935">1935</option><option value="1934">1934</option><option value="1933">1933</option><option value="1932">1932</option><option value="1931">1931</option><option value="1930">1930</option><option value="1929">1929</option><option value="1928">1928</option><option value="1927">1927</option><option value="1926">1926</option>
+          </select>
+        </div>
+        <input type="hidden" id="edit-birthdate" />
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 const SUPABASE_URL = 'https://ocwgwfnrstzrapsblkxm.supabase.co'
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9jd2d3Zm5yc3R6cmFwc2Jsa3htIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY1NjAxNzksImV4cCI6MjA5MjEzNjE3OX0.Tr_l0wJjUDHdklj1AG9MW9FIlNC3lNgGbklpzz4AAfo'
@@ -984,6 +998,7 @@ async function uploadPhoto(input) {
   await sb.from('profiles').update({ photo_urls: updatedUrls }).eq('id', currentUser.id)
   currentProfile.photo_urls = updatedUrls
   renderProfileScreen()
+  if (el('edit-profile-page')?.style.display === 'flex') renderEditPhotos()
   input.value = ''
   showToast(`${newUrls.length} file${newUrls.length > 1 ? 's' : ''} uploaded.`)
 }
@@ -995,6 +1010,7 @@ async function deletePhoto(idx) {
   await sb.from('profiles').update({ photo_urls: urls }).eq('id', currentUser.id)
   currentProfile.photo_urls = urls
   renderProfileScreen()
+  if (el('edit-profile-page')?.style.display === 'flex') renderEditPhotos()
 }
 
 // ── PRIVATE ALBUM ─────────────────────────────────
@@ -3603,8 +3619,6 @@ function renderStreakBadge() {
 
 function renderProfileScreen() {
   if (!currentProfile) return
-  const editForm = el('profile-edit-form')
-  if (editForm) editForm.style.display = 'none'
   const p = currentProfile
   avatarEl(p.display_name || '?', 76, 2, el('profile-avatar'), p.photo_urls?.[0])
   el('profile-display-name').textContent = p.display_name || ''
@@ -3685,41 +3699,71 @@ function renderPhotoGrid() {
 }
 
 function toggleEdit() {
-  const form = el('profile-edit-form')
-  if (!form) return
-  const showing = form.style.display === 'flex'
-  if (!showing) {
-    el('edit-name').value = currentProfile?.display_name || ''
-    el('edit-city').value = currentProfile?.city || ''
-    el('edit-bio').value = currentProfile?.bio || ''
-    el('edit-quote').value = currentProfile?.quote || ''
-    el('edit-occupation').value = currentProfile?.occupation || ''
-    el('edit-about-match').value = currentProfile?.about_match || ''
-    el('edit-height').value = currentProfile?.height || ''
-    el('edit-body-type').value = currentProfile?.body_type || ''
-    el('edit-hair-color').value = currentProfile?.hair_color || ''
-    el('edit-eye-color').value = currentProfile?.eye_color || ''
-    el('edit-ethnicity').value = currentProfile?.ethnicity || ''
-    el('edit-age-min').value = currentProfile?.looking_for_age_min ?? 18
-    el('edit-age-max').value = currentProfile?.looking_for_age_max ?? 99
-    el('edit-birthdate').value = currentProfile?.birthdate || ''
-    setDobSelects('edit', currentProfile?.birthdate || '')
-    if (currentProfile?.relationship_type) {
-      editRelType = currentProfile.relationship_type
-      document.querySelectorAll('#edit-rel-type-options .hsv-btn').forEach(b => {
-        if (b.textContent.trim() === currentProfile.relationship_type || 
-            (currentProfile.relationship_type === 'Open' && b.textContent.includes('Open'))) b.classList.add('selected')
-      })
+  el('edit-name').value = currentProfile?.display_name || ''
+  el('edit-city').value = currentProfile?.city || ''
+  el('edit-bio').value = currentProfile?.bio || ''
+  el('edit-quote').value = currentProfile?.quote || ''
+  el('edit-occupation').value = currentProfile?.occupation || ''
+  el('edit-about-match').value = currentProfile?.about_match || ''
+  el('edit-height').value = currentProfile?.height || ''
+  el('edit-body-type').value = currentProfile?.body_type || ''
+  el('edit-hair-color').value = currentProfile?.hair_color || ''
+  el('edit-eye-color').value = currentProfile?.eye_color || ''
+  el('edit-ethnicity').value = currentProfile?.ethnicity || ''
+  el('edit-age-min').value = currentProfile?.looking_for_age_min ?? 18
+  el('edit-age-max').value = currentProfile?.looking_for_age_max ?? 99
+  el('edit-birthdate').value = currentProfile?.birthdate || ''
+  setDobSelects('edit', currentProfile?.birthdate || '')
+  editHsv = currentProfile?.hsv_type || ''
+  editGender = currentProfile?.gender || ''
+  editSeeking = currentProfile?.seeking || ''
+  editRelType = currentProfile?.relationship_type || ''
+  document.querySelectorAll('#edit-hsv-options .hsv-btn').forEach(b => b.classList.toggle('selected', b.textContent === editHsv))
+  document.querySelectorAll('#edit-gender-options .hsv-btn').forEach(b => b.classList.toggle('selected', b.textContent === editGender))
+  document.querySelectorAll('#edit-seeking-options .hsv-btn').forEach(b => b.classList.toggle('selected', b.textContent === editSeeking))
+  document.querySelectorAll('#edit-rel-type-options .hsv-btn').forEach(b => {
+    b.classList.toggle('selected', b.textContent.trim() === editRelType || (editRelType === 'Open' && b.textContent.includes('Open')))
+  })
+  renderEditPhotos()
+  el('edit-profile-page').style.display = 'flex'
+}
+
+function closeEditPage() {
+  el('edit-profile-page').style.display = 'none'
+}
+
+function renderEditPhotos() {
+  const grid = el('edit-photo-grid')
+  if (!grid) return
+  grid.innerHTML = ''
+  grid.style.cssText = 'display:grid;grid-template-columns:repeat(3,1fr);gap:6px'
+  const photos = currentProfile?.photo_urls || []
+  photos.forEach((url, i) => {
+    const cell = document.createElement('div')
+    cell.style.cssText = 'position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;background:#1c1c1c'
+    cell.innerHTML = isVideoUrl(url)
+      ? `<video src="${url}" style="width:100%;height:100%;object-fit:cover" muted playsinline preload="metadata"></video><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none"><span style="font-size:24px;opacity:0.85">▶️</span></div>`
+      : `<img src="${url}" style="width:100%;height:100%;object-fit:cover" />`
+    const del = document.createElement('button')
+    del.onclick = () => deletePhoto(i)
+    del.style.cssText = 'position:absolute;top:4px;right:4px;width:22px;height:22px;border-radius:50%;background:rgba(0,0,0,0.7);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;line-height:1'
+    del.textContent = '×'
+    cell.appendChild(del)
+    if (i === 0) {
+      const lbl = document.createElement('div')
+      lbl.style.cssText = 'position:absolute;bottom:4px;left:4px;background:rgba(0,0,0,0.6);border-radius:6px;padding:2px 6px;font-size:10px;color:#fff'
+      lbl.textContent = 'Main'
+      cell.appendChild(lbl)
     }
-    editHsv = currentProfile?.hsv_type || ''
-    editGender = currentProfile?.gender || ''
-    editSeeking = currentProfile?.seeking || ''
-    document.querySelectorAll('#edit-hsv-options .hsv-btn').forEach(b => b.classList.toggle('selected', b.textContent === editHsv))
-    document.querySelectorAll('#edit-gender-options .hsv-btn').forEach(b => b.classList.toggle('selected', b.textContent === editGender))
-    document.querySelectorAll('#edit-seeking-options .hsv-btn').forEach(b => b.classList.toggle('selected', b.textContent === editSeeking))
+    grid.appendChild(cell)
+  })
+  if (photos.length < 20) {
+    const add = document.createElement('div')
+    add.style.cssText = 'aspect-ratio:1;border-radius:10px;border:1px dashed #252525;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;gap:4px'
+    add.onclick = () => el('photo-input').click()
+    add.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#6b6866" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg><span style="color:#6b6866;font-size:11px">' + (20 - photos.length) + ' left</span>'
+    grid.appendChild(add)
   }
-  form.style.display = showing ? 'none' : 'flex'
-  if (!showing) setTimeout(() => form.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
 }
 
 function selectEditHsv(btn, val) {
@@ -3753,7 +3797,7 @@ async function saveProfile() {
   await sb.from('profiles').upsert(updates)
   currentProfile = { ...currentProfile, ...updates }
   renderProfileScreen()
-  toggleEdit()
+  closeEditPage()
 }
 
 // ── RESEARCH ─────────────────────────────────────
