@@ -1015,7 +1015,7 @@ async function uploadPrivatePhoto(input) {
       uploadBlob = await convertToJpeg(file)
       contentType = 'image/jpeg'
     } catch (e) { showToast('Could not process image.'); continue }
-    const path = `private/${currentUser.id}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`
+    const path = `${currentUser.id}/private/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`
     const { error: upErr } = await sb.storage.from('avatars').upload(path, uploadBlob, { upsert: false, contentType })
     if (upErr) { showToast('Upload failed: ' + upErr.message); continue }
     const { data: urlData } = sb.storage.from('avatars').getPublicUrl(path)
@@ -2599,7 +2599,11 @@ async function likeFromPreview(userId) {
   const { data: theirSwipe } = await sb.from('swipes')
     .select('id').eq('swiper_id', userId).eq('swiped_id', currentUser.id).in('direction', ['like','super']).maybeSingle()
   if (theirSwipe) {
-    await sb.from('matches').insert({ user_a: currentUser.id, user_b: userId })
+    const { data: existingMatch } = await sb.from('matches')
+      .select('id')
+      .or(`and(user_a.eq.${currentUser.id},user_b.eq.${userId}),and(user_a.eq.${userId},user_b.eq.${currentUser.id})`)
+      .maybeSingle()
+    if (!existingMatch) await sb.from('matches').insert({ user_a: currentUser.id, user_b: userId })
     showToast("It's a match! 🎉")
   } else {
     showToast('Liked! ❤️')
@@ -2620,7 +2624,11 @@ async function feedLike(userId, btn) {
   const { data: theirSwipe } = await sb.from('swipes')
     .select('id').eq('swiper_id', userId).eq('swiped_id', currentUser.id).in('direction', ['like','super']).maybeSingle()
   if (theirSwipe) {
-    await sb.from('matches').insert({ user_a: currentUser.id, user_b: userId })
+    const { data: existingMatch } = await sb.from('matches')
+      .select('id')
+      .or(`and(user_a.eq.${currentUser.id},user_b.eq.${userId}),and(user_a.eq.${userId},user_b.eq.${currentUser.id})`)
+      .maybeSingle()
+    if (!existingMatch) await sb.from('matches').insert({ user_a: currentUser.id, user_b: userId })
     showToast("It's a match! 🎉")
   } else {
     showToast('Liked! ❤️')
@@ -2719,9 +2727,12 @@ function renderCard() {
       <button class="action-btn like" onclick="swipe('like')">
         <svg width="28" height="28" viewBox="0 0 24 24" fill="white"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
       </button>
-      <button class="action-btn super" onclick="swipe('super')">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#f5c518" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-      </button>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
+        <button class="action-btn super" onclick="swipe('super')">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#f5c518" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        </button>
+        <span style="color:#f5c518;font-size:10px;font-weight:600;letter-spacing:0.04em">Super Like</span>
+      </div>
       <button class="action-btn" id="undo-btn" onclick="undoSwipe()" style="display:none;background:rgba(255,255,255,0.08);border:1px solid #333">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#a0c4ff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>
       </button>
@@ -2888,6 +2899,21 @@ async function checkLikeLimit() {
   return true
 }
 
+async function checkSuperLikeLimit() {
+  if (currentProfile?.is_premium) return true
+  const today = new Date(); today.setHours(0,0,0,0)
+  const { count } = await sb.from('swipes')
+    .select('*', { count: 'exact', head: true })
+    .eq('swiper_id', currentUser.id)
+    .eq('direction', 'super')
+    .gte('created_at', today.toISOString())
+  if (count >= 1) {
+    showUpgradePrompt("You've used your free Super Like for today. Upgrade to Simple-x Plus for unlimited Super Likes.")
+    return false
+  }
+  return true
+}
+
 let lastSwipedProfile = null
 let lastSwipedDirection = null
 
@@ -2896,6 +2922,7 @@ async function swipe(direction) {
   const profile = discoverProfiles[discoverIdx]
   if (!profile || !card) return
 
+  if (direction === 'super' && !(await checkSuperLikeLimit())) return
   if ((direction === 'like' || direction === 'super') && !(await checkLikeLimit())) return
 
   card.style.transition = 'transform 0.28s ease-in'
@@ -2904,13 +2931,23 @@ async function swipe(direction) {
 
   await sb.from('swipes').insert({ swiper_id: currentUser.id, swiped_id: profile.id, direction })
 
+  if (direction === 'super') {
+    sendPush(profile.id, 'Someone super liked you! ⭐', `${currentProfile?.display_name || 'Someone'} super liked you on Simple-x`, 'view')
+  }
+
   if (direction === 'like' || direction === 'super') {
     const { data: theirSwipe } = await sb.from('swipes')
       .select('id').eq('swiper_id', profile.id).eq('swiped_id', currentUser.id).in('direction', ['like','super']).maybeSingle()
     if (theirSwipe) {
-      const { data: match } = await sb.from('matches').insert({ user_a: currentUser.id, user_b: profile.id }).select().single()
-      lastMatchProfile = profile
-      showMatchModal(profile)
+      const { data: existingMatch } = await sb.from('matches')
+        .select('id')
+        .or(`and(user_a.eq.${currentUser.id},user_b.eq.${profile.id}),and(user_a.eq.${profile.id},user_b.eq.${currentUser.id})`)
+        .maybeSingle()
+      if (!existingMatch) {
+        await sb.from('matches').insert({ user_a: currentUser.id, user_b: profile.id })
+        lastMatchProfile = profile
+        showMatchModal(profile)
+      }
     }
   }
 
