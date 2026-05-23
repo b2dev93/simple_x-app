@@ -1916,16 +1916,17 @@ async function loadPostStats(postId) {
 async function submitReply(postId, parentCommentId, parentName, inputEl, wrapEl) {
   const body = inputEl.value.trim()
   if (!body) return
+  console.log('[submitReply] inserting reply:', { postId, parentCommentId, body: body.slice(0, 30) })
   inputEl.disabled = true
-  const { data: inserted, error } = await sb.from('post_comments').insert({
+  const { error } = await sb.from('post_comments').insert({
     post_id: postId,
     user_id: currentUser.id,
     body,
     parent_comment_id: parentCommentId
-  }).select('id, parent_comment_id').single()
+  })
   inputEl.disabled = false
   if (error) { console.error('[submitReply] insert error:', error); showToast('Could not post reply.'); return }
-  console.log('[submitReply] inserted row:', { id: inserted?.id?.slice(0,8), parent_comment_id: inserted?.parent_comment_id?.slice(0,8) ?? null })
+  console.log('[submitReply] insert succeeded for parentCommentId:', parentCommentId)
   inputEl.value = ''
   if (wrapEl) wrapEl.style.display = 'none'
   loadPostStats(postId)
