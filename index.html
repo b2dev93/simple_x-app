@@ -416,6 +416,8 @@
       </div>
       <p style="color:#6b6866;font-size:13px;margin-bottom:20px">A space to share, support, and connect.</p>
 
+      <div id="community-notifs-section" style="display:none;margin-bottom:16px"></div>
+
       <div id="community-list">
         <div style="text-align:center;padding:40px 0"><p style="color:#6b6866;font-size:14px">Loading posts...</p></div>
       </div>
@@ -1661,7 +1663,7 @@ async function loadCommunity() {
       <p style="color:#9e9b97;font-size:14px;line-height:1.6;white-space:pre-wrap">${escapeHtml(p.body)}</p>
       <div style="display:flex;gap:12px;margin-top:12px;padding-top:12px;border-top:1px solid #252525">
         <button onclick="togglePostLike('${p.id}', this)" data-post="${p.id}" style="background:none;border:none;color:#6b6866;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:5px">
-          ❤️ <span id="like-count-${p.id}">0</span>
+          ❤️ <span id="like-count-${p.id}" onclick="event.stopPropagation();showPostLikers('${p.id}')" style="cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px">0</span>
         </button>
         <button onclick="toggleComments('${p.id}')" style="background:none;border:none;color:#6b6866;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:5px">
           💬 <span id="comment-count-${p.id}">0</span>
@@ -1679,6 +1681,94 @@ async function loadCommunity() {
 
   // Load likes and comments counts
   posts.forEach(p => loadPostStats(p.id))
+  loadCommunityNotifs()
+}
+
+const COMMUNITY_NOTIFS_SEEN_KEY = 'sx_community_notifs_seen'
+
+async function loadCommunityNotifs() {
+  const container = document.getElementById('community-notifs-section')
+  if (!container || !currentUser) return
+
+  const lastSeen = localStorage.getItem(COMMUNITY_NOTIFS_SEEN_KEY) || new Date(0).toISOString()
+
+  // Fetch my post IDs
+  const { data: myPosts } = await sb.from('community_posts').select('id').eq('user_id', currentUser.id)
+  const myPostIds = (myPosts || []).map(p => p.id)
+
+  // Fetch post IDs I commented on (excluding my own posts)
+  const { data: myCommentRows } = await sb.from('post_comments').select('post_id').eq('user_id', currentUser.id)
+  const commentedPostIds = [...new Set((myCommentRows || []).map(c => c.post_id))].filter(id => !myPostIds.includes(id))
+
+  const notifs = []
+
+  if (myPostIds.length > 0) {
+    const [{ data: newLikes }, { data: newComments }] = await Promise.all([
+      sb.from('post_likes')
+        .select('user_id, post_id, created_at, profiles(display_name, photo_urls)')
+        .in('post_id', myPostIds).neq('user_id', currentUser.id)
+        .gt('created_at', lastSeen).order('created_at', { ascending: false }).limit(20),
+      sb.from('post_comments')
+        .select('user_id, post_id, body, created_at, profiles(display_name, photo_urls)')
+        .in('post_id', myPostIds).neq('user_id', currentUser.id)
+        .gt('created_at', lastSeen).order('created_at', { ascending: false }).limit(20)
+    ])
+    ;(newLikes || []).forEach(l => notifs.push({ type: 'like', ...l }))
+    ;(newComments || []).forEach(c => notifs.push({ type: 'comment_on_mine', ...c }))
+  }
+
+  if (commentedPostIds.length > 0) {
+    const { data: followComments } = await sb.from('post_comments')
+      .select('user_id, post_id, body, created_at, profiles(display_name, photo_urls)')
+      .in('post_id', commentedPostIds).neq('user_id', currentUser.id)
+      .gt('created_at', lastSeen).order('created_at', { ascending: false }).limit(20)
+    ;(followComments || []).forEach(c => notifs.push({ type: 'reply', ...c }))
+  }
+
+  notifs.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+
+  if (!notifs.length) { container.style.display = 'none'; return }
+
+  // Mark as seen now (user can see the section)
+  localStorage.setItem(COMMUNITY_NOTIFS_SEEN_KEY, new Date().toISOString())
+
+  let isExpanded = true
+  const render = () => {
+    container.style.display = ''
+    container.innerHTML = ''
+    const header = document.createElement('div')
+    header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:' + (isExpanded ? '10px' : '0')
+    header.innerHTML = `
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="color:#f0ede8;font-size:14px;font-weight:700">🔔 Notifications</span>
+        <span style="background:#e8503a;color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px">${notifs.length}</span>
+      </div>
+      <button style="background:none;border:none;color:#6b6866;font-size:18px;cursor:pointer;padding:4px">${isExpanded ? '▲' : '▼'}</button>`
+    header.querySelector('button').onclick = () => { isExpanded = !isExpanded; render() }
+    container.appendChild(header)
+    if (!isExpanded) return
+    notifs.slice(0, 10).forEach(n => {
+      const name = n.profiles?.display_name || 'Member'
+      const photo = n.profiles?.photo_urls?.[0]
+      const color = AVATAR_COLORS[(name.charCodeAt(0) || 0) % AVATAR_COLORS.length]
+      const text = n.type === 'like'
+        ? `<b>${escapeHtml(name)}</b> liked your post`
+        : n.type === 'comment_on_mine'
+          ? `<b>${escapeHtml(name)}</b> commented: <span style="color:#9e9b97">${escapeHtml((n.body || '').slice(0, 60))}</span>`
+          : `<b>${escapeHtml(name)}</b> also commented on a post you're following`
+      const ago = timeAgo(n.created_at)
+      const row = document.createElement('div')
+      row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #1e1e1e'
+      row.innerHTML = `
+        <div style="width:36px;height:36px;border-radius:50%;overflow:hidden;flex-shrink:0;background:${color};display:flex;align-items:center;justify-content:center">
+          ${photo ? `<img src="${photo}" style="width:100%;height:100%;object-fit:cover">` : `<span style="color:#fff;font-size:13px;font-weight:700">${name[0].toUpperCase()}</span>`}
+        </div>
+        <p style="color:#f0ede8;font-size:13px;line-height:1.4;flex:1">${text}</p>
+        <span style="color:#6b6866;font-size:11px;flex-shrink:0">${ago}</span>`
+      container.appendChild(row)
+    })
+  }
+  render()
 }
 
 async function loadPostStats(postId) {
@@ -1739,6 +1829,42 @@ async function togglePostLike(postId, btn) {
   loadPostStats(postId)
 }
 
+async function showPostLikers(postId) {
+  const { data: likes } = await sb.from('post_likes')
+    .select('user_id, profiles(display_name, photo_urls)')
+    .eq('post_id', postId)
+  if (!likes?.length) { showToast('No likes yet.'); return }
+  document.getElementById('post-likers-sheet')?.remove()
+  const sheet = document.createElement('div')
+  sheet.id = 'post-likers-sheet'
+  sheet.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;justify-content:flex-end'
+  const backdrop = document.createElement('div')
+  backdrop.style.cssText = 'position:absolute;inset:0;background:rgba(0,0,0,0.5)'
+  backdrop.onclick = () => sheet.remove()
+  sheet.appendChild(backdrop)
+  const panel = document.createElement('div')
+  panel.style.cssText = 'position:relative;background:#1c1c1c;border-radius:20px 20px 0 0;padding:20px 16px 40px;max-height:60vh;overflow-y:auto'
+  const title = document.createElement('p')
+  title.textContent = `❤️ ${likes.length} Like${likes.length !== 1 ? 's' : ''}`
+  title.style.cssText = 'color:#f0ede8;font-size:15px;font-weight:700;margin-bottom:16px'
+  panel.appendChild(title)
+  likes.forEach(l => {
+    const name = l.profiles?.display_name || 'Member'
+    const photo = l.profiles?.photo_urls?.[0]
+    const color = AVATAR_COLORS[(name.charCodeAt(0) || 0) % AVATAR_COLORS.length]
+    const row = document.createElement('div')
+    row.style.cssText = 'display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid #252525'
+    row.innerHTML = `
+      <div style="width:40px;height:40px;border-radius:50%;overflow:hidden;flex-shrink:0;background:${color};display:flex;align-items:center;justify-content:center">
+        ${photo ? `<img src="${photo}" style="width:100%;height:100%;object-fit:cover">` : `<span style="color:#fff;font-size:15px;font-weight:700">${name[0].toUpperCase()}</span>`}
+      </div>
+      <span style="color:#f0ede8;font-size:14px;font-weight:500">${escapeHtml(name)}</span>`
+    panel.appendChild(row)
+  })
+  sheet.appendChild(panel)
+  document.body.appendChild(sheet)
+}
+
 function toggleComments(postId) {
   const section = document.getElementById('comments-' + postId)
   if (section) section.style.display = section.style.display === 'none' ? '' : 'none'
@@ -1751,6 +1877,26 @@ async function submitComment(postId) {
   await sb.from('post_comments').insert({ post_id: postId, user_id: currentUser.id, body })
   input.value = ''
   loadPostStats(postId)
+  sendCommentNotifications(postId, body)
+}
+
+async function sendCommentNotifications(postId, commentBody) {
+  const commenterName = currentProfile?.display_name || 'Someone'
+  const [{ data: post }, { data: prevComments }] = await Promise.all([
+    sb.from('community_posts').select('user_id').eq('id', postId).single(),
+    sb.from('post_comments').select('user_id').eq('post_id', postId).neq('user_id', currentUser.id)
+  ])
+  const notified = new Set()
+  // Notify post author
+  if (post && post.user_id !== currentUser.id) {
+    sendPush(post.user_id, `${commenterName} commented on your post`, commentBody.slice(0, 80), 'community')
+    notified.add(post.user_id)
+  }
+  // Notify other commenters (following the post)
+  const otherCommenters = [...new Set((prevComments || []).map(c => c.user_id))].filter(id => !notified.has(id))
+  otherCommenters.forEach(uid => {
+    sendPush(uid, `${commenterName} also commented on a post you're following`, commentBody.slice(0, 80), 'community')
+  })
 }
 
 function showNewPostModal() {
@@ -4351,14 +4497,33 @@ const COMMUNITY_SEEN_KEY = 'sx_last_community_seen'
 
 async function checkCommunityBadge() {
   const lastSeen = localStorage.getItem(COMMUNITY_SEEN_KEY) || new Date(0).toISOString()
-  const { count } = await sb
+  const lastNotifSeen = localStorage.getItem(COMMUNITY_NOTIFS_SEEN_KEY) || new Date(0).toISOString()
+
+  const { count: postCount } = await sb
     .from('community_posts')
     .select('id', { count: 'exact', head: true })
     .gt('created_at', lastSeen)
+
+  let notifCount = 0
+  if (currentUser) {
+    const { data: myPosts } = await sb.from('community_posts').select('id').eq('user_id', currentUser.id)
+    const myPostIds = (myPosts || []).map(p => p.id)
+    if (myPostIds.length > 0) {
+      const [{ count: lc }, { count: cc }] = await Promise.all([
+        sb.from('post_likes').select('id', { count: 'exact', head: true })
+          .in('post_id', myPostIds).neq('user_id', currentUser.id).gt('created_at', lastNotifSeen),
+        sb.from('post_comments').select('id', { count: 'exact', head: true })
+          .in('post_id', myPostIds).neq('user_id', currentUser.id).gt('created_at', lastNotifSeen)
+      ])
+      notifCount = (lc || 0) + (cc || 0)
+    }
+  }
+
+  const total = (postCount || 0) + notifCount
   const badge = document.getElementById('community-badge')
   if (!badge) return
-  if (count > 0) {
-    badge.textContent = count > 9 ? '9+' : count
+  if (total > 0) {
+    badge.textContent = total > 9 ? '9+' : total
     badge.style.display = 'flex'
   } else {
     badge.style.display = 'none'
@@ -4369,6 +4534,7 @@ function clearCommunityBadge() {
   localStorage.setItem(COMMUNITY_SEEN_KEY, new Date().toISOString())
   const badge = document.getElementById('community-badge')
   if (badge) badge.style.display = 'none'
+  // Notification seen state is updated when loadCommunityNotifs() renders the section
 }
 
 let currentResearchTab = 'All'
