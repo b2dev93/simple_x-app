@@ -1772,13 +1772,15 @@ async function loadCommunityNotifs() {
 }
 
 async function loadPostStats(postId) {
-  const { data: likes } = await sb.from('post_likes').select('user_id').eq('post_id', postId)
-  const { data: comments } = await sb.from('post_comments').select('id, user_id, body, created_at, profiles(display_name)').eq('post_id', postId).order('created_at')
-  
+  const [{ data: likes }, { data: comments }] = await Promise.all([
+    sb.from('post_likes').select('user_id').eq('post_id', postId),
+    sb.from('post_comments').select('id, user_id, body, created_at, profiles(display_name)').eq('post_id', postId).order('created_at')
+  ])
+
   const likeEl = document.getElementById('like-count-' + postId)
   const commentEl = document.getElementById('comment-count-' + postId)
   const likeBtn = document.querySelector(`[data-post="${postId}"]`)
-  
+
   if (likeEl) likeEl.textContent = likes?.length || 0
   if (commentEl) commentEl.textContent = comments?.length || 0
   if (likeBtn && likes?.some(l => l.user_id === currentUser?.id)) {
@@ -1786,12 +1788,67 @@ async function loadPostStats(postId) {
   }
 
   const listEl = document.getElementById('comments-list-' + postId)
-  if (listEl && comments?.length) {
-    listEl.innerHTML = comments.map(c => `
-      <div style="display:flex;gap:8px;margin-bottom:8px;align-items:flex-start">
-        <span style="color:#e8503a;font-size:13px;font-weight:600;flex-shrink:0">${escapeHtml(c.profiles?.display_name || 'Member')}:</span>
-        <span style="color:#9e9b97;font-size:13px">${escapeHtml(c.body)}</span>
-      </div>`).join('')
+  if (!listEl || !comments?.length) return
+
+  // Fetch comment likes for all comments in one query
+  const commentIds = comments.map(c => c.id)
+  const { data: commentLikes } = await sb.from('comment_likes')
+    .select('comment_id, user_id')
+    .in('comment_id', commentIds)
+
+  // Build lookup: commentId -> { count, iLiked }
+  const clMap = {}
+  commentIds.forEach(id => { clMap[id] = { count: 0, iLiked: false } })
+  ;(commentLikes || []).forEach(cl => {
+    if (clMap[cl.comment_id]) {
+      clMap[cl.comment_id].count++
+      if (cl.user_id === currentUser?.id) clMap[cl.comment_id].iLiked = true
+    }
+  })
+
+  listEl.innerHTML = ''
+  comments.forEach(c => {
+    const { count, iLiked } = clMap[c.id] || { count: 0, iLiked: false }
+    const row = document.createElement('div')
+    row.style.cssText = 'display:flex;gap:8px;margin-bottom:8px;align-items:flex-start'
+
+    const textWrap = document.createElement('div')
+    textWrap.style.cssText = 'flex:1;min-width:0'
+    textWrap.innerHTML = `<span style="color:#e8503a;font-size:13px;font-weight:600">${escapeHtml(c.profiles?.display_name || 'Member')}: </span><span style="color:#9e9b97;font-size:13px">${escapeHtml(c.body)}</span>`
+
+    const likeWrap = document.createElement('div')
+    likeWrap.style.cssText = 'display:flex;align-items:center;gap:3px;flex-shrink:0;margin-top:1px'
+
+    const heartBtn = document.createElement('button')
+    heartBtn.style.cssText = `background:none;border:none;cursor:pointer;padding:2px 4px;font-size:12px;color:${iLiked ? '#e8503a' : '#6b6866'};line-height:1`
+    heartBtn.textContent = '❤️'
+    const countSpan = document.createElement('span')
+    countSpan.style.cssText = `font-size:11px;color:${iLiked ? '#e8503a' : '#6b6866'}`
+    countSpan.textContent = count || ''
+    heartBtn.onclick = () => toggleCommentLike(c.id, heartBtn, countSpan)
+
+    likeWrap.appendChild(heartBtn)
+    likeWrap.appendChild(countSpan)
+    row.appendChild(textWrap)
+    row.appendChild(likeWrap)
+    listEl.appendChild(row)
+  })
+}
+
+async function toggleCommentLike(commentId, btn, countSpan) {
+  const isLiked = btn.style.color === 'rgb(232, 80, 58)'
+  if (isLiked) {
+    await sb.from('comment_likes').delete().eq('comment_id', commentId).eq('user_id', currentUser.id)
+    btn.style.color = '#6b6866'
+    countSpan.style.color = '#6b6866'
+    const n = parseInt(countSpan.textContent || '0') - 1
+    countSpan.textContent = n > 0 ? n : ''
+  } else {
+    await sb.from('comment_likes').insert({ comment_id: commentId, user_id: currentUser.id })
+    btn.style.color = '#e8503a'
+    countSpan.style.color = '#e8503a'
+    const n = parseInt(countSpan.textContent || '0') + 1
+    countSpan.textContent = n
   }
 }
 
