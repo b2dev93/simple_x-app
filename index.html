@@ -4320,6 +4320,8 @@ function closeEditPage() {
   el('edit-profile-page').style.display = 'none'
 }
 
+let dragSrcIdx = null
+
 function renderEditPhotos() {
   const grid = el('edit-photo-grid')
   if (!grid) return
@@ -4334,12 +4336,38 @@ function renderEditPhotos() {
   const photos = currentProfile?.photo_urls || []
   photos.forEach((url, i) => {
     const cell = document.createElement('div')
-    cell.style.cssText = 'position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;background:#1c1c1c;cursor:pointer'
+    cell.style.cssText = 'position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;background:#1c1c1c;cursor:grab'
+    cell.draggable = true
+    cell.addEventListener('dragstart', e => {
+      dragSrcIdx = i
+      e.dataTransfer.effectAllowed = 'move'
+      setTimeout(() => { cell.style.opacity = '0.4' }, 0)
+    })
+    cell.addEventListener('dragend', () => { cell.style.opacity = '1'; cell.style.outline = '' })
+    cell.addEventListener('dragover', e => {
+      e.preventDefault()
+      e.dataTransfer.dropEffect = 'move'
+      cell.style.outline = '2px solid #e8503a'
+    })
+    cell.addEventListener('dragleave', () => { cell.style.outline = '' })
+    cell.addEventListener('drop', async e => {
+      e.preventDefault()
+      cell.style.outline = ''
+      if (dragSrcIdx === null || dragSrcIdx === i) { dragSrcIdx = null; return }
+      const urls = [...(currentProfile.photo_urls || [])]
+      const [moved] = urls.splice(dragSrcIdx, 1)
+      urls.splice(i, 0, moved)
+      dragSrcIdx = null
+      await sb.from('profiles').update({ photo_urls: urls }).eq('id', currentUser.id)
+      currentProfile.photo_urls = urls
+      renderProfileScreen()
+      renderEditPhotos()
+    })
     const media = document.createElement(isVideoUrl(url) ? 'video' : 'img')
     media.src = url
-    media.style.cssText = 'width:100%;height:100%;object-fit:cover'
+    media.draggable = false
+    media.style.cssText = 'width:100%;height:100%;object-fit:cover;pointer-events:none'
     if (media.tagName === 'VIDEO') { media.muted = true; media.setAttribute('playsinline',''); media.setAttribute('preload','metadata') }
-    media.onclick = () => showLightbox(url)
     cell.appendChild(media)
     if (isVideoUrl(url)) {
       const overlay = document.createElement('div')
@@ -4353,10 +4381,25 @@ function renderEditPhotos() {
     del.textContent = '×'
     cell.appendChild(del)
     if (i === 0) {
-      const lbl = document.createElement('div')
-      lbl.style.cssText = 'position:absolute;bottom:4px;left:4px;background:rgba(0,0,0,0.6);border-radius:6px;padding:2px 6px;font-size:10px;color:#fff'
-      lbl.textContent = 'Main'
-      cell.appendChild(lbl)
+      const star = document.createElement('div')
+      star.style.cssText = 'position:absolute;bottom:4px;left:4px;font-size:16px;line-height:1;pointer-events:none'
+      star.textContent = '⭐'
+      cell.appendChild(star)
+    } else {
+      const mainBtn = document.createElement('button')
+      mainBtn.onclick = async e => {
+        e.stopPropagation()
+        const urls = [...(currentProfile.photo_urls || [])]
+        const [moved] = urls.splice(i, 1)
+        urls.unshift(moved)
+        await sb.from('profiles').update({ photo_urls: urls }).eq('id', currentUser.id)
+        currentProfile.photo_urls = urls
+        renderProfileScreen()
+        renderEditPhotos()
+      }
+      mainBtn.style.cssText = 'position:absolute;bottom:4px;left:4px;background:rgba(0,0,0,0.72);border:none;border-radius:6px;padding:2px 6px;font-size:10px;color:#fff;cursor:pointer;white-space:nowrap'
+      mainBtn.textContent = 'Set as main'
+      cell.appendChild(mainBtn)
     }
     pubGrid.appendChild(cell)
   })
@@ -4622,6 +4665,17 @@ const RESEARCH_ARTICLES = [
     tagColor: "#27ae60",
     tagBg: "#0d2e1a",
     link: "https://pubmed.ncbi.nlm.nih.gov/15650258/",
+    isNew: true
+  },
+  {
+    title: "Episodic therapy: taking antivirals only when outbreaks start",
+    date: "Treatment — Medical",
+    oneLiner: "Take a high dose of Valtrex for just 1-3 days at the first sign of an outbreak instead of daily pills.",
+    summary: "Episodic therapy means taking a higher dose of antiviral medication (typically valacyclovir 500mg twice daily for 3 days, or 1g once daily for 5 days) at the very first sign of an outbreak — tingling, itching, or burning — rather than taking a daily suppressive dose. Studies show episodic therapy reduces outbreak duration by 1-2 days and severity significantly. It is a good option for people who have infrequent outbreaks (fewer than 6 per year) and prefer not to take daily medication. Note: episodic therapy does NOT reduce viral shedding between outbreaks the way daily suppressive therapy does, so it offers less transmission protection. Discuss with your doctor which approach is right for you.",
+    tag: "Treatment",
+    tagColor: "#3b9eff",
+    tagBg: "#0a1929",
+    link: "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3890387/",
     isNew: true
   },
 ]
