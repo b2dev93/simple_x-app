@@ -3667,14 +3667,21 @@ function attachMatchRowGestures(wrapperEl, matchId) {
   if (!row) return
   let startX = 0, startY = 0, isDragging = false
   let revealed = false
+  let pressTimer = null
 
   row.addEventListener('touchstart', e => {
     startX = e.touches[0].clientX
     startY = e.touches[0].clientY
     isDragging = false
+    pressTimer = setTimeout(() => {
+      row.style.transition = 'transform 0.2s ease'
+      row.style.transform = 'translateX(-80px)'
+      revealed = true
+    }, 600)
   }, { passive: true })
 
   row.addEventListener('touchmove', e => {
+    clearTimeout(pressTimer)
     const dx = e.touches[0].clientX - startX
     const dy = e.touches[0].clientY - startY
     if (!isDragging && Math.abs(dy) > Math.abs(dx)) return
@@ -3688,29 +3695,27 @@ function attachMatchRowGestures(wrapperEl, matchId) {
     }
   }, { passive: true })
 
+  // Non-passive so we can call e.preventDefault() and fire openChatById directly,
+  // avoiding unreliable synthesized click events when touch listeners are present.
   row.addEventListener('touchend', e => {
+    clearTimeout(pressTimer)
     const dx = e.changedTouches[0].clientX - startX
+    const dy = e.changedTouches[0].clientY - startY
+    e.preventDefault() // Suppress synthesized click — handled below on taps
     row.style.transition = 'transform 0.2s ease'
-    if (dx < -50) {
+    if (isDragging && dx < -50) {
       row.style.transform = 'translateX(-80px)'
       revealed = true
+    } else if (!isDragging && Math.abs(dx) < 10 && Math.abs(dy) < 10) {
+      // Pure tap: open chat and collapse delete panel if open
+      row.style.transform = 'translateX(0)'
+      revealed = false
+      openChatById(matchId)
     } else {
       row.style.transform = 'translateX(0)'
       revealed = false
     }
-  }, { passive: true })
-
-  // Long-press to reveal delete
-  let pressTimer = null
-  row.addEventListener('touchstart', () => {
-    pressTimer = setTimeout(() => {
-      row.style.transition = 'transform 0.2s ease'
-      row.style.transform = 'translateX(-80px)'
-      revealed = true
-    }, 600)
-  }, { passive: true })
-  row.addEventListener('touchend', () => clearTimeout(pressTimer))
-  row.addEventListener('touchmove', () => clearTimeout(pressTimer), { passive: true })
+  })
 }
 
 // ── CHAT ──────────────────────────────────────────
