@@ -1681,12 +1681,9 @@ async function loadCommunity() {
     const avatar = p.profiles?.photo_urls?.[0]
     const isOwn = p.user_id === currentUser.id
     const isAdminUser = currentProfile?.is_admin
-    const lastViewed = localStorage.getItem('sx_post_viewed_' + p.id) || ''
-    const hasNewActivity = isOwn && lastViewed && p.updated_at && p.updated_at > lastViewed
-
     return `
-    <div style="background:#1c1c1c;border-radius:16px;border:1px solid ${hasNewActivity ? '#3a1a14' : '#252525'};padding:16px;margin-bottom:14px;position:relative">
-      ${hasNewActivity ? `<div id="post-dot-${p.id}" style="position:absolute;top:14px;right:14px;width:8px;height:8px;border-radius:50%;background:#e8503a"></div>` : `<div id="post-dot-${p.id}" style="display:none;position:absolute;top:14px;right:14px;width:8px;height:8px;border-radius:50%;background:#e8503a"></div>`}
+    <div style="background:#1c1c1c;border-radius:16px;border:1px solid #252525;padding:16px;margin-bottom:14px;position:relative">
+      <div id="post-dot-${p.id}" style="display:none;position:absolute;top:14px;right:14px;width:8px;height:8px;border-radius:50%;background:#e8503a"></div>
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
         <div class="avatar" style="width:36px;height:36px;font-size:13px;flex-shrink:0;background:${avatar ? 'none' : AVATAR_COLORS[Math.abs(name.charCodeAt(0)) % AVATAR_COLORS.length]}">
           ${avatar ? `<img src="${avatar}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">` : name.charAt(0).toUpperCase()}
@@ -1822,9 +1819,19 @@ async function loadPostStats(postId) {
   const commentEl = document.getElementById('comment-count-' + postId)
   const likeBtn = document.querySelector(`[data-post="${postId}"]`)
 
-  if (likeEl) likeEl.textContent = likes?.length || 0
-  if (commentEl) commentEl.textContent = allComments?.length || 0
+  const likeCount2 = likes?.length || 0
+  const commentCount2 = allComments?.length || 0
+  if (likeEl) likeEl.textContent = likeCount2
+  if (commentEl) commentEl.textContent = commentCount2
   if (likeBtn && likes?.some(l => l.user_id === currentUser?.id)) likeBtn.style.color = '#e8503a'
+  // Show new-activity dot if counts changed since post was last opened
+  const _dot = document.getElementById('post-dot-' + postId)
+  if (_dot) {
+    const _stored = JSON.parse(localStorage.getItem('sx_post_seen_counts_' + postId) || 'null')
+    if (_stored && (likeCount2 !== _stored.likes || commentCount2 !== _stored.comments)) {
+      _dot.style.display = ''
+    }
+  }
 
   const listEl = document.getElementById('comments-list-' + postId)
   if (!listEl) return
@@ -2028,35 +2035,34 @@ async function showPostLikers(postId) {
     .select('user_id, profiles(display_name, photo_urls)')
     .eq('post_id', postId)
   if (!likes?.length) { showToast('No likes yet.'); return }
-  document.getElementById('post-likers-sheet')?.remove()
-  const sheet = document.createElement('div')
-  sheet.id = 'post-likers-sheet'
-  sheet.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;justify-content:flex-end'
-  const backdrop = document.createElement('div')
-  backdrop.style.cssText = 'position:absolute;inset:0;background:rgba(0,0,0,0.5)'
-  backdrop.onclick = () => sheet.remove()
-  sheet.appendChild(backdrop)
-  const panel = document.createElement('div')
-  panel.style.cssText = 'position:relative;background:#1c1c1c;border-radius:20px 20px 0 0;padding:20px 16px 40px;max-height:60vh;overflow-y:auto'
-  const title = document.createElement('p')
-  title.textContent = `❤️ ${likes.length} Like${likes.length !== 1 ? 's' : ''}`
-  title.style.cssText = 'color:#f0ede8;font-size:15px;font-weight:700;margin-bottom:16px'
-  panel.appendChild(title)
+  document.getElementById('post-likers-page')?.remove()
+  const page = document.createElement('div')
+  page.id = 'post-likers-page'
+  page.style.cssText = 'position:fixed;inset:0;background:#0a0a0a;z-index:10002;display:flex;flex-direction:column'
+  page.innerHTML = `
+    <div style="position:sticky;top:0;background:#0a0a0a;border-bottom:1px solid #1c1c1c;z-index:1;padding:52px 16px 16px;display:flex;align-items:center;gap:12px;flex-shrink:0">
+      <button onclick="document.getElementById('post-likers-page').remove()" style="background:rgba(255,255,255,0.08);border:none;border-radius:50%;width:40px;height:40px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0">
+        <span style="color:#f0ede8;font-size:22px;line-height:1">‹</span>
+      </button>
+      <h2 style="color:#f0ede8;font-size:18px;font-weight:700">❤️ ${likes.length} Like${likes.length !== 1 ? 's' : ''}</h2>
+    </div>
+    <div style="flex:1;overflow-y:auto;padding:12px 16px"></div>`
+  const feed = page.querySelector('div:last-child')
   likes.forEach(l => {
     const name = l.profiles?.display_name || 'Member'
     const photo = l.profiles?.photo_urls?.[0]
     const color = AVATAR_COLORS[(name.charCodeAt(0) || 0) % AVATAR_COLORS.length]
     const row = document.createElement('div')
-    row.style.cssText = 'display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid #252525'
+    row.style.cssText = 'display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid #1a1a1a'
     row.innerHTML = `
-      <div style="width:40px;height:40px;border-radius:50%;overflow:hidden;flex-shrink:0;background:${color};display:flex;align-items:center;justify-content:center">
-        ${photo ? `<img src="${photo}" style="width:100%;height:100%;object-fit:cover">` : `<span style="color:#fff;font-size:15px;font-weight:700">${name[0].toUpperCase()}</span>`}
+      <div style="width:44px;height:44px;border-radius:50%;overflow:hidden;flex-shrink:0;background:${color};display:flex;align-items:center;justify-content:center">
+        ${photo ? `<img src="${photo}" style="width:100%;height:100%;object-fit:cover">` : `<span style="color:#fff;font-size:16px;font-weight:700">${escapeHtml(name[0].toUpperCase())}</span>`}
       </div>
-      <span style="color:#f0ede8;font-size:14px;font-weight:500">${escapeHtml(name)}</span>`
-    panel.appendChild(row)
+      <span style="color:#f0ede8;font-size:14px;font-weight:500;flex:1">${escapeHtml(name)}</span>
+      <button onclick="showProfilePreview('${l.user_id}')" style="padding:8px 14px;border-radius:20px;border:1px solid #252525;background:transparent;color:#9e9b97;font-size:12px;cursor:pointer;flex-shrink:0">View</button>`
+    feed.appendChild(row)
   })
-  sheet.appendChild(panel)
-  document.body.appendChild(sheet)
+  document.body.appendChild(page)
 }
 
 function toggleComments(postId) {
@@ -2068,6 +2074,10 @@ async function openPostThread(postId) {
   localStorage.setItem('sx_post_viewed_' + postId, new Date().toISOString())
   const dot = document.getElementById('post-dot-' + postId)
   if (dot) dot.style.display = 'none'
+  // Snapshot current counts so we can detect future changes
+  const _curLikes = parseInt(document.getElementById('like-count-' + postId)?.textContent || '0', 10)
+  const _curComments = parseInt(document.getElementById('comment-count-' + postId)?.textContent || '0', 10)
+  localStorage.setItem('sx_post_seen_counts_' + postId, JSON.stringify({ likes: _curLikes, comments: _curComments }))
 
   document.getElementById('post-thread-page')?.remove()
   const page = document.createElement('div')
@@ -2106,6 +2116,8 @@ async function openPostThread(postId) {
   const isAdminUser = currentProfile?.is_admin
   const likeCount = likes?.length || 0
   const iLiked = likes?.some(l => l.user_id === currentUser?.id)
+  // Update stored counts so dot clears correctly
+  localStorage.setItem('sx_post_seen_counts_' + postId, JSON.stringify({ likes: likeCount, comments: allComments?.length || 0 }))
 
   // Render post header
   let html = `
@@ -2127,7 +2139,7 @@ async function openPostThread(postId) {
       <p style="color:#9e9b97;font-size:14px;line-height:1.7;white-space:pre-wrap">${escapeHtml(post.body)}</p>
       <div style="display:flex;gap:12px;margin-top:14px;padding-top:12px;border-top:1px solid #252525">
         <button id="thread-like-btn-${postId}" onclick="togglePostLike('${postId}', this)" data-post="${postId}" style="background:none;border:none;color:${iLiked ? '#e8503a' : '#6b6866'};font-size:13px;cursor:pointer;display:flex;align-items:center;gap:5px">
-          ❤️ <span id="like-count-${postId}">${likeCount}</span>
+          ❤️ <span id="like-count-${postId}" onclick="event.stopPropagation();showPostLikers('${postId}')" style="cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px">${likeCount}</span>
         </button>
         <span style="color:#6b6866;font-size:13px;display:flex;align-items:center;gap:5px">💬 <span id="comment-count-${postId}">${allComments?.length || 0}</span></span>
       </div>
@@ -4569,7 +4581,10 @@ function closeEditPage() {
   el('edit-profile-page').style.display = 'none'
 }
 
-let dragSrcIdx = null
+// Touch drag state for photo reordering
+let _touchDragIdx = null
+let _touchDragClone = null
+let _touchDragCells = []
 
 function renderEditPhotos() {
   const grid = el('edit-photo-grid')
@@ -4583,35 +4598,51 @@ function renderEditPhotos() {
   const pubGrid = document.createElement('div')
   pubGrid.style.cssText = 'display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:20px'
   const photos = currentProfile?.photo_urls || []
+  _touchDragCells = []
+
   photos.forEach((url, i) => {
     const cell = document.createElement('div')
-    cell.style.cssText = 'position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;background:#1c1c1c;cursor:grab'
-    cell.draggable = true
-    cell.addEventListener('dragstart', e => {
-      dragSrcIdx = i
-      e.dataTransfer.effectAllowed = 'move'
-      setTimeout(() => { cell.style.opacity = '0.4' }, 0)
-    })
-    cell.addEventListener('dragend', () => { cell.style.opacity = '1'; cell.style.outline = '' })
-    cell.addEventListener('dragover', e => {
+    cell.style.cssText = 'position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;background:#1c1c1c;cursor:grab;touch-action:none'
+    cell.dataset.idx = String(i)
+    _touchDragCells.push(cell)
+
+    cell.addEventListener('touchstart', e => {
+      if (e.touches.length !== 1) return
+      _touchDragIdx = i
+      setTimeout(() => { if (_touchDragIdx === i) cell.style.opacity = '0.4' }, 120)
+    }, { passive: true })
+
+    cell.addEventListener('touchmove', e => {
+      if (_touchDragIdx === null) return
       e.preventDefault()
-      e.dataTransfer.dropEffect = 'move'
-      cell.style.outline = '2px solid #e8503a'
-    })
-    cell.addEventListener('dragleave', () => { cell.style.outline = '' })
-    cell.addEventListener('drop', async e => {
-      e.preventDefault()
-      cell.style.outline = ''
-      if (dragSrcIdx === null || dragSrcIdx === i) { dragSrcIdx = null; return }
+      const touch = e.touches[0]
+      // Highlight the cell under the finger
+      _touchDragCells.forEach(c => c.style.outline = '')
+      const el2 = document.elementFromPoint(touch.clientX, touch.clientY)
+      const target = el2?.closest('[data-idx]')
+      if (target && target !== cell) target.style.outline = '2px solid #e8503a'
+    }, { passive: false })
+
+    cell.addEventListener('touchend', async e => {
+      if (_touchDragIdx === null) return
+      cell.style.opacity = '1'
+      _touchDragCells.forEach(c => c.style.outline = '')
+      const touch = e.changedTouches[0]
+      const el2 = document.elementFromPoint(touch.clientX, touch.clientY)
+      const target = el2?.closest('[data-idx]')
+      const targetIdx = target ? parseInt(target.dataset.idx) : -1
+      const srcIdx = _touchDragIdx
+      _touchDragIdx = null
+      if (targetIdx < 0 || targetIdx === srcIdx) return
       const urls = [...(currentProfile.photo_urls || [])]
-      const [moved] = urls.splice(dragSrcIdx, 1)
-      urls.splice(i, 0, moved)
-      dragSrcIdx = null
+      const [moved] = urls.splice(srcIdx, 1)
+      urls.splice(targetIdx, 0, moved)
       await sb.from('profiles').update({ photo_urls: urls }).eq('id', currentUser.id)
       currentProfile.photo_urls = urls
       renderProfileScreen()
       renderEditPhotos()
-    })
+    }, { passive: true })
+
     const media = document.createElement(isVideoUrl(url) ? 'video' : 'img')
     media.src = url
     media.draggable = false
@@ -4625,7 +4656,7 @@ function renderEditPhotos() {
       cell.appendChild(overlay)
     }
     const del = document.createElement('button')
-    del.onclick = e => { e.stopPropagation(); deletePhoto(i) }
+    del.addEventListener('click', e => { e.stopPropagation(); deletePhoto(i) })
     del.style.cssText = 'position:absolute;top:4px;right:4px;width:22px;height:22px;border-radius:50%;background:rgba(0,0,0,0.7);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;line-height:1'
     del.textContent = '×'
     cell.appendChild(del)
@@ -4636,7 +4667,7 @@ function renderEditPhotos() {
       cell.appendChild(star)
     } else {
       const mainBtn = document.createElement('button')
-      mainBtn.onclick = async e => {
+      mainBtn.addEventListener('click', async e => {
         e.stopPropagation()
         const urls = [...(currentProfile.photo_urls || [])]
         const [moved] = urls.splice(i, 1)
@@ -4645,7 +4676,7 @@ function renderEditPhotos() {
         currentProfile.photo_urls = urls
         renderProfileScreen()
         renderEditPhotos()
-      }
+      })
       mainBtn.style.cssText = 'position:absolute;bottom:4px;left:4px;background:rgba(0,0,0,0.72);border:none;border-radius:6px;padding:2px 6px;font-size:10px;color:#fff;cursor:pointer;white-space:nowrap'
       mainBtn.textContent = 'Set as main'
       cell.appendChild(mainBtn)
