@@ -414,7 +414,12 @@
         <h2 style="color:#f0ede8;font-size:18px;font-weight:700">Community</h2>
         <button id="new-post-btn" onclick="showNewPostModal()" style="background:#e8503a;border:none;color:#fff;font-size:13px;font-weight:600;padding:8px 16px;border-radius:20px;cursor:pointer">+ Post</button>
       </div>
-      <p style="color:#6b6866;font-size:13px;margin-bottom:20px">A space to share, support, and connect.</p>
+      <p style="color:#6b6866;font-size:13px;margin-bottom:16px">A space to share, support, and connect.</p>
+
+      <div style="display:flex;gap:8px;margin-bottom:16px">
+        <button id="cfilt-all" onclick="setCommunityFilter('all')" style="padding:8px 18px;border-radius:20px;border:none;background:#e8503a;color:#fff;font-size:13px;font-weight:600;cursor:pointer">All Posts</button>
+        <button id="cfilt-mine" onclick="setCommunityFilter('mine')" style="padding:8px 18px;border-radius:20px;border:1px solid #252525;background:transparent;color:#9e9b97;font-size:13px;font-weight:600;cursor:pointer">My Posts</button>
+      </div>
 
       <div id="community-notifs-section" style="display:none;margin-bottom:16px"></div>
 
@@ -1295,9 +1300,11 @@ async function loadPrivateAlbumRequests() {
     }
   }
 
-  section.innerHTML = html
-  const albumSection = document.getElementById('private-album-section')
-  if (albumSection) albumSection.insertAdjacentElement('afterend', section)
+  // Render into the contacts album page if open, otherwise no-op (removed from profile tab)
+  const pageContent = document.getElementById('album-requests-content')
+  if (pageContent) {
+    pageContent.innerHTML = html || '<p style="color:#6b6866;font-size:14px;text-align:center;padding:40px 0">No requests or approved access yet.</p>'
+  }
 }
 
 // ── AUTH ──────────────────────────────────────────
@@ -1637,11 +1644,14 @@ async function loadCommunity() {
   const list = el('community-list')
   list.innerHTML = '<div style="text-align:center;padding:40px 0"><p style="color:#6b6866;font-size:14px">Loading posts...</p></div>'
 
-  const { data: posts, error } = await sb
+  let query = sb
     .from('community_posts')
     .select('*, profiles(display_name, photo_urls)')
     .order('created_at', { ascending: false })
     .limit(50)
+  if (communityFilter === 'mine') query = query.eq('user_id', currentUser.id)
+
+  const { data: posts, error } = await query
 
   if (error) {
     list.innerHTML = '<div style="text-align:center;padding:40px 0"><p style="color:#6b6866;font-size:14px">Could not load posts.</p></div>'
@@ -1660,8 +1670,8 @@ async function loadCommunity() {
     list.innerHTML = `
       <div style="text-align:center;padding:60px 20px">
         <p style="font-size:32px;margin-bottom:12px">💬</p>
-        <p style="color:#f0ede8;font-size:16px;font-weight:600;margin-bottom:8px">No posts yet</p>
-        <p style="color:#6b6866;font-size:14px">Be the first to share something with the community.</p>
+        <p style="color:#f0ede8;font-size:16px;font-weight:600;margin-bottom:8px">${communityFilter === 'mine' ? 'No posts yet' : 'No posts yet'}</p>
+        <p style="color:#6b6866;font-size:14px">${communityFilter === 'mine' ? "You haven't posted yet." : 'Be the first to share something with the community.'}</p>
       </div>`
     return
   }
@@ -1671,9 +1681,12 @@ async function loadCommunity() {
     const avatar = p.profiles?.photo_urls?.[0]
     const isOwn = p.user_id === currentUser.id
     const isAdminUser = currentProfile?.is_admin
+    const lastViewed = localStorage.getItem('sx_post_viewed_' + p.id) || ''
+    const hasNewActivity = isOwn && lastViewed && p.updated_at && p.updated_at > lastViewed
 
     return `
-    <div style="background:#1c1c1c;border-radius:16px;border:1px solid #252525;padding:16px;margin-bottom:14px">
+    <div style="background:#1c1c1c;border-radius:16px;border:1px solid ${hasNewActivity ? '#3a1a14' : '#252525'};padding:16px;margin-bottom:14px;position:relative">
+      ${hasNewActivity ? `<div id="post-dot-${p.id}" style="position:absolute;top:14px;right:14px;width:8px;height:8px;border-radius:50%;background:#e8503a"></div>` : `<div id="post-dot-${p.id}" style="display:none;position:absolute;top:14px;right:14px;width:8px;height:8px;border-radius:50%;background:#e8503a"></div>`}
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
         <div class="avatar" style="width:36px;height:36px;font-size:13px;flex-shrink:0;background:${avatar ? 'none' : AVATAR_COLORS[Math.abs(name.charCodeAt(0)) % AVATAR_COLORS.length]}">
           ${avatar ? `<img src="${avatar}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">` : name.charAt(0).toUpperCase()}
@@ -1683,34 +1696,28 @@ async function loadCommunity() {
           <p style="color:#6b6866;font-size:12px">${new Date(p.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
         </div>
         ${isOwn || isAdminUser ? `
-        <div style="display:flex;gap:6px">
+        <div style="display:flex;gap:6px" onclick="event.stopPropagation()">
           ${isOwn ? `<button onclick="editPost('${p.id}')" style="background:none;border:none;color:#9e9b97;font-size:12px;cursor:pointer;padding:4px 8px;border-radius:8px;border:1px solid #252525">✏️ Edit</button>` : ''}
           <button onclick="deletePost('${p.id}')" style="background:none;border:none;color:#6b6866;font-size:12px;cursor:pointer;padding:4px 8px;border-radius:8px;border:1px solid #252525">
             ${isAdminUser && !isOwn ? 'Remove' : 'Delete'}
           </button>
         </div>` : ''}
       </div>
-      ${p.title ? `<p style="color:#f0ede8;font-size:15px;font-weight:600;margin-bottom:6px">${escapeHtml(p.title)}</p>` : ''}
-      <p style="color:#9e9b97;font-size:14px;line-height:1.6;white-space:pre-wrap">${escapeHtml(p.body)}</p>
+      <div onclick="openPostThread('${p.id}')" style="cursor:pointer">
+        ${p.title ? `<p style="color:#f0ede8;font-size:15px;font-weight:600;margin-bottom:6px">${escapeHtml(p.title)}</p>` : ''}
+        <p style="color:#9e9b97;font-size:14px;line-height:1.6;white-space:pre-wrap;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden">${escapeHtml(p.body)}</p>
+      </div>
       <div style="display:flex;gap:12px;margin-top:12px;padding-top:12px;border-top:1px solid #252525">
         <button onclick="togglePostLike('${p.id}', this)" data-post="${p.id}" style="background:none;border:none;color:#6b6866;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:5px">
           ❤️ <span id="like-count-${p.id}" onclick="event.stopPropagation();showPostLikers('${p.id}')" style="cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px">0</span>
         </button>
-        <button onclick="toggleComments('${p.id}')" style="background:none;border:none;color:#6b6866;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:5px">
+        <button onclick="openPostThread('${p.id}')" style="background:none;border:none;color:#6b6866;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:5px">
           💬 <span id="comment-count-${p.id}">0</span>
         </button>
-      </div>
-      <div id="comments-${p.id}" style="display:none;margin-top:12px">
-        <div id="comments-list-${p.id}"></div>
-        <div style="display:flex;gap:8px;margin-top:8px">
-          <input id="comment-input-${p.id}" placeholder="Add a comment..." style="flex:1;background:#252525;border:none;border-radius:8px;padding:10px 14px;color:#f0ede8;font-size:13px;outline:none">
-          <button onclick="submitComment('${p.id}')" style="background:#e8503a;border:none;border-radius:8px;padding:10px 14px;color:#fff;font-size:13px;cursor:pointer">Post</button>
-        </div>
       </div>
     </div>`
   }).join('')
 
-  // Load likes and comments counts
   posts.forEach(p => loadPostStats(p.id))
   loadCommunityNotifs()
 }
@@ -2055,6 +2062,166 @@ async function showPostLikers(postId) {
 function toggleComments(postId) {
   const section = document.getElementById('comments-' + postId)
   if (section) section.style.display = section.style.display === 'none' ? '' : 'none'
+}
+
+async function openPostThread(postId) {
+  localStorage.setItem('sx_post_viewed_' + postId, new Date().toISOString())
+  const dot = document.getElementById('post-dot-' + postId)
+  if (dot) dot.style.display = 'none'
+
+  document.getElementById('post-thread-page')?.remove()
+  const page = document.createElement('div')
+  page.id = 'post-thread-page'
+  page.style.cssText = 'position:fixed;inset:0;background:#0a0a0a;z-index:10001;display:flex;flex-direction:column'
+
+  page.innerHTML = `
+    <div style="position:sticky;top:0;background:#0a0a0a;border-bottom:1px solid #1c1c1c;z-index:1;padding:52px 16px 16px;display:flex;align-items:center;gap:12px;flex-shrink:0">
+      <button onclick="document.getElementById('post-thread-page').remove()" style="background:rgba(255,255,255,0.08);border:none;border-radius:50%;width:40px;height:40px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0">
+        <span style="color:#f0ede8;font-size:22px;line-height:1">‹</span>
+      </button>
+      <h2 style="color:#f0ede8;font-size:18px;font-weight:700">Post</h2>
+    </div>
+    <div id="thread-scroll-${postId}" style="flex:1;overflow-y:auto;padding:20px 16px">
+      <div style="text-align:center;padding:40px 0"><p style="color:#6b6866;font-size:14px">Loading...</p></div>
+    </div>
+    <div style="padding:12px 16px calc(12px + env(safe-area-inset-bottom));border-top:1px solid #1c1c1c;background:#0a0a0a;display:flex;gap:8px;flex-shrink:0">
+      <input id="thread-comment-input-${postId}" placeholder="Add a comment..." style="flex:1;background:#252525;border:none;border-radius:8px;padding:10px 14px;color:#f0ede8;font-size:13px;outline:none">
+      <button onclick="submitThreadComment('${postId}')" style="background:#e8503a;border:none;border-radius:8px;padding:10px 14px;color:#fff;font-size:13px;cursor:pointer;flex-shrink:0">Post</button>
+    </div>`
+
+  document.body.appendChild(page)
+
+  const [{ data: post }, { data: allComments }, { data: likes }] = await Promise.all([
+    sb.from('community_posts').select('*, profiles(display_name, photo_urls)').eq('id', postId).single(),
+    sb.from('post_comments').select('id, user_id, body, created_at, parent_comment_id, profiles(display_name)').eq('post_id', postId).order('created_at'),
+    sb.from('post_likes').select('user_id').eq('post_id', postId)
+  ])
+
+  const scrollEl = document.getElementById('thread-scroll-' + postId)
+  if (!scrollEl || !post) return
+
+  const name = escapeHtml(post.profiles?.display_name || 'Member')
+  const avatar = post.profiles?.photo_urls?.[0]
+  const isOwn = post.user_id === currentUser?.id
+  const isAdminUser = currentProfile?.is_admin
+  const likeCount = likes?.length || 0
+  const iLiked = likes?.some(l => l.user_id === currentUser?.id)
+
+  // Render post header
+  let html = `
+    <div style="background:#1c1c1c;border-radius:16px;border:1px solid #252525;padding:16px;margin-bottom:20px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+        <div class="avatar" style="width:36px;height:36px;font-size:13px;flex-shrink:0;background:${avatar ? 'none' : AVATAR_COLORS[Math.abs(name.charCodeAt(0)) % AVATAR_COLORS.length]}">
+          ${avatar ? `<img src="${avatar}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">` : name.charAt(0).toUpperCase()}
+        </div>
+        <div style="flex:1">
+          <p style="color:#f0ede8;font-size:14px;font-weight:600">${name}</p>
+          <p style="color:#6b6866;font-size:12px">${new Date(post.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
+        </div>
+        ${isOwn || isAdminUser ? `<div style="display:flex;gap:6px">
+          ${isOwn ? `<button onclick="editPost('${post.id}');document.getElementById('post-thread-page')?.remove()" style="background:none;border:none;color:#9e9b97;font-size:12px;cursor:pointer;padding:4px 8px;border-radius:8px;border:1px solid #252525">✏️ Edit</button>` : ''}
+          <button onclick="deletePost('${post.id}');document.getElementById('post-thread-page')?.remove()" style="background:none;border:none;color:#6b6866;font-size:12px;cursor:pointer;padding:4px 8px;border-radius:8px;border:1px solid #252525">${isAdminUser && !isOwn ? 'Remove' : 'Delete'}</button>
+        </div>` : ''}
+      </div>
+      ${post.title ? `<p style="color:#f0ede8;font-size:16px;font-weight:700;margin-bottom:8px">${escapeHtml(post.title)}</p>` : ''}
+      <p style="color:#9e9b97;font-size:14px;line-height:1.7;white-space:pre-wrap">${escapeHtml(post.body)}</p>
+      <div style="display:flex;gap:12px;margin-top:14px;padding-top:12px;border-top:1px solid #252525">
+        <button id="thread-like-btn-${postId}" onclick="togglePostLike('${postId}', this)" data-post="${postId}" style="background:none;border:none;color:${iLiked ? '#e8503a' : '#6b6866'};font-size:13px;cursor:pointer;display:flex;align-items:center;gap:5px">
+          ❤️ <span id="like-count-${postId}">${likeCount}</span>
+        </button>
+        <span style="color:#6b6866;font-size:13px;display:flex;align-items:center;gap:5px">💬 <span id="comment-count-${postId}">${allComments?.length || 0}</span></span>
+      </div>
+    </div>
+    <p style="color:#9e9b97;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:12px">${allComments?.length || 0} Comment${allComments?.length !== 1 ? 's' : ''}</p>
+    <div id="comments-list-${postId}"></div>`
+
+  scrollEl.innerHTML = html
+
+  // Build comment tree using existing logic
+  if (allComments?.length) {
+    const allIds = allComments.map(c => c.id)
+    const clMap = {}
+    allIds.forEach(id => { clMap[id] = { count: 0, iLiked: false } })
+    const { data: commentLikes } = await sb.from('comment_likes').select('comment_id, user_id').in('comment_id', allIds)
+    ;(commentLikes || []).forEach(cl => {
+      if (clMap[cl.comment_id]) { clMap[cl.comment_id].count++; if (cl.user_id === currentUser?.id) clMap[cl.comment_id].iLiked = true }
+    })
+    const topLevel = allComments.filter(c => c.parent_comment_id == null)
+    const repliesMap = {}
+    allComments.filter(c => c.parent_comment_id != null).forEach(c => {
+      if (!repliesMap[c.parent_comment_id]) repliesMap[c.parent_comment_id] = []
+      repliesMap[c.parent_comment_id].push(c)
+    })
+    const listEl = document.getElementById('comments-list-' + postId)
+    if (listEl) {
+      function buildThreadComment(c, isReply, parentName) {
+        const { count, iLiked: cLiked } = clMap[c.id] || { count: 0, iLiked: false }
+        const cName = c.profiles?.display_name || 'Member'
+        const fs = isReply ? '12px' : '13px'
+        const wrap = document.createElement('div')
+        wrap.style.cssText = isReply ? 'margin-left:20px;padding-left:10px;border-left:2px solid #252525;margin-bottom:6px' : 'margin-bottom:12px'
+        const bodyRow = document.createElement('div')
+        bodyRow.style.cssText = 'display:flex;gap:6px;align-items:flex-start'
+        const textWrap = document.createElement('div')
+        textWrap.style.cssText = 'flex:1;min-width:0;line-height:1.5'
+        const nameEl = document.createElement('span')
+        nameEl.style.cssText = `color:#e8503a;font-size:${fs};font-weight:600;cursor:pointer`
+        nameEl.textContent = cName + ': '
+        if (c.user_id) nameEl.addEventListener('click', () => showProfilePreview(c.user_id))
+        textWrap.appendChild(nameEl)
+        if (isReply && parentName) {
+          const mention = document.createElement('span')
+          mention.style.cssText = `color:#4fc3f7;font-size:${fs}`
+          mention.textContent = '@' + parentName + ' '
+          textWrap.appendChild(mention)
+        }
+        const bodyEl = document.createElement('span')
+        bodyEl.style.cssText = `color:#9e9b97;font-size:${fs}`
+        bodyEl.textContent = c.body
+        textWrap.appendChild(bodyEl)
+        const actions = document.createElement('div')
+        actions.style.cssText = 'display:flex;align-items:center;gap:4px;flex-shrink:0;padding-top:2px'
+        const heartBtn = document.createElement('button')
+        heartBtn.style.cssText = `background:none;border:none;cursor:pointer;padding:1px 3px;display:flex;align-items:center;gap:2px;line-height:1;color:${cLiked ? '#e8503a' : '#6b6866'}`
+        const heartIcon = document.createElement('span'); heartIcon.style.fontSize = '11px'; heartIcon.textContent = '❤️'
+        const cntSpan = document.createElement('span'); cntSpan.style.cssText = `font-size:11px;color:${cLiked ? '#e8503a' : '#6b6866'};min-width:8px`; cntSpan.textContent = count > 0 ? String(count) : ''
+        heartBtn.appendChild(heartIcon); heartBtn.appendChild(cntSpan)
+        heartBtn.addEventListener('click', () => toggleCommentLike(c.id, heartBtn, cntSpan))
+        const replyBtn = document.createElement('button')
+        replyBtn.style.cssText = 'background:none;border:none;cursor:pointer;color:#6b6866;font-size:11px;padding:1px 3px'
+        replyBtn.textContent = 'Reply'
+        const replyWrap = document.createElement('div')
+        replyWrap.style.cssText = 'display:none;margin-top:6px'
+        replyBtn.addEventListener('click', () => { const open = replyWrap.style.display !== 'none'; replyWrap.style.display = open ? 'none' : ''; if (!open) replyWrap.querySelector('input')?.focus() })
+        const replyFlex = document.createElement('div'); replyFlex.style.cssText = 'display:flex;gap:6px'
+        const replyInput = document.createElement('input'); replyInput.placeholder = 'Reply to ' + cName + '...'; replyInput.style.cssText = 'flex:1;background:#252525;border:none;border-radius:8px;padding:8px 12px;color:#f0ede8;font-size:12px;outline:none'
+        const replySubmit = document.createElement('button'); replySubmit.textContent = '↑'; replySubmit.style.cssText = 'background:#e8503a;border:none;border-radius:8px;padding:8px 12px;color:#fff;font-size:13px;cursor:pointer;flex-shrink:0'
+        replySubmit.addEventListener('click', () => submitReply(postId, c.id, cName, replyInput, replyWrap))
+        replyInput.addEventListener('keydown', e => { if (e.key === 'Enter') replySubmit.click() })
+        replyFlex.appendChild(replyInput); replyFlex.appendChild(replySubmit); replyWrap.appendChild(replyFlex)
+        actions.appendChild(heartBtn); actions.appendChild(replyBtn)
+        bodyRow.appendChild(textWrap); bodyRow.appendChild(actions)
+        wrap.appendChild(bodyRow); wrap.appendChild(replyWrap)
+        ;(repliesMap[c.id] || []).forEach(reply => wrap.appendChild(buildThreadComment(reply, true, cName)))
+        return wrap
+      }
+      topLevel.forEach(c => listEl.appendChild(buildThreadComment(c, false, null)))
+    }
+  }
+}
+
+async function submitThreadComment(postId) {
+  const input = document.getElementById('thread-comment-input-' + postId)
+  const body = input?.value.trim()
+  if (!body) return
+  input.disabled = true
+  await sb.from('post_comments').insert({ post_id: postId, user_id: currentUser.id, body })
+  input.disabled = false
+  input.value = ''
+  sendCommentNotifications(postId, body)
+  // Reload thread
+  document.getElementById('post-thread-page')?.remove()
+  openPostThread(postId)
 }
 
 async function submitComment(postId) {
@@ -2535,11 +2702,12 @@ async function loadContacts() {
 
   const isPremium = !!(currentProfile?.is_premium || currentProfile?.is_admin)
 
-  const [{ data: views }, { data: likedMe }, { data: iLiked }, { data: matchRows }] = await Promise.all([
+  const [{ data: views }, { data: likedMe }, { data: iLiked }, { data: matchRows }, { data: albumReqs }] = await Promise.all([
     sb.from('profile_views').select('viewer_id').eq('viewed_id', currentUser.id).order('created_at', { ascending: false }).limit(50),
     sb.from('swipes').select('swiper_id, direction').eq('swiped_id', currentUser.id).in('direction', ['like', 'super']).order('created_at', { ascending: false }).limit(50),
     sb.from('swipes').select('swiped_id').eq('swiper_id', currentUser.id).in('direction', ['like', 'super']).order('created_at', { ascending: false }).limit(50),
-    sb.from('matches').select('user_a, user_b').or(`user_a.eq.${currentUser.id},user_b.eq.${currentUser.id}`).order('created_at', { ascending: false }).limit(50)
+    sb.from('matches').select('user_a, user_b').or(`user_a.eq.${currentUser.id},user_b.eq.${currentUser.id}`).order('created_at', { ascending: false }).limit(50),
+    sb.from('private_album_access').select('status').eq('owner_id', currentUser.id)
   ])
 
   const viewerIds = [...new Set((views || []).map(v => v.viewer_id).filter(id => id !== currentUser.id))]
@@ -2586,13 +2754,47 @@ async function loadContacts() {
     </div>`
   }
 
+  const pendingAlbumCount = (albumReqs || []).filter(r => r.status === 'pending').length
+  const totalAlbumCount = (albumReqs || []).length
+  const albumBadge = pendingAlbumCount > 0
+    ? `<span style="background:#e8503a;color:#fff;font-size:12px;font-weight:700;padding:3px 14px;border-radius:20px">${pendingAlbumCount} new</span>`
+    : `<span style="background:#252525;color:#9e9b97;font-size:12px;font-weight:700;padding:3px 14px;border-radius:20px">${totalAlbumCount}</span>`
+
   container.innerHTML = `
-    <div style="padding:12px 16px 24px;display:grid;grid-template-columns:repeat(2,1fr);gap:12px">
+    <div style="padding:12px 16px 8px;display:grid;grid-template-columns:repeat(2,1fr);gap:12px">
       ${contactCard('👀', 'Who Viewed You', 'viewed', viewerIds.length, !isPremium)}
       ${contactCard('❤️', 'Who Liked You', 'liked-me', likedMeIds.length, !isPremium)}
       ${contactCard('💛', 'You Liked', 'i-liked', iLikedIds.length, false)}
       ${contactCard('✅', 'Matches', 'matches', matchIds.length, false)}
+    </div>
+    <div style="padding:0 16px 24px">
+      <div onclick="openAlbumRequestsPage()" style="background:#1c1c1c;border-radius:20px;border:1px solid ${pendingAlbumCount > 0 ? '#3a1a14' : '#252525'};cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:18px 20px;gap:12px">
+        <div style="display:flex;align-items:center;gap:14px">
+          <span style="font-size:28px;line-height:1">🔒</span>
+          <p style="color:#f0ede8;font-size:15px;font-weight:700">Album Requests</p>
+        </div>
+        ${albumBadge}
+      </div>
     </div>`
+}
+
+function openAlbumRequestsPage() {
+  document.getElementById('album-requests-page')?.remove()
+  const page = document.createElement('div')
+  page.id = 'album-requests-page'
+  page.style.cssText = 'position:fixed;inset:0;background:#0a0a0a;z-index:10000;display:flex;flex-direction:column'
+  page.innerHTML = `
+    <div style="position:sticky;top:0;background:#0a0a0a;border-bottom:1px solid #1c1c1c;z-index:1;padding:52px 16px 16px;display:flex;align-items:center;gap:12px">
+      <button onclick="document.getElementById('album-requests-page').remove()" style="background:rgba(255,255,255,0.08);border:none;border-radius:50%;width:40px;height:40px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0">
+        <span style="color:#f0ede8;font-size:22px;line-height:1">‹</span>
+      </button>
+      <h2 style="color:#f0ede8;font-size:20px;font-weight:700">🔒 Album Requests</h2>
+    </div>
+    <div id="album-requests-content" style="flex:1;overflow-y:auto;padding:16px">
+      <div style="text-align:center;padding:40px 0"><p style="color:#6b6866;font-size:14px">Loading...</p></div>
+    </div>`
+  document.body.appendChild(page)
+  loadPrivateAlbumRequests()
 }
 
 async function openContactsSection(sectionKey) {
@@ -4280,7 +4482,6 @@ function renderProfileScreen() {
   }
   renderPhotoGrid()
   renderPrivateAlbum()
-  loadPrivateAlbumRequests()
   renderStreakBadge()
   checkProfileNudge()
 }
@@ -4756,6 +4957,18 @@ function clearResearchBadge() {
 }
 
 const COMMUNITY_SEEN_KEY = 'sx_last_community_seen'
+let communityFilter = 'all'
+
+function setCommunityFilter(f) {
+  communityFilter = f
+  const allBtn = document.getElementById('cfilt-all')
+  const mineBtn = document.getElementById('cfilt-mine')
+  const active = 'padding:8px 18px;border-radius:20px;border:none;background:#e8503a;color:#fff;font-size:13px;font-weight:600;cursor:pointer'
+  const inactive = 'padding:8px 18px;border-radius:20px;border:1px solid #252525;background:transparent;color:#9e9b97;font-size:13px;font-weight:600;cursor:pointer'
+  if (allBtn) allBtn.style.cssText = f === 'all' ? active : inactive
+  if (mineBtn) mineBtn.style.cssText = f === 'mine' ? active : inactive
+  loadCommunity()
+}
 
 async function checkCommunityBadge() {
   const lastSeen = localStorage.getItem(COMMUNITY_SEEN_KEY) || new Date(0).toISOString()
