@@ -453,6 +453,15 @@
           <button class="edit-btn" onclick="toggleEdit()">Edit profile</button>
           <button class="edit-btn" onclick="showProfilePreview(currentUser.id)" style="background:#1c1c1c;border:1px solid #252525;color:#9e9b97">Preview</button>
         </div>
+        <div id="profile-completion-bar" style="margin-top:12px;display:none">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+            <span style="color:#9e9b97;font-size:12px">Profile strength</span>
+            <span id="profile-completion-pct" style="color:#f0ede8;font-size:12px;font-weight:600"></span>
+          </div>
+          <div style="background:#1e1e1e;border-radius:6px;height:6px;overflow:hidden">
+            <div id="profile-completion-fill" style="height:100%;border-radius:6px;transition:width 0.4s;background:#e8503a"></div>
+          </div>
+        </div>
       </div>
       <div id="profile-fields"></div>
 
@@ -884,6 +893,17 @@
           <option>Spiritual but not religious</option><option>Christian</option><option>Catholic</option><option>Jewish</option><option>Muslim</option><option>Hindu</option><option>Buddhist</option><option>Agnostic</option><option>Atheist</option><option>Prefer not to say</option><option>Other</option>
         </select>
       </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-top:1px solid #1e1e1c">
+        <div>
+          <p style="color:#f0ede8;font-size:14px;font-weight:600">Willing to fly to meet</p>
+          <p style="color:#6b6866;font-size:12px;margin-top:2px">Open to long-distance connections</p>
+        </div>
+        <label style="position:relative;display:inline-block;width:44px;height:24px;cursor:pointer">
+          <input type="checkbox" id="edit-willing-to-fly" onchange="updateFlyToggle(this.checked)" style="opacity:0;width:0;height:0">
+          <span id="edit-fly-track" style="position:absolute;inset:0;background:#2a2a2a;border-radius:24px;transition:0.2s"></span>
+          <span id="edit-fly-thumb" style="position:absolute;left:3px;top:3px;width:18px;height:18px;background:#fff;border-radius:50%;transition:0.2s"></span>
+        </label>
+      </div>
       <div>
         <p style="color:#6b6866;font-size:12px;margin-bottom:10px">My type</p>
         <div class="hsv-options" id="edit-hsv-options">
@@ -1046,6 +1066,17 @@ async function uploadPhoto(input) {
   if (el('edit-profile-page')?.style.display === 'flex') renderEditPhotos()
   input.value = ''
   showToast(`${newUrls.length} file${newUrls.length > 1 ? 's' : ''} uploaded.`)
+}
+
+async function savePhotoCaptions() {
+  const inputs = document.querySelectorAll('[data-caption-idx]')
+  const captions = []
+  inputs.forEach(inp => { captions[parseInt(inp.dataset.captionIdx)] = inp.value.trim() })
+  // Fill gaps with empty strings
+  const len = currentProfile?.photo_urls?.length || 0
+  const arr = Array.from({ length: len }, (_, i) => captions[i] || '')
+  await sb.from('profiles').update({ photo_captions: arr }).eq('id', currentUser.id)
+  currentProfile.photo_captions = arr
 }
 
 async function deletePhoto(idx) {
@@ -1647,6 +1678,7 @@ async function loadCommunity() {
   let query = sb
     .from('community_posts')
     .select('*, profiles(display_name, photo_urls)')
+    .order('is_pinned', { ascending: false })
     .order('created_at', { ascending: false })
     .limit(50)
   if (communityFilter === 'mine') query = query.eq('user_id', currentUser.id)
@@ -1681,19 +1713,22 @@ async function loadCommunity() {
     const avatar = p.profiles?.photo_urls?.[0]
     const isOwn = p.user_id === currentUser.id
     const isAdminUser = currentProfile?.is_admin
+    const pinned = p.is_pinned
     return `
-    <div style="background:#1c1c1c;border-radius:16px;border:1px solid #252525;padding:16px;margin-bottom:14px;position:relative">
+    <div style="background:#1c1c1c;border-radius:16px;border:1px solid ${pinned ? '#2e2a0a' : '#252525'};padding:16px;margin-bottom:14px;position:relative">
       <div id="post-dot-${p.id}" style="display:none;position:absolute;top:14px;right:14px;width:8px;height:8px;border-radius:50%;background:#e8503a"></div>
+      ${pinned ? `<div style="position:absolute;top:12px;right:12px;font-size:14px">📌</div>` : ''}
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
         <div class="avatar" style="width:36px;height:36px;font-size:13px;flex-shrink:0;background:${avatar ? 'none' : AVATAR_COLORS[Math.abs(name.charCodeAt(0)) % AVATAR_COLORS.length]}">
           ${avatar ? `<img src="${avatar}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">` : name.charAt(0).toUpperCase()}
         </div>
         <div style="flex:1">
-          <p style="color:#f0ede8;font-size:14px;font-weight:600">${name}</p>
+          <p style="color:#f0ede8;font-size:14px;font-weight:600">${name}${pinned ? ' <span style="color:#f5c518;font-size:11px;font-weight:500">Pinned</span>' : ''}</p>
           <p style="color:#6b6866;font-size:12px">${new Date(p.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
         </div>
         ${isOwn || isAdminUser ? `
         <div style="display:flex;gap:6px" onclick="event.stopPropagation()">
+          ${isAdminUser ? `<button onclick="${pinned ? `unpinPost('${p.id}')` : `pinPost('${p.id}')`}" style="background:none;border:none;color:#f5c518;font-size:12px;cursor:pointer;padding:4px 8px;border-radius:8px;border:1px solid #2e2a0a">${pinned ? 'Unpin' : '📌 Pin'}</button>` : ''}
           ${isOwn ? `<button onclick="editPost('${p.id}')" style="background:none;border:none;color:#9e9b97;font-size:12px;cursor:pointer;padding:4px 8px;border-radius:8px;border:1px solid #252525">✏️ Edit</button>` : ''}
           <button onclick="deletePost('${p.id}')" style="background:none;border:none;color:#6b6866;font-size:12px;cursor:pointer;padding:4px 8px;border-radius:8px;border:1px solid #252525">
             ${isAdminUser && !isOwn ? 'Remove' : 'Delete'}
@@ -1996,6 +2031,13 @@ async function toggleCommentLike(commentId, btn, cntSpan) {
   }
 }
 
+
+function updateFlyToggle(val) {
+  const track = document.getElementById('edit-fly-track')
+  const thumb = document.getElementById('edit-fly-thumb')
+  if (track) track.style.background = val ? '#e8503a' : '#2a2a2a'
+  if (thumb) thumb.style.transform = val ? 'translateX(20px)' : 'translateX(0)'
+}
 
 async function toggleIncognito(val) {
   const slider = document.getElementById('incognito-slider')
@@ -2326,6 +2368,17 @@ async function submitPost() {
 
   document.getElementById('new-post-modal')?.remove()
   showToast('Post shared with the community.')
+  loadCommunity()
+}
+
+async function pinPost(postId) {
+  await sb.from('community_posts').update({ is_pinned: true }).eq('id', postId)
+  showToast('Post pinned.')
+  loadCommunity()
+}
+async function unpinPost(postId) {
+  await sb.from('community_posts').update({ is_pinned: false }).eq('id', postId)
+  showToast('Post unpinned.')
   loadCommunity()
 }
 
@@ -2945,10 +2998,12 @@ async function showProfilePreview(userId) {
   // Set up preview carousel state
   previewPhotos = p.photo_urls || []
   previewPhotoIdx = 0
+  previewCaptions = p.photo_captions || []
 
   const modal = document.createElement('div')
   modal.id = 'profile-preview-modal'
   modal.style.cssText = 'position:fixed;inset:0;background:#0a0a0a;z-index:10001'
+  const captions = p.photo_captions || []
   const basicsItems = [
     p.hsv_type ? `HSV type: ${p.hsv_type}` : null,
     p.relationship_status ? `Status: ${p.relationship_status}` : null,
@@ -2962,7 +3017,16 @@ async function showProfilePreview(userId) {
     p.cannabis ? `Cannabis: ${p.cannabis}` : null,
     p.children ? `Children: ${p.children}` : null,
     p.religion ? `Religion: ${p.religion}` : null,
+    p.willing_to_fly ? `✈️ Willing to fly to meet` : null,
   ].filter(Boolean)
+  const activityLabel = (() => {
+    if (!p.last_seen) return null
+    const mins = (Date.now() - new Date(p.last_seen).getTime()) / 60000
+    if (mins < 15) return { text: '● Online now', color: '#2ecc71', bg: '#0d2e1a' }
+    if (mins < 1440) return { text: '● Active today', color: '#2ecc71', bg: '#0d2e1a' }
+    if (mins < 10080) return { text: '◎ Active this week', color: '#f5c518', bg: '#2e2a0a' }
+    return { text: '◌ Active recently', color: '#9e9b97', bg: '#1c1c1c' }
+  })()
 
   modal.innerHTML = `
     <div style="position:absolute;top:0;left:0;right:0;z-index:10;display:flex;padding:48px 16px 16px;background:linear-gradient(to bottom,rgba(0,0,0,0.65) 0%,transparent 100%);pointer-events:none">
@@ -2982,13 +3046,14 @@ async function showProfilePreview(userId) {
               <button onclick="previewCarouselPrev()" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,0.5);border:none;border-radius:50%;width:36px;height:36px;color:#fff;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1">‹</button>
               <button onclick="previewCarouselNext()" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,0.5);border:none;border-radius:50%;width:36px;height:36px;color:#fff;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1">›</button>
             ` : ''}
-          </div>`
+          </div>
+          ${captions[0] ? `<p id="preview-caption" style="background:#111;color:#9e9b97;font-size:12px;padding:6px 14px;text-align:center;margin:0;font-style:italic">${escapeHtml(captions[0])}</p>` : `<div id="preview-caption" style="display:none"></div>`}`
         : `<div style="width:100%;height:420px;background:#252525;display:flex;align-items:center;justify-content:center;font-size:64px;color:#f0ede8">${name.charAt(0).toUpperCase()}</div>`
       }
       <div style="padding:20px 24px 40px;background:#141414">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
           <h2 style="color:#f0ede8;font-size:22px;font-weight:700">${name}${age ? `, ${age}` : ''}</h2>
-          ${isOnline ? `<span style="background:#0d2e1a;color:#2ecc71;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">● Online</span>` : ''}
+          ${activityLabel ? `<span style="background:${activityLabel.bg};color:${activityLabel.color};font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">${activityLabel.text}</span>` : ''}
           ${isMatched ? `<span style="background:#3a1a14;color:#e8503a;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">✓ Matched</span>` : ''}
           ${isNewMember(p) ? `<span style="background:#0d2838;color:#4fc3f7;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">✦ NEW</span>` : ''}
         </div>
@@ -3141,6 +3206,15 @@ async function showProfilePreview(userId) {
       }
       albumRow.appendChild(albumB)
       btnsContainer.insertAdjacentElement('afterend', albumRow)
+
+      const blockRow = document.createElement('div')
+      blockRow.style.cssText = 'margin-top:6px'
+      const blockB = document.createElement('button')
+      blockB.style.cssText = 'width:100%;padding:11px;border-radius:12px;border:1px solid #3a1a14;background:transparent;font-size:13px;font-weight:500;cursor:pointer;color:#e8503a;text-align:center'
+      blockB.textContent = '🚫 Block'
+      blockB.onclick = () => blockFromPreview(p.id, name.split(' ')[0])
+      blockRow.appendChild(blockB)
+      albumRow.insertAdjacentElement('afterend', blockRow)
     }
   }
 }
@@ -3172,6 +3246,12 @@ function previewCarouselUpdateMedia(url) {
       dot.style.background = i === previewPhotoIdx ? '#fff' : 'rgba(255,255,255,0.4)'
     }
   })
+  const capEl = document.getElementById('preview-caption')
+  if (capEl) {
+    const cap = previewCaptions[previewPhotoIdx] || ''
+    if (cap) { capEl.textContent = cap; capEl.style.display = '' }
+    else capEl.style.display = 'none'
+  }
 }
 function previewCarouselNav(dir) {
   if (!previewPhotos.length) return
@@ -3563,6 +3643,7 @@ function isVideoUrl(url) {
 
 let previewPhotos = []
 let previewPhotoIdx = 0
+let previewCaptions = []
 
 function setupSwipeGesture() {
   const card = el('current-card')
@@ -3768,6 +3849,35 @@ function closeMatchModal() {
 function goToMessages() { closeMatchModal(); switchTab2('messages') }
 
 // ── PROFILE COMPLETION NUDGE ──────────────────────
+function renderProfileCompletion() {
+  const p = currentProfile
+  if (!p) return
+  const bar = document.getElementById('profile-completion-bar')
+  const fill = document.getElementById('profile-completion-fill')
+  const pct = document.getElementById('profile-completion-pct')
+  if (!bar || !fill || !pct) return
+  const fields = [
+    p.photo_urls?.length > 0,
+    p.bio,
+    p.quote,
+    p.occupation,
+    p.about_match,
+    p.height,
+    p.body_type,
+    p.hsv_type,
+    p.city,
+    p.birthdate,
+    p.relationship_type
+  ]
+  const filled = fields.filter(Boolean).length
+  const total = fields.length
+  const percent = Math.round((filled / total) * 100)
+  bar.style.display = 'block'
+  fill.style.width = percent + '%'
+  fill.style.background = percent >= 80 ? '#2ecc71' : percent >= 50 ? '#f5c518' : '#e8503a'
+  pct.textContent = percent + '%'
+}
+
 function checkProfileNudge() {
   const nudge = el('profile-completion-nudge')
   if (!nudge) return
@@ -4495,6 +4605,7 @@ function renderProfileScreen() {
   renderPhotoGrid()
   renderPrivateAlbum()
   renderStreakBadge()
+  renderProfileCompletion()
   checkProfileNudge()
 }
 
@@ -4563,6 +4674,9 @@ function toggleEdit() {
   el('edit-cannabis').value = currentProfile?.cannabis || ''
   el('edit-children').value = currentProfile?.children || ''
   el('edit-religion').value = currentProfile?.religion || ''
+  const flyChecked = currentProfile?.willing_to_fly || false
+  const flyEl = el('edit-willing-to-fly')
+  if (flyEl) { flyEl.checked = flyChecked; updateFlyToggle(flyChecked) }
   editHsv = currentProfile?.hsv_type || ''
   editGender = currentProfile?.gender || ''
   editSeeking = currentProfile?.seeking || ''
@@ -4681,7 +4795,25 @@ function renderEditPhotos() {
       mainBtn.textContent = 'Set as main'
       cell.appendChild(mainBtn)
     }
-    pubGrid.appendChild(cell)
+    const captionWrap = document.createElement('div')
+    captionWrap.style.cssText = 'grid-column:span 1'
+    const captionInput = document.createElement('input')
+    captionInput.placeholder = 'Caption…'
+    captionInput.maxLength = 100
+    captionInput.value = (currentProfile?.photo_captions || [])[i] || ''
+    captionInput.dataset.captionIdx = String(i)
+    captionInput.style.cssText = 'width:100%;box-sizing:border-box;background:#1c1c1c;border:none;border-bottom:1px solid #252525;border-radius:0 0 8px 8px;padding:5px 8px;color:#9e9b97;font-size:11px;outline:none'
+    captionInput.addEventListener('blur', savePhotoCaptions)
+    captionInput.addEventListener('keydown', e => { if (e.key === 'Enter') captionInput.blur() })
+    captionWrap.appendChild(captionInput)
+
+    // Wrap cell + caption together in a column layout
+    const cellGroup = document.createElement('div')
+    cellGroup.style.cssText = 'display:flex;flex-direction:column;border-radius:10px;overflow:hidden;border:1px solid #1e1e1e'
+    cell.style.borderRadius = '0'
+    cellGroup.appendChild(cell)
+    cellGroup.appendChild(captionInput)
+    pubGrid.appendChild(cellGroup)
   })
   if (photos.length < 20) {
     const add = document.createElement('div')
@@ -4760,6 +4892,7 @@ async function saveProfile() {
     cannabis: el('edit-cannabis').value || null,
     children: el('edit-children').value || null,
     religion: el('edit-religion').value || null,
+    willing_to_fly: el('edit-willing-to-fly')?.checked || false,
   }
   await sb.from('profiles').upsert(updates)
   currentProfile = { ...currentProfile, ...updates }
@@ -5224,6 +5357,16 @@ async function blockUser() {
   closeChat()
   loadMatches()
   showToast(`${other.display_name} has been blocked.`)
+}
+
+async function blockFromPreview(userId, name) {
+  if (!confirm(`Block ${name}? They won't be able to see or message you.`)) return
+  document.getElementById('profile-preview-modal')?.remove()
+  await sb.from('blocks').insert({ blocker_id: currentUser.id, blocked_id: userId })
+  // Also remove any existing match
+  await sb.from('matches').delete()
+    .or(`and(user_a.eq.${currentUser.id},user_b.eq.${userId}),and(user_a.eq.${userId},user_b.eq.${currentUser.id})`)
+  showToast(`${name} has been blocked.`)
 }
 
 function showToast(msg) {
