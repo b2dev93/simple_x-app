@@ -453,7 +453,7 @@
           <button class="edit-btn" onclick="toggleEdit()">Edit profile</button>
           <button class="edit-btn" onclick="showProfilePreview(currentUser.id)" style="background:#1c1c1c;border:1px solid #252525;color:#9e9b97">Preview</button>
         </div>
-        <div id="profile-completion-bar" style="margin-top:12px;display:none">
+        <div id="profile-completion-bar" style="margin-top:12px;display:none;align-self:stretch;width:100%">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
             <span style="color:#9e9b97;font-size:12px">Profile strength</span>
             <span id="profile-completion-pct" style="color:#f0ede8;font-size:12px;font-weight:600"></span>
@@ -1069,11 +1069,11 @@ async function uploadPhoto(input) {
 }
 
 async function savePhotoCaptions() {
+  if (!currentUser || !currentProfile) return
   const inputs = document.querySelectorAll('[data-caption-idx]')
   const captions = []
   inputs.forEach(inp => { captions[parseInt(inp.dataset.captionIdx)] = inp.value.trim() })
-  // Fill gaps with empty strings
-  const len = currentProfile?.photo_urls?.length || 0
+  const len = currentProfile.photo_urls?.length || 0
   const arr = Array.from({ length: len }, (_, i) => captions[i] || '')
   await sb.from('profiles').update({ photo_captions: arr }).eq('id', currentUser.id)
   currentProfile.photo_captions = arr
@@ -1203,20 +1203,23 @@ function showPrivateAlbumModal(photos, personName) {
   document.body.appendChild(modal)
 }
 
-async function approvePrivateAlbumRequest(viewerId, name) {
+async function approvePrivateAlbumRequest(viewerId) {
+  const name = _albumViewerNames[viewerId] || 'User'
   await sb.from('private_album_access').update({ status: 'approved' }).eq('owner_id', currentUser.id).eq('viewer_id', viewerId)
   sendPush(viewerId, '🔒 Private album approved!', `${currentProfile?.display_name || 'Someone'} approved your private album request on Simple-x`, 'view')
   showToast(`${name} can now see your private album.`)
   loadPrivateAlbumRequests()
 }
 
-async function denyPrivateAlbumRequest(viewerId, name) {
+async function denyPrivateAlbumRequest(viewerId) {
+  const name = _albumViewerNames[viewerId] || 'User'
   await sb.from('private_album_access').delete().eq('owner_id', currentUser.id).eq('viewer_id', viewerId)
   showToast(`Request from ${name} denied.`)
   loadPrivateAlbumRequests()
 }
 
-async function revokePrivateAlbumAccess(viewerId, name) {
+async function revokePrivateAlbumAccess(viewerId) {
+  const name = _albumViewerNames[viewerId] || 'User'
   await sb.from('private_album_access').delete().eq('owner_id', currentUser.id).eq('viewer_id', viewerId)
   showToast(`Access revoked for ${name}.`)
   loadPrivateAlbumRequests()
@@ -1286,7 +1289,7 @@ async function loadPrivateAlbumRequests() {
   if (!pending.length && !approved.length) return
   const { data: viewers } = await sb.from('profiles').select('id, display_name, photo_urls').in('id', requests.map(r => r.viewer_id))
   const viewerMap = {}
-  ;(viewers || []).forEach(v => { viewerMap[v.id] = v })
+  ;(viewers || []).forEach(v => { viewerMap[v.id] = v; _albumViewerNames[v.id] = (v.display_name || 'User').split(' ')[0] })
   const section = document.createElement('div')
   section.id = 'private-requests-section'
   section.style.cssText = 'margin-bottom:20px'
@@ -1298,7 +1301,6 @@ async function loadPrivateAlbumRequests() {
       const v = viewerMap[req.viewer_id] || {}
       const photo = v.photo_urls?.[0]
       const name = v.display_name || 'User'
-      const safeName = name.split(' ')[0].replace(/'/g, '&#39;')
       const color = AVATAR_COLORS[(name.charCodeAt(0) || 0) % AVATAR_COLORS.length]
       html += `<div style="display:flex;align-items:center;gap:12px;padding:12px;background:#1c1c1c;border-radius:14px;border:1px solid #252525;margin-bottom:8px">
         <div onclick="showProfilePreview('${v.id}')" style="width:44px;height:44px;border-radius:50%;overflow:hidden;flex-shrink:0;background:${color};display:flex;align-items:center;justify-content:center;cursor:pointer">
@@ -1306,8 +1308,8 @@ async function loadPrivateAlbumRequests() {
         </div>
         <p style="color:#f0ede8;font-size:14px;flex:1">${escapeHtml(name)}</p>
         <div style="display:flex;gap:6px">
-          <button onclick="approvePrivateAlbumRequest('${v.id}','${safeName}')" style="padding:8px 14px;border-radius:20px;border:none;background:#e8503a;color:#fff;font-size:13px;font-weight:600;cursor:pointer">Approve</button>
-          <button onclick="denyPrivateAlbumRequest('${v.id}','${safeName}')" style="padding:8px 14px;border-radius:20px;border:1px solid #252525;background:transparent;color:#6b6866;font-size:13px;cursor:pointer">Deny</button>
+          <button onclick="approvePrivateAlbumRequest('${v.id}')" style="padding:8px 14px;border-radius:20px;border:none;background:#e8503a;color:#fff;font-size:13px;font-weight:600;cursor:pointer">Approve</button>
+          <button onclick="denyPrivateAlbumRequest('${v.id}')" style="padding:8px 14px;border-radius:20px;border:1px solid #252525;background:transparent;color:#6b6866;font-size:13px;cursor:pointer">Deny</button>
         </div>
       </div>`
     }
@@ -1319,14 +1321,13 @@ async function loadPrivateAlbumRequests() {
       const v = viewerMap[req.viewer_id] || {}
       const photo = v.photo_urls?.[0]
       const name = v.display_name || 'User'
-      const safeName = name.split(' ')[0].replace(/'/g, '&#39;')
       const color = AVATAR_COLORS[(name.charCodeAt(0) || 0) % AVATAR_COLORS.length]
       html += `<div style="display:flex;align-items:center;gap:12px;padding:12px;background:#1c1c1c;border-radius:14px;border:1px solid #252525;margin-bottom:8px">
         <div onclick="showProfilePreview('${v.id}')" style="width:44px;height:44px;border-radius:50%;overflow:hidden;flex-shrink:0;background:${color};display:flex;align-items:center;justify-content:center;cursor:pointer">
           ${photo ? `<img src="${photo}" style="width:100%;height:100%;object-fit:cover">` : `<span style="color:#fff;font-size:16px;font-weight:700">${escapeHtml(name[0].toUpperCase())}</span>`}
         </div>
         <p style="color:#f0ede8;font-size:14px;flex:1">${escapeHtml(name)} <span style="color:#27ae60;font-size:12px">✓ Access</span></p>
-        <button onclick="revokePrivateAlbumAccess('${v.id}','${safeName}')" style="padding:8px 14px;border-radius:20px;border:1px solid #3a1a14;background:transparent;color:#e8503a;font-size:13px;cursor:pointer">Revoke</button>
+        <button onclick="revokePrivateAlbumAccess('${v.id}')" style="padding:8px 14px;border-radius:20px;border:1px solid #3a1a14;background:transparent;color:#e8503a;font-size:13px;cursor:pointer">Revoke</button>
       </div>`
     }
   }
@@ -1873,9 +1874,6 @@ async function loadPostStats(postId) {
   if (!allComments?.length) { listEl.innerHTML = ''; return }
 
   // Separate top-level comments from replies
-  console.log('[loadPostStats] fetched comments:', allComments.map(c => ({
-    id: c.id?.slice(0,8), parent_comment_id: c.parent_comment_id?.slice(0,8) ?? null, body: c.body?.slice(0,30)
-  })))
   const topLevel = allComments.filter(c => c.parent_comment_id == null)
   const repliesMap = {}
   allComments.filter(c => c.parent_comment_id != null).forEach(c => {
@@ -1997,7 +1995,6 @@ async function loadPostStats(postId) {
 async function submitReply(postId, parentCommentId, parentName, inputEl, wrapEl) {
   const body = inputEl.value.trim()
   if (!body) return
-  console.log('[submitReply] inserting reply:', { postId, parentCommentId, body: body.slice(0, 30) })
   inputEl.disabled = true
   const { error } = await sb.from('post_comments').insert({
     post_id: postId,
@@ -2006,8 +2003,7 @@ async function submitReply(postId, parentCommentId, parentName, inputEl, wrapEl)
     parent_comment_id: parentCommentId
   })
   inputEl.disabled = false
-  if (error) { console.error('[submitReply] insert error:', error); showToast('Could not post reply.'); return }
-  console.log('[submitReply] insert succeeded for parentCommentId:', parentCommentId)
+  if (error) { showToast('Could not post reply.'); return }
   inputEl.value = ''
   if (wrapEl) wrapEl.style.display = 'none'
   loadPostStats(postId)
@@ -2061,7 +2057,7 @@ async function boostProfile() {
 }
 
 async function togglePostLike(postId, btn) {
-  const { data: existing } = await sb.from('post_likes').select('id').eq('post_id', postId).eq('user_id', currentUser.id).single()
+  const { data: existing } = await sb.from('post_likes').select('id').eq('post_id', postId).eq('user_id', currentUser.id).maybeSingle()
   if (existing) {
     await sb.from('post_likes').delete().eq('post_id', postId).eq('user_id', currentUser.id)
     btn.style.color = '#6b6866'
@@ -2144,7 +2140,7 @@ async function openPostThread(postId) {
   document.body.appendChild(page)
 
   const [{ data: post }, { data: allComments }, { data: likes }] = await Promise.all([
-    sb.from('community_posts').select('*, profiles(display_name, photo_urls)').eq('id', postId).single(),
+    sb.from('community_posts').select('*, profiles(display_name, photo_urls)').eq('id', postId).maybeSingle(),
     sb.from('post_comments').select('id, user_id, body, created_at, parent_comment_id, profiles(display_name)').eq('post_id', postId).order('created_at'),
     sb.from('post_likes').select('user_id').eq('post_id', postId)
   ])
@@ -2291,7 +2287,7 @@ async function submitComment(postId) {
 async function sendCommentNotifications(postId, commentBody) {
   const commenterName = currentProfile?.display_name || 'Someone'
   const [{ data: post }, { data: prevComments }] = await Promise.all([
-    sb.from('community_posts').select('user_id').eq('id', postId).single(),
+    sb.from('community_posts').select('user_id').eq('id', postId).maybeSingle(),
     sb.from('post_comments').select('user_id').eq('post_id', postId).neq('user_id', currentUser.id)
   ])
   const notified = new Set()
@@ -2372,12 +2368,16 @@ async function submitPost() {
 }
 
 async function pinPost(postId) {
-  await sb.from('community_posts').update({ is_pinned: true }).eq('id', postId)
+  if (!currentProfile?.is_admin) return
+  const { error } = await sb.from('community_posts').update({ is_pinned: true }).eq('id', postId)
+  if (error) { showToast('Could not pin post.'); return }
   showToast('Post pinned.')
   loadCommunity()
 }
 async function unpinPost(postId) {
-  await sb.from('community_posts').update({ is_pinned: false }).eq('id', postId)
+  if (!currentProfile?.is_admin) return
+  const { error } = await sb.from('community_posts').update({ is_pinned: false }).eq('id', postId)
+  if (error) { showToast('Could not unpin post.'); return }
   showToast('Post unpinned.')
   loadCommunity()
 }
@@ -2392,7 +2392,7 @@ async function deletePost(postId) {
 }
 
 async function editPost(postId) {
-  const { data: post } = await sb.from('community_posts').select('title, body').eq('id', postId).single()
+  const { data: post } = await sb.from('community_posts').select('title, body').eq('id', postId).maybeSingle()
   if (!post) return
   const existing = document.getElementById('edit-post-modal')
   if (existing) existing.remove()
@@ -2518,7 +2518,7 @@ async function sendPush(userId, title, body, tag, matchId) {
     // Check recipient's per-type notification preference before sending
     const prefKey = { match: 'notif_matches', message: 'notif_messages', wink: 'notif_winks', view: 'notif_views' }[tag]
     if (prefKey) {
-      const { data: prefs } = await sb.from('profiles').select('notifications_enabled,' + prefKey).eq('id', userId).single()
+      const { data: prefs } = await sb.from('profiles').select('notifications_enabled,' + prefKey).eq('id', userId).maybeSingle()
       if (prefs && (prefs.notifications_enabled === false || prefs[prefKey] === false)) return
     }
     await fetch('https://ocwgwfnrstzrapsblkxm.supabase.co/functions/v1/send-push', {
@@ -2545,7 +2545,7 @@ function startRealtimeListeners() {
       if (matchAge > 15000) return // ignore matches older than 15 seconds
       if (m.user_a === currentUser.id || m.user_b === currentUser.id) {
         const otherId = m.user_a === currentUser.id ? m.user_b : m.user_a
-        sb.from('profiles').select('*').eq('id', otherId).single().then(({ data }) => {
+        sb.from('profiles').select('*').eq('id', otherId).maybeSingle().then(({ data }) => {
           if (data) {
             showMatchModal(data)
             // Notify the OTHER user they got a match
@@ -2612,6 +2612,7 @@ let currentDiscoverTab = 'swipe'
 let currentOnlineSort = 'recent'
 let _contactsProfileCache = {}
 let _contactsData = {}
+let _albumViewerNames = {}
 
 function switchDiscoverTab(tab) {
   currentDiscoverTab = tab
@@ -2654,16 +2655,21 @@ function renderProfileGrid(profiles, containerId, emptyMsg) {
   }
   grid.innerHTML = profiles.map(p => {
     const photo = p.photo_urls?.[0]
-    const name = p.display_name || 'Member'
-    const isOnline = p.last_seen && (Date.now() - new Date(p.last_seen).getTime()) < 15 * 60 * 1000
+    const firstName = escapeHtml((p.display_name || 'Member').split(' ')[0])
+    const _dotMs = p.last_seen ? Date.now() - new Date(p.last_seen).getTime() : null
+    const _dotColor = !_dotMs ? null
+      : _dotMs < 900000 ? '#2ecc71'
+      : _dotMs < 86400000 ? '#2ecc71'
+      : _dotMs < 604800000 ? '#f5c518'
+      : null
     return `
     <div onclick="showProfilePreview('${p.id}')" style="cursor:pointer;position:relative;aspect-ratio:1;background:#1c1c1c;overflow:hidden">
       ${photo
         ? `<img src="${photo}" style="width:100%;height:100%;object-fit:cover">`
-        : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:32px;color:#f0ede8;font-weight:700">${name.charAt(0).toUpperCase()}</div>`}
-      ${isOnline ? `<span style="position:absolute;top:6px;right:6px;width:10px;height:10px;background:#2ecc71;border-radius:50%;border:2px solid #0a0a0a"></span>` : ''}
+        : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:32px;color:#f0ede8;font-weight:700">${(p.display_name||'?')[0].toUpperCase()}</div>`}
+      ${_dotColor ? `<span style="position:absolute;top:6px;right:6px;width:10px;height:10px;background:${_dotColor};border-radius:50%;border:2px solid #0a0a0a"></span>` : ''}
       <div style="position:absolute;bottom:0;left:0;right:0;background:linear-gradient(transparent,rgba(0,0,0,0.75));padding:16px 8px 6px">
-        <p style="color:#fff;font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${name.split(' ')[0]}</p>
+        <p style="color:#fff;font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${firstName}</p>
       </div>
     </div>`
   }).join('')
@@ -2724,9 +2730,13 @@ function renderOnlineFeed(profiles) {
     const photo = p.photo_urls?.[0]
     const age = p.birthdate ? Math.floor((Date.now() - new Date(p.birthdate)) / (365.25 * 24 * 3600 * 1000)) : ''
     const dist = (userLat && userLng && p.lat && p.lng) ? Math.round(haversineDistance(userLat, userLng, p.lat, p.lng)) + ' mi' : ''
-    const isOnline = p.last_seen && (Date.now() - new Date(p.last_seen).getTime()) < 15 * 60 * 1000
+    const _actMs = p.last_seen ? Date.now() - new Date(p.last_seen).getTime() : null
+    const _actLabel = !_actMs ? null
+      : _actMs < 900000 ? { text: '● Online', color: '#2ecc71', bg: '#0d2e1a' }
+      : _actMs < 86400000 ? { text: '● Active today', color: '#2ecc71', bg: '#0d2e1a' }
+      : _actMs < 604800000 ? { text: '◎ Active this week', color: '#f5c518', bg: '#2e2a0a' }
+      : { text: '◌ Active recently', color: '#9e9b97', bg: '#1c1c1c' }
     const photoCount = p.photo_urls?.length || 0
-    const safeName = escapeHtml((p.display_name || '').split(' ')[0])
     const displayName = escapeHtml(p.display_name || 'Member')
     const bio = escapeHtml(p.bio || '')
     const city = escapeHtml(p.city || '')
@@ -2739,7 +2749,7 @@ function renderOnlineFeed(profiles) {
           : `<div style="width:100%;height:420px;background:#1c1c1c;display:flex;align-items:center;justify-content:center;font-size:80px;color:#f0ede8">${(p.display_name||'?')[0].toUpperCase()}</div>`
         }
         <div style="position:absolute;top:12px;left:12px;display:flex;flex-direction:column;gap:4px;z-index:5">
-          ${isOnline ? '<div style="background:#0d2e1a;color:#2ecc71;font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px">● Online</div>' : ''}
+          ${_actLabel ? `<div style="background:${_actLabel.bg};color:${_actLabel.color};font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px">${_actLabel.text}</div>` : ''}
           ${isNewMember(p) ? '<div style="background:#0d2838;color:#4fc3f7;font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px">✦ NEW</div>' : ''}
         </div>
         ${photoCount > 1 ? `<div style="position:absolute;top:12px;right:12px;background:rgba(0,0,0,0.6);border-radius:20px;padding:3px 10px;font-size:12px;color:#fff">📷 ${photoCount}</div>` : ''}
@@ -2911,13 +2921,18 @@ async function openContactsSection(sectionKey) {
     const photo = p.photo_urls?.[0]
     const age = p.birthdate ? Math.floor((Date.now() - new Date(p.birthdate)) / (365.25 * 24 * 3600 * 1000)) : ''
     const dist = (userLat && userLng && p.lat && p.lng) ? Math.round(haversineDistance(userLat, userLng, p.lat, p.lng)) + ' mi' : ''
-    const isOnline = p.last_seen && (Date.now() - new Date(p.last_seen).getTime()) < 15 * 60 * 1000
     const photoCount = p.photo_urls?.length || 0
     const displayName = escapeHtml(p.display_name || 'Member')
     const bio = escapeHtml(p.bio || '')
     const city = escapeHtml(p.city || '')
     const winkName = (p.display_name || '').split(' ')[0].replace(/\\/g, '\\\\').replace(/'/g, "\\'")
     const isSuper = sectionKey === 'liked-me' && superIds.has(p.id)
+    const _actMs = p.last_seen ? Date.now() - new Date(p.last_seen).getTime() : null
+    const _actLabel = !_actMs ? null
+      : _actMs < 900000 ? { text: '● Online', color: '#2ecc71', bg: '#0d2e1a' }
+      : _actMs < 86400000 ? { text: '● Active today', color: '#2ecc71', bg: '#0d2e1a' }
+      : _actMs < 604800000 ? { text: '◎ Active this week', color: '#f5c518', bg: '#2e2a0a' }
+      : { text: '◌ Active recently', color: '#9e9b97', bg: '#1c1c1c' }
     return `
     <div onclick="showProfilePreview('${p.id}')">
       <div style="position:relative">
@@ -2927,7 +2942,7 @@ async function openContactsSection(sectionKey) {
         }
         <div style="position:absolute;top:12px;left:12px;display:flex;flex-direction:column;gap:4px;z-index:5">
           ${isSuper ? '<div style="background:#3a2e0a;color:#f5c518;font-size:12px;font-weight:700;padding:4px 10px;border-radius:20px">⭐ Super Like</div>' : ''}
-          ${isOnline ? '<div style="background:#0d2e1a;color:#2ecc71;font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px">● Online</div>' : ''}
+          ${_actLabel ? `<div style="background:${_actLabel.bg};color:${_actLabel.color};font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px">${_actLabel.text}</div>` : ''}
           ${isNewMember(p) ? '<div style="background:#0d2838;color:#4fc3f7;font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px">✦ NEW</div>' : ''}
         </div>
         ${photoCount > 1 ? `<div style="position:absolute;top:12px;right:12px;background:rgba(0,0,0,0.6);border-radius:20px;padding:3px 10px;font-size:12px;color:#fff">📷 ${photoCount}</div>` : ''}
@@ -2953,7 +2968,7 @@ async function showProfilePreview(userId) {
   if (currentUser && userId !== currentUser.id) {
     sb.from('profile_views').insert({ viewer_id: currentUser.id, viewed_id: userId }).then(() => {})
   }
-  const { data: p } = await sb.from('profiles').select('*').eq('id', userId).single()
+  const { data: p } = await sb.from('profiles').select('*').eq('id', userId).maybeSingle()
   if (!p) return
 
   const existing = document.getElementById('profile-preview-modal')
@@ -2961,14 +2976,14 @@ async function showProfilePreview(userId) {
 
   const photo = p.photo_urls?.[0]
   const name = p.display_name || 'Member'
+  const eName = escapeHtml(name)
   const age = p.birthdate ? Math.floor((Date.now() - new Date(p.birthdate)) / (365.25 * 24 * 3600 * 1000)) : ''
-  const isOnline = p.last_seen && (Date.now() - new Date(p.last_seen).getTime()) < 15 * 60 * 1000
 
   // Check if matched
   const { data: match } = await sb.from('matches')
     .select('id')
     .or(`and(user_a.eq.${currentUser.id},user_b.eq.${p.id}),and(user_a.eq.${p.id},user_b.eq.${currentUser.id})`)
-    .single()
+    .maybeSingle()
 
   // Check if already liked
   const { data: existingSwipe } = await sb.from('swipes')
@@ -2976,7 +2991,7 @@ async function showProfilePreview(userId) {
     .eq('swiper_id', currentUser.id)
     .eq('swiped_id', p.id)
     .in('direction', ['like', 'super'])
-    .single()
+    .maybeSingle()
 
   const isMatched = !!match
   const alreadyLiked = !!existingSwipe
@@ -3004,19 +3019,20 @@ async function showProfilePreview(userId) {
   modal.id = 'profile-preview-modal'
   modal.style.cssText = 'position:fixed;inset:0;background:#0a0a0a;z-index:10001'
   const captions = p.photo_captions || []
+  const eH = escapeHtml
   const basicsItems = [
-    p.hsv_type ? `HSV type: ${p.hsv_type}` : null,
-    p.relationship_status ? `Status: ${p.relationship_status}` : null,
-    p.relationship_type ? `Looking for: ${p.relationship_type}` : null,
-    p.height ? `Height: ${p.height}` : null,
-    p.body_type ? `Body type: ${p.body_type}` : null,
-    (p.hair_color && p.eye_color) ? `Hair / Eyes: ${p.hair_color} / ${p.eye_color}` : p.hair_color ? `Hair: ${p.hair_color}` : p.eye_color ? `Eyes: ${p.eye_color}` : null,
-    p.ethnicity ? `Ethnicity: ${p.ethnicity}` : null,
+    p.hsv_type ? `HSV type: ${eH(p.hsv_type)}` : null,
+    p.relationship_status ? `Status: ${eH(p.relationship_status)}` : null,
+    p.relationship_type ? `Looking for: ${eH(p.relationship_type)}` : null,
+    p.height ? `Height: ${eH(p.height)}` : null,
+    p.body_type ? `Body type: ${eH(p.body_type)}` : null,
+    (p.hair_color && p.eye_color) ? `Hair / Eyes: ${eH(p.hair_color)} / ${eH(p.eye_color)}` : p.hair_color ? `Hair: ${eH(p.hair_color)}` : p.eye_color ? `Eyes: ${eH(p.eye_color)}` : null,
+    p.ethnicity ? `Ethnicity: ${eH(p.ethnicity)}` : null,
     (p.looking_for_age_min || p.looking_for_age_max) ? `Looking for ages: ${p.looking_for_age_min ?? 18}–${p.looking_for_age_max ?? 99}` : null,
-    p.alcohol ? `Alcohol: ${p.alcohol}` : null,
-    p.cannabis ? `Cannabis: ${p.cannabis}` : null,
-    p.children ? `Children: ${p.children}` : null,
-    p.religion ? `Religion: ${p.religion}` : null,
+    p.alcohol ? `Alcohol: ${eH(p.alcohol)}` : null,
+    p.cannabis ? `Cannabis: ${eH(p.cannabis)}` : null,
+    p.children ? `Children: ${eH(p.children)}` : null,
+    p.religion ? `Religion: ${eH(p.religion)}` : null,
     p.willing_to_fly ? `✈️ Willing to fly to meet` : null,
   ].filter(Boolean)
   const activityLabel = (() => {
@@ -3051,26 +3067,26 @@ async function showProfilePreview(userId) {
         : `<div style="width:100%;height:420px;background:#252525;display:flex;align-items:center;justify-content:center;font-size:64px;color:#f0ede8">${name.charAt(0).toUpperCase()}</div>`
       }
       <div style="padding:20px 24px 40px;background:#141414">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-          <h2 style="color:#f0ede8;font-size:22px;font-weight:700">${name}${age ? `, ${age}` : ''}</h2>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap">
+          <h2 style="color:#f0ede8;font-size:22px;font-weight:700">${eName}${age ? `, ${age}` : ''}</h2>
           ${activityLabel ? `<span style="background:${activityLabel.bg};color:${activityLabel.color};font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">${activityLabel.text}</span>` : ''}
           ${isMatched ? `<span style="background:#3a1a14;color:#e8503a;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">✓ Matched</span>` : ''}
           ${isNewMember(p) ? `<span style="background:#0d2838;color:#4fc3f7;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">✦ NEW</span>` : ''}
         </div>
-        ${p.city ? `<p style="color:#6b6866;font-size:14px;margin-bottom:6px">📍 ${p.city}</p>` : ''}
-        ${p.quote ? `<p style="color:#9e9b97;font-size:15px;font-style:italic;text-align:center;margin:12px 0 16px;line-height:1.5">"${p.quote}"</p>` : ''}
+        ${p.city ? `<p style="color:#6b6866;font-size:14px;margin-bottom:6px">📍 ${eH(p.city)}</p>` : ''}
+        ${p.quote ? `<p style="color:#9e9b97;font-size:15px;font-style:italic;text-align:center;margin:12px 0 16px;line-height:1.5">"${eH(p.quote)}"</p>` : ''}
 
         ${(p.bio || p.occupation) ? `
         <div style="background:#1c1c1c;border-radius:14px;padding:16px;margin-bottom:12px;border:1px solid #252525">
           <p style="color:#9e9b97;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:10px">About Me</p>
-          ${p.occupation ? `<p style="color:#f0ede8;font-size:14px;font-weight:500;margin-bottom:${p.bio ? '8px' : '0'}">💼 ${p.occupation}</p>` : ''}
-          ${p.bio ? `<p style="color:#9e9b97;font-size:14px;line-height:1.6">${p.bio}</p>` : ''}
+          ${p.occupation ? `<p style="color:#f0ede8;font-size:14px;font-weight:500;margin-bottom:${p.bio ? '8px' : '0'}">💼 ${eH(p.occupation)}</p>` : ''}
+          ${p.bio ? `<p style="color:#9e9b97;font-size:14px;line-height:1.6;white-space:pre-wrap">${eH(p.bio)}</p>` : ''}
         </div>` : ''}
 
         ${p.about_match ? `
         <div style="background:#1c1c1c;border-radius:14px;padding:16px;margin-bottom:12px;border:1px solid #252525">
           <p style="color:#9e9b97;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:10px">About My Match</p>
-          <p style="color:#9e9b97;font-size:14px;line-height:1.6">${p.about_match}</p>
+          <p style="color:#9e9b97;font-size:14px;line-height:1.6;white-space:pre-wrap">${eH(p.about_match)}</p>
         </div>` : ''}
 
         ${basicsItems.length ? `
@@ -3372,7 +3388,7 @@ async function sendWink(userId, name, btn) {
   const { data: existing } = await sb.from('winks')
     .select('id').eq('sender_id', currentUser.id).eq('receiver_id', userId)
     .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
-    .single()
+    .maybeSingle()
 
   if (existing) { showToast(`You already winked at ${name} recently.`); return }
 
@@ -3500,12 +3516,12 @@ function renderCard() {
       <div class="card-overlay" onclick="if(discoverProfiles[discoverIdx])showProfilePreview(discoverProfiles[discoverIdx].id)" style="cursor:pointer">
         <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:8px">
           <div>
-            <p class="card-name">${p.display_name}${p.birthdate ? ', ' + getAge(p.birthdate) : ''}${p.verified ? " ✓" : ""}</p>
-            <p class="card-city">${p.city || 'Nearby'}${(userLat && userLng && p.lat && p.lng) ? ' · ' + Math.round(haversineDistance(userLat, userLng, p.lat, p.lng)) + ' mi' : ''}${p.relationship_type ? ' · ' + p.relationship_type : ''}</p>
+            <p class="card-name">${escapeHtml(p.display_name || 'Member')}${p.birthdate ? ', ' + getAge(p.birthdate) : ''}${p.verified ? " ✓" : ""}</p>
+            <p class="card-city">${escapeHtml(p.city || 'Nearby')}${(userLat && userLng && p.lat && p.lng) ? ' · ' + Math.round(haversineDistance(userLat, userLng, p.lat, p.lng)) + ' mi' : ''}${p.relationship_type ? ' · ' + escapeHtml(p.relationship_type) : ''}</p>
           </div>
-          ${p.hsv_type ? `<span class="card-badge">${p.hsv_type}</span>` : ''}
+          ${p.hsv_type ? `<span class="card-badge">${escapeHtml(p.hsv_type)}</span>` : ''}
         </div>
-        ${p.bio ? `<p class="card-bio">${p.bio}</p>` : ''}
+        ${p.bio ? `<p class="card-bio">${escapeHtml(p.bio)}</p>` : ''}
       </div>
     </div>
     <div class="card-actions">
@@ -3558,7 +3574,7 @@ async function maybeShowSecondLook(stack) {
   if (!passes || passes.length === 0) { renderEmptyState(); return }
 
   const randomId = passes[Math.floor(Math.random() * passes.length)].swiped_id
-  const { data: profile } = await sb.from('profiles').select('*').eq('id', randomId).single()
+  const { data: profile } = await sb.from('profiles').select('*').eq('id', randomId).maybeSingle()
 
   if (!profile) { renderEmptyState(); return }
 
@@ -4197,7 +4213,7 @@ async function loadGroups() {
   listEl.innerHTML = groups.map((g, i) => {
     const color = AVATAR_COLORS[i % AVATAR_COLORS.length]
     return `
-      <div onclick="openGroupChat('${g.id}','${escapeHtml(g.name).replace(/'/g,"&#39;")}')" style="background:#1c1c1c;border-radius:14px;padding:12px 16px;margin-bottom:8px;display:flex;align-items:center;gap:12px;cursor:pointer;border:1px solid #252525">
+      <div onclick="openGroupChat('${g.id}')" style="background:#1c1c1c;border-radius:14px;padding:12px 16px;margin-bottom:8px;display:flex;align-items:center;gap:12px;cursor:pointer;border:1px solid #252525">
         <div style="width:40px;height:40px;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:#fff;flex-shrink:0">${escapeHtml(g.name[0].toUpperCase())}</div>
         <div style="flex:1;min-width:0">
           <p style="color:#f0ede8;font-size:15px;font-weight:600;margin-bottom:2px">${escapeHtml(g.name)}</p>
@@ -4345,7 +4361,7 @@ async function loadChatMessages() {
   const { data } = await sb.from('messages').select('*, read_at').eq('match_id', activeMatch.id).order('created_at')
   if (!data || data.length === 0) {
     const other = activeMatch.user_a === currentUser.id ? activeMatch.profiles_b : activeMatch.profiles_a
-    msgs.innerHTML = `<p style="color:#6b6866;font-size:14px;text-align:center;margin-top:40px">You matched with ${other?.display_name}. Say hey!</p>`
+    msgs.innerHTML = `<p style="color:#6b6866;font-size:14px;text-align:center;margin-top:40px">You matched with ${escapeHtml(other?.display_name || 'someone')}. Say hey!</p>`
     showStarters()
     return
   }
@@ -4795,8 +4811,6 @@ function renderEditPhotos() {
       mainBtn.textContent = 'Set as main'
       cell.appendChild(mainBtn)
     }
-    const captionWrap = document.createElement('div')
-    captionWrap.style.cssText = 'grid-column:span 1'
     const captionInput = document.createElement('input')
     captionInput.placeholder = 'Caption…'
     captionInput.maxLength = 100
@@ -4805,7 +4819,6 @@ function renderEditPhotos() {
     captionInput.style.cssText = 'width:100%;box-sizing:border-box;background:#1c1c1c;border:none;border-bottom:1px solid #252525;border-radius:0 0 8px 8px;padding:5px 8px;color:#9e9b97;font-size:11px;outline:none'
     captionInput.addEventListener('blur', savePhotoCaptions)
     captionInput.addEventListener('keydown', e => { if (e.key === 'Enter') captionInput.blur() })
-    captionWrap.appendChild(captionInput)
 
     // Wrap cell + caption together in a column layout
     const cellGroup = document.createElement('div')
@@ -5558,14 +5571,14 @@ async function loadBlockedMembers() {
         ${photo ? `<img src="${photo}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">` : name.charAt(0).toUpperCase()}
       </div>
       <span style="flex:1;color:#f0ede8;font-size:14px">${name}</span>
-      <button onclick="unblockMember('${b.blocked_id}','${name}')" style="padding:8px 16px;border-radius:20px;border:1px solid #252525;background:transparent;color:#9e9b97;font-size:13px;cursor:pointer">Unblock</button>
+      <button onclick="unblockMember('${b.blocked_id}')" style="padding:8px 16px;border-radius:20px;border:1px solid #252525;background:transparent;color:#9e9b97;font-size:13px;cursor:pointer">Unblock</button>
     </div>`
   }).join('')
 }
 
-async function unblockMember(blockedId, name) {
+async function unblockMember(blockedId) {
   await sb.from('blocks').delete().eq('blocker_id', currentUser.id).eq('blocked_id', blockedId)
-  showToast(`${name} has been unblocked.`)
+  showToast('Member has been unblocked.')
   loadBlockedMembers()
 }
 
