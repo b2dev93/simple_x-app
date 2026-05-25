@@ -367,6 +367,10 @@
       <!-- ONLINE NOW VIEW -->
       <div id="discover-online-view" style="display:none;position:absolute;top:44px;left:0;right:0;bottom:0;overflow-y:auto">
         <div style="padding:16px">
+        <div style="position:relative;margin-bottom:12px">
+          <input id="online-search" type="search" placeholder="Search by name or city…" oninput="filterOnlineSearch(this.value)" style="width:100%;padding:11px 16px 11px 40px;background:#1c1c1c;border:1px solid #252525;border-radius:12px;color:#f0ede8;font-size:14px;outline:none;box-sizing:border-box;-webkit-appearance:none">
+          <span style="position:absolute;left:13px;top:50%;transform:translateY(-50%);font-size:15px;pointer-events:none;color:#6b6866">🔍</span>
+        </div>
         <div style="display:flex;gap:8px;margin-bottom:16px;overflow-x:auto;scrollbar-width:none">
           <button onclick="setOnlineSort('recent')" id="sort-recent" style="flex-shrink:0;padding:6px 14px;border-radius:20px;border:1px solid #e8503a;background:#3a1a14;color:#e8503a;font-size:13px;font-weight:600;cursor:pointer">Most Recent</button>
           <button onclick="setOnlineSort('youngest')" id="sort-youngest" style="flex-shrink:0;padding:6px 14px;border-radius:20px;border:1px solid #252525;background:transparent;color:#6b6866;font-size:13px;cursor:pointer">Youngest</button>
@@ -1091,6 +1095,7 @@ async function uploadPhoto(input) {
   if (el('edit-profile-page')?.style.display === 'flex') renderEditPhotos()
   input.value = ''
   showToast(`${newUrls.length} file${newUrls.length > 1 ? 's' : ''} uploaded.`)
+  checkPhotographerBadge()
 }
 
 async function savePhotoCaptions() {
@@ -1567,6 +1572,8 @@ async function checkPremiumExpiry() {
 async function enterApp(user) {
   setTimeout(checkResearchBadge, 500)
   setTimeout(checkCommunityBadge, 600)
+  setTimeout(checkEarlyMemberBadge, 1500)
+  setTimeout(checkPopularBadge, 2000)
   currentUser = user
   const { data } = await sb.from('profiles').select('*').eq('id', user.id).single()
   currentProfile = data
@@ -2635,6 +2642,7 @@ function switchTab2(tab) {
 // ── DISCOVER SUB-TABS ─────────────────────────────
 let currentDiscoverTab = 'swipe'
 let currentOnlineSort = 'recent'
+let onlineProfilesCache = []
 let _contactsProfileCache = {}
 let _contactsData = {}
 let _albumViewerNames = {}
@@ -2741,9 +2749,21 @@ async function loadOnlineNow() {
       .sort((a, b) => haversineDistance(userLat, userLng, a.lat, a.lng) - haversineDistance(userLat, userLng, b.lat, b.lng))
   }
 
+  onlineProfilesCache = filtered
+  const searchInput = document.getElementById('online-search')
+  if (searchInput) searchInput.value = ''
   renderOnlineFeed(filtered)
 }
 
+function filterOnlineSearch(query) {
+  const q = query.trim().toLowerCase()
+  if (!q) { renderOnlineFeed(onlineProfilesCache); return }
+  const results = onlineProfilesCache.filter(p =>
+    (p.display_name || '').toLowerCase().includes(q) ||
+    (p.city || '').toLowerCase().includes(q)
+  )
+  renderOnlineFeed(results)
+}
 
 function renderOnlineFeed(profiles) {
   const container = el('online-grid')
@@ -3098,6 +3118,7 @@ async function showProfilePreview(userId) {
           ${isMatched ? `<span style="background:#3a1a14;color:#e8503a;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">✓ Matched</span>` : ''}
           ${isNewMember(p) ? `<span style="background:#0d2838;color:#4fc3f7;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">✦ NEW</span>` : ''}
         </div>
+        ${p.badges?.length ? `<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px">${p.badges.map(b => `<span style="background:#1c1c1c;border:1px solid #252525;border-radius:20px;padding:3px 10px;font-size:12px;color:#f0ede8">${escapeHtml(b)}</span>`).join('')}</div>` : ''}
         ${p.city ? `<p style="color:#6b6866;font-size:14px;margin-bottom:6px">📍 ${eH(p.city)}</p>` : ''}
         ${p.quote ? `<p style="color:#9e9b97;font-size:15px;font-style:italic;text-align:center;margin:12px 0 16px;line-height:1.5">"${eH(p.quote)}"</p>` : ''}
 
@@ -4748,6 +4769,7 @@ async function sendMessage() {
   if (!(await checkMessageLimit())) return
   input.value = ''
   await sb.from('messages').insert({ match_id: activeMatch.id, sender_id: currentUser.id, content })
+  checkConversationalistBadge()
   // Push from sender's device so delivery works even when recipient's app is closed
   const recipientId = activeMatch.user_a === currentUser.id ? activeMatch.user_b : activeMatch.user_a
   sendPush(
@@ -5941,6 +5963,43 @@ if ('serviceWorker' in navigator) {
   })
 }
 
+// ── PROFILE BADGES ────────────────────────────────
+async function checkAndAwardBadge(badge) {
+  if (!currentUser || !currentProfile) return
+  const current = currentProfile.badges || []
+  if (current.includes(badge)) return
+  const newBadges = [...current, badge]
+  const { error } = await sb.from('profiles').update({ badges: newBadges }).eq('id', currentUser.id)
+  if (!error) {
+    currentProfile.badges = newBadges
+    showToast('🏆 Badge earned: ' + badge)
+  }
+}
+
+async function checkEarlyMemberBadge() {
+  if ((currentProfile?.badges || []).includes('🌟 Early Member')) return
+  const { count } = await sb.from('profiles').select('*', { count: 'exact', head: true })
+  if (count !== null && count <= 100) await checkAndAwardBadge('🌟 Early Member')
+}
+
+async function checkConversationalistBadge() {
+  if ((currentProfile?.badges || []).includes('💬 Conversationalist')) return
+  const { count } = await sb.from('messages').select('*', { count: 'exact', head: true }).eq('sender_id', currentUser.id)
+  if (count !== null && count >= 50) await checkAndAwardBadge('💬 Conversationalist')
+}
+
+async function checkPopularBadge() {
+  if ((currentProfile?.badges || []).includes('❤️ Popular')) return
+  const { count } = await sb.from('swipes').select('*', { count: 'exact', head: true })
+    .eq('swiped_id', currentUser.id).in('direction', ['like', 'super'])
+  if (count !== null && count >= 10) await checkAndAwardBadge('❤️ Popular')
+}
+
+async function checkPhotographerBadge() {
+  if ((currentProfile?.badges || []).includes('📸 Photographer')) return
+  if ((currentProfile?.photo_urls?.length || 0) >= 5) await checkAndAwardBadge('📸 Photographer')
+}
+
 // ── ONBOARDING ────────────────────────────────────
 let obCurrentSlide = 0
 const OB_TOTAL = 5
@@ -5972,6 +6031,66 @@ function obFinish() {
   localStorage.setItem('sx_onboarded', '1')
   const el = document.getElementById('onboarding')
   if (el) el.style.display = 'none'
+  // Natural next-step prompts for new users
+  setTimeout(() => {
+    if (!currentProfile?.photo_urls?.length) {
+      showObPhotoPrompt()
+    } else if (!currentProfile?.bio?.trim()) {
+      showObBioPrompt()
+    }
+  }, 400)
+}
+
+function showObPhotoPrompt() {
+  document.getElementById('ob-photo-prompt')?.remove()
+  const prompt = document.createElement('div')
+  prompt.id = 'ob-photo-prompt'
+  prompt.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.82);display:flex;align-items:flex-end;justify-content:center;z-index:9998'
+  prompt.innerHTML = `
+    <div style="background:#141414;border-radius:28px 28px 0 0;padding:40px 28px 48px;width:100%;max-width:480px;border-top:1px solid #252525;text-align:center">
+      <div style="font-size:64px;margin-bottom:16px">📸</div>
+      <h2 style="color:#f0ede8;font-size:22px;font-weight:700;margin-bottom:10px">Add your first photo</h2>
+      <p style="color:#9e9b97;font-size:14px;line-height:1.7;margin-bottom:32px">Profiles with photos get <strong style="color:#f0ede8">5× more matches</strong>. Show people who you are — even a selfie works!</p>
+      <button onclick="obGoToPhotos()" style="width:100%;padding:16px;border-radius:14px;border:none;background:#e8503a;color:#fff;font-size:16px;font-weight:700;cursor:pointer;margin-bottom:12px">📷 Add a photo</button>
+      <button onclick="document.getElementById('ob-photo-prompt').remove();showObBioPrompt()" style="width:100%;padding:14px;border-radius:14px;border:1px solid #252525;background:transparent;color:#6b6866;font-size:14px;cursor:pointer">Skip for now</button>
+    </div>`
+  document.body.appendChild(prompt)
+}
+
+function showObBioPrompt() {
+  if (!currentProfile || currentProfile.bio?.trim()) return
+  document.getElementById('ob-bio-prompt')?.remove()
+  const prompt = document.createElement('div')
+  prompt.id = 'ob-bio-prompt'
+  prompt.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.82);display:flex;align-items:flex-end;justify-content:center;z-index:9998'
+  prompt.innerHTML = `
+    <div style="background:#141414;border-radius:28px 28px 0 0;padding:40px 28px 48px;width:100%;max-width:480px;border-top:1px solid #252525;text-align:center">
+      <div style="font-size:64px;margin-bottom:16px">✍️</div>
+      <h2 style="color:#f0ede8;font-size:22px;font-weight:700;margin-bottom:10px">Tell people about yourself</h2>
+      <p style="color:#9e9b97;font-size:14px;line-height:1.7;margin-bottom:32px">A few sentences about who you are goes a long way. What makes you, you?</p>
+      <button onclick="obGoToBio()" style="width:100%;padding:16px;border-radius:14px;border:none;background:#e8503a;color:#fff;font-size:16px;font-weight:700;cursor:pointer;margin-bottom:12px">✍️ Write a bio</button>
+      <button onclick="document.getElementById('ob-bio-prompt').remove()" style="width:100%;padding:14px;border-radius:14px;border:1px solid #252525;background:transparent;color:#6b6866;font-size:14px;cursor:pointer">Skip for now</button>
+    </div>`
+  document.body.appendChild(prompt)
+}
+
+function obGoToPhotos() {
+  document.getElementById('ob-photo-prompt')?.remove()
+  switchTab2('profile')
+  setTimeout(() => { const b = document.querySelector('.edit-btn'); if (b) b.click() }, 150)
+}
+
+function obGoToBio() {
+  document.getElementById('ob-bio-prompt')?.remove()
+  switchTab2('profile')
+  setTimeout(() => {
+    const b = document.querySelector('.edit-btn')
+    if (b) b.click()
+    setTimeout(() => {
+      const bioField = document.getElementById('edit-bio')
+      if (bioField) { bioField.scrollIntoView({ behavior: 'smooth', block: 'center' }); bioField.focus() }
+    }, 300)
+  }, 150)
 }
 </script>
 
