@@ -201,6 +201,16 @@
     .report-reason-btn.selected { border-color:#e8503a;background:#3a1a14;color:#e8503a; }
     .filter-hsv-btn { padding:8px 16px;border-radius:20px;border:1px solid #252525;background:transparent;color:#9e9b97;font-size:13px;cursor:pointer;transition:all 0.15s; }
     .filter-hsv-btn.selected { border-color:#e8503a;background:#3a1a14;color:#e8503a; }
+    .filter-gender-btn { padding:8px 16px;border-radius:20px;border:1px solid #252525;background:transparent;color:#9e9b97;font-size:13px;cursor:pointer;transition:all 0.15s; }
+    .filter-gender-btn.selected { border-color:#e8503a;background:#3a1a14;color:#e8503a; }
+    .typing-dot { width:6px;height:6px;background:#9e9b97;border-radius:50%;display:inline-block;animation:typingBounce 1.2s ease-in-out infinite; }
+    .typing-dot:nth-child(2) { animation-delay:0.2s; }
+    .typing-dot:nth-child(3) { animation-delay:0.4s; }
+    @keyframes typingBounce { 0%,60%,100% { transform:translateY(0); } 30% { transform:translateY(-5px); } }
+    .msg-reaction { background:#252525;border:1px solid #333;border-radius:20px;padding:2px 8px;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:3px;transition:all 0.15s; }
+    .msg-reaction.mine { background:#3a1a14;border-color:#8c2a1c; }
+    .seen-by-row { display:flex;gap:3px;margin-top:4px; }
+    .seen-avatar { width:16px;height:16px;border-radius:50%;object-fit:cover;border:1px solid #0a0a0a; }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
   <script>emailjs.init("6hhTlpLKzeQ4Q2eRv")</script>
@@ -562,6 +572,11 @@
         </button>
       </div>
       <div class="chat-messages" id="chat-messages"></div>
+      <div id="typing-indicator" style="display:none;padding:4px 16px 0">
+        <div style="display:inline-flex;gap:4px;align-items:center;padding:8px 12px;background:#1c1c1c;border-radius:18px 18px 18px 4px">
+          <span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span>
+        </div>
+      </div>
       <div id="chat-starters">
         <button class="starter-btn" onclick="useStarter(this)">Hey! How long have you been on Simple-x? 👋</button>
         <button class="starter-btn" onclick="useStarter(this)">What's something you're passionate about? ✨</button>
@@ -639,10 +654,20 @@
         </div>
       </div>
 
+      <!-- Gender -->
+      <div style="margin-bottom:28px">
+        <span style="color:#9e9b97;font-size:14px;display:block;margin-bottom:12px">Show me</span>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="filter-gender-btn selected" onclick="toggleFilterGender(this,'all')">Everyone</button>
+          <button class="filter-gender-btn" onclick="toggleFilterGender(this,'Man')">Men</button>
+          <button class="filter-gender-btn" onclick="toggleFilterGender(this,'Woman')">Women</button>
+        </div>
+      </div>
+
       <!-- HSV Type -->
       <div style="margin-bottom:28px">
         <span style="color:#9e9b97;font-size:14px;display:block;margin-bottom:12px">HSV type</span>
-        <div style="display:flex;gap:8px">
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button class="filter-hsv-btn selected" onclick="toggleFilterHsv(this,'all')" data-val="all">All</button>
           <button class="filter-hsv-btn" onclick="toggleFilterHsv(this,'HSV-1')" data-val="HSV-1">HSV-1</button>
           <button class="filter-hsv-btn" onclick="toggleFilterHsv(this,'HSV-2')" data-val="HSV-2">HSV-2</button>
@@ -3453,8 +3478,10 @@ async function loadDiscover() {
   const fetchLimit = filterDistance !== null ? 200 : 20
   let query = sb.from('profiles').select('*').or('incognito.is.null,incognito.eq.false').limit(fetchLimit)
   if (swipedIds.length > 0) query = query.not('id', 'in', `(${swipedIds.join(',')})`)
-  // Filter by gender/seeking
-  if (currentProfile?.seeking && currentProfile.seeking !== 'Everyone') {
+  // Filter by gender: explicit filter takes priority over seeking preference
+  if (filterGender !== 'all') {
+    query = query.eq('gender', filterGender)
+  } else if (currentProfile?.seeking && currentProfile.seeking !== 'Everyone') {
     const genderWanted = currentProfile.seeking === 'Women' ? 'Woman' : 'Man'
     query = query.eq('gender', genderWanted)
   }
@@ -4161,8 +4188,47 @@ function openChat(match) {
       payload => appendMessage(payload.new))
     .subscribe()
 
+  // Typing indicator via Supabase Presence
+  if (typingPresenceChannel) sb.removeChannel(typingPresenceChannel)
+  clearTimeout(typingTimer)
+  const indicator = document.getElementById('typing-indicator')
+  if (indicator) indicator.style.display = 'none'
+  typingPresenceChannel = sb.channel('presence-chat-' + match.id)
+  typingPresenceChannel.on('presence', { event: 'sync' }, () => {
+    const state = typingPresenceChannel.presenceState()
+    const isOtherTyping = Object.values(state).flat().some(s =>
+      s.user_id !== currentUser.id && s.typing === true && (Date.now() - s.ts) < 4000
+    )
+    const ind = document.getElementById('typing-indicator')
+    if (ind) ind.style.display = isOtherTyping ? 'block' : 'none'
+  }).subscribe(async status => {
+    if (status === 'SUBSCRIBED') {
+      await typingPresenceChannel.track({ user_id: currentUser.id, typing: false, ts: Date.now() })
+    }
+  })
+
+  // Reactions realtime
+  if (reactionsSubscription) sb.removeChannel(reactionsSubscription)
+  reactionsSubscription = sb.channel('reactions-' + match.id)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'message_reactions' }, async payload => {
+      const msgId = payload.new?.message_id || payload.old?.message_id
+      if (msgId) {
+        const { data: rxns } = await sb.from('message_reactions').select('emoji, user_id').eq('message_id', msgId)
+        renderReactions(msgId, rxns || [])
+      }
+    }).subscribe()
+
   el('chat-input').onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); sendMessage() } }
-  el('chat-input').oninput = () => { if (el('chat-input').value) hideStarters() }
+  el('chat-input').oninput = () => {
+    if (el('chat-input').value) hideStarters()
+    if (typingPresenceChannel) {
+      typingPresenceChannel.track({ user_id: currentUser.id, typing: true, ts: Date.now() })
+      clearTimeout(typingTimer)
+      typingTimer = setTimeout(() => {
+        if (typingPresenceChannel) typingPresenceChannel.track({ user_id: currentUser.id, typing: false, ts: Date.now() })
+      }, 3000)
+    }
+  }
 }
 
 function closeChat() {
@@ -4172,6 +4238,11 @@ function closeChat() {
   chatEl.style.top = ''
   if (chatEl._vpCleanup) { chatEl._vpCleanup(); delete chatEl._vpCleanup }
   if (chatSubscription) { sb.removeChannel(chatSubscription); chatSubscription = null }
+  if (typingPresenceChannel) { sb.removeChannel(typingPresenceChannel); typingPresenceChannel = null }
+  if (reactionsSubscription) { sb.removeChannel(reactionsSubscription); reactionsSubscription = null }
+  clearTimeout(typingTimer)
+  const ind = document.getElementById('typing-indicator')
+  if (ind) ind.style.display = 'none'
   activeMatch = null
   setTimeout(() => checkUnreadOnLoad(), 300)
 }
@@ -4179,6 +4250,9 @@ function closeChat() {
 // ── GROUP CHATS ────────────────────────────────────
 let activeGroupId = null
 let groupChatSubscription = null
+let typingPresenceChannel = null
+let typingTimer = null
+let reactionsSubscription = null
 
 async function loadGroups() {
   const listEl = document.getElementById('groups-list')
@@ -4312,6 +4386,57 @@ async function loadGroupMessages() {
   }
   data.forEach(m => appendGroupMessage(m, true))
   msgs.scrollTop = msgs.scrollHeight
+  // Update own seen record then render seen-by indicators
+  await sb.from('group_message_seen').upsert({ group_id: activeGroupId, user_id: currentUser.id, seen_at: new Date().toISOString() }, { onConflict: 'group_id,user_id' })
+  updateGroupSeenBy()
+}
+
+async function updateGroupSeenBy() {
+  if (!activeGroupId) return
+  const [{ data: seenRows }, { data: group }] = await Promise.all([
+    sb.from('group_message_seen').select('user_id, seen_at').eq('group_id', activeGroupId),
+    sb.from('group_chats').select('members').eq('id', activeGroupId).maybeSingle()
+  ])
+  if (!seenRows?.length) return
+  const otherSeenRows = seenRows.filter(s => s.user_id !== currentUser.id)
+  if (!otherSeenRows.length) return
+  const memberIds = otherSeenRows.map(s => s.user_id)
+  const { data: profiles } = await sb.from('profiles').select('id, display_name, photo_urls').in('id', memberIds)
+  const profileMap = {}
+  ;(profiles || []).forEach(p => { profileMap[p.id] = p })
+
+  // Gather all message elements sorted by timestamp
+  const msgEls = Array.from(document.querySelectorAll('[data-group-msg-id]'))
+    .sort((a, b) => new Date(a.dataset.groupMsgTs) - new Date(b.dataset.groupMsgTs))
+
+  // Clear all existing seen rows
+  msgEls.forEach(el => { const r = el.querySelector('.seen-by-row'); if (r) r.innerHTML = '' })
+
+  // For each member, find the last message they've seen and add their avatar there
+  otherSeenRows.forEach(seen => {
+    const seenAt = new Date(seen.seen_at)
+    let lastSeenEl = null
+    msgEls.forEach(el => {
+      if (new Date(el.dataset.groupMsgTs) <= seenAt) lastSeenEl = el
+    })
+    if (!lastSeenEl) return
+    const seenRow = lastSeenEl.querySelector('.seen-by-row')
+    if (!seenRow) return
+    const p = profileMap[seen.user_id]
+    const img = document.createElement(p?.photo_urls?.[0] ? 'img' : 'div')
+    if (p?.photo_urls?.[0]) {
+      img.src = p.photo_urls[0]
+      img.alt = p.display_name || ''
+      img.className = 'seen-avatar'
+      img.title = p.display_name || ''
+    } else {
+      img.className = 'seen-avatar'
+      img.style.cssText = `width:16px;height:16px;border-radius:50%;background:#252525;display:flex;align-items:center;justify-content:center;font-size:9px;color:#9e9b97;border:1px solid #0a0a0a`
+      img.title = p?.display_name || ''
+      img.textContent = (p?.display_name || '?')[0].toUpperCase()
+    }
+    seenRow.appendChild(img)
+  })
 }
 
 function appendGroupMessage(msg, skipScroll) {
@@ -4322,6 +4447,8 @@ function appendGroupMessage(msg, skipScroll) {
   const placeholder = msgs.querySelector('p')
   if (placeholder) placeholder.remove()
   const div = document.createElement('div')
+  div.dataset.groupMsgId = msg.id
+  div.dataset.groupMsgTs = msg.created_at || new Date().toISOString()
   div.style.cssText = `display:flex;flex-direction:column;align-items:${isMine ? 'flex-end' : 'flex-start'};margin-bottom:8px`
   if (!isMine) {
     const label = document.createElement('p')
@@ -4333,6 +4460,10 @@ function appendGroupMessage(msg, skipScroll) {
   bubble.style.cssText = `max-width:75%;padding:10px 14px;border-radius:${isMine ? '18px 18px 4px 18px' : '18px 18px 18px 4px'};background:${isMine ? '#e8503a' : '#1c1c1c'};color:${isMine ? '#fff' : '#f0ede8'};font-size:15px;line-height:1.4`
   bubble.textContent = msg.content
   div.appendChild(bubble)
+  // Seen-by placeholder (filled by updateGroupSeenBy)
+  const seenRow = document.createElement('div')
+  seenRow.className = 'seen-by-row'
+  div.appendChild(seenRow)
   msgs.appendChild(div)
   if (!skipScroll) msgs.scrollTop = msgs.scrollHeight
 }
@@ -4366,6 +4497,7 @@ async function loadChatMessages() {
     return
   }
   data.forEach(m => appendMessage(m))
+  loadReactionsForChat()
 }
 
 function showStarters() {
@@ -4443,7 +4575,13 @@ function appendMessage(msg) {
   div.appendChild(textSpan)
   div.appendChild(timeDiv)
 
-  // Long-press (500ms) on any bubble → report/delete menu
+  // Reactions container
+  const reactionsEl = document.createElement('div')
+  reactionsEl.className = 'msg-reactions-wrap'
+  reactionsEl.style.cssText = `display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;justify-content:${mine ? 'flex-end' : 'flex-start'}`
+  div.appendChild(reactionsEl)
+
+  // Long-press (500ms) on any bubble → emoji reactions + report/delete menu
   let pressTimer = null
   div.addEventListener('touchstart', () => { pressTimer = setTimeout(() => showMessageMenu(msg, div), 500) }, { passive: true })
   div.addEventListener('touchend',   () => clearTimeout(pressTimer))
@@ -4461,8 +4599,22 @@ function showMessageMenu(msg, bubbleEl) {
   const rect = bubbleEl.getBoundingClientRect()
   const menu = document.createElement('div')
   menu.id = 'msg-action-menu'
-  const top = Math.max(8, rect.top - (mine ? 100 : 52))
-  menu.style.cssText = `position:fixed;top:${top}px;${mine ? 'right:16px' : 'left:16px'};background:#1c1c1c;border:1px solid #252525;border-radius:12px;padding:4px;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,0.5);min-width:190px`
+  const top = Math.max(8, rect.top - (mine ? 150 : 100))
+  menu.style.cssText = `position:fixed;top:${top}px;${mine ? 'right:16px' : 'left:16px'};background:#1c1c1c;border:1px solid #252525;border-radius:16px;padding:4px;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,0.5);min-width:190px`
+
+  // Emoji reaction bar
+  const emojiBar = document.createElement('div')
+  emojiBar.style.cssText = 'display:flex;gap:2px;padding:8px 10px;border-bottom:1px solid #252525'
+  ;['❤️', '😂', '😮', '👍'].forEach(emoji => {
+    const btn = document.createElement('button')
+    btn.textContent = emoji
+    btn.style.cssText = 'background:none;border:none;font-size:24px;cursor:pointer;padding:4px 6px;border-radius:8px;line-height:1;transition:transform 0.1s'
+    btn.onmouseenter = () => { btn.style.transform = 'scale(1.2)' }
+    btn.onmouseleave = () => { btn.style.transform = '' }
+    btn.onclick = () => { menu.remove(); addReaction(msg.id, emoji) }
+    emojiBar.appendChild(btn)
+  })
+  menu.appendChild(emojiBar)
 
   const reportBtn = document.createElement('button')
   reportBtn.textContent = '🚩 Report message'
@@ -4508,6 +4660,60 @@ async function deleteMessage(msgId) {
     bubble.style.transition = 'opacity 0.2s'
     setTimeout(() => bubble.remove(), 200)
   }
+}
+
+// ── MESSAGE REACTIONS ────────────────────────────────
+async function addReaction(msgId, emoji) {
+  const { data: existing } = await sb.from('message_reactions')
+    .select('id, emoji').eq('message_id', msgId).eq('user_id', currentUser.id).maybeSingle()
+  if (existing) {
+    if (existing.emoji === emoji) {
+      // Toggle off same emoji
+      await sb.from('message_reactions').delete().eq('id', existing.id)
+    } else {
+      // Switch to new emoji
+      await sb.from('message_reactions').update({ emoji }).eq('id', existing.id)
+    }
+  } else {
+    await sb.from('message_reactions').insert({ message_id: msgId, user_id: currentUser.id, emoji })
+  }
+  const { data: rxns } = await sb.from('message_reactions').select('emoji, user_id').eq('message_id', msgId)
+  renderReactions(msgId, rxns || [])
+}
+
+function renderReactions(msgId, reactions) {
+  const bubble = document.querySelector(`.bubble[data-msg-id="${CSS.escape(String(msgId))}"]`)
+  if (!bubble) return
+  const wrap = bubble.querySelector('.msg-reactions-wrap')
+  if (!wrap) return
+  wrap.innerHTML = ''
+  if (!reactions.length) return
+  const counts = {}
+  const userPicked = {}
+  reactions.forEach(r => {
+    counts[r.emoji] = (counts[r.emoji] || 0) + 1
+    if (r.user_id === currentUser.id) userPicked[r.emoji] = true
+  })
+  Object.entries(counts).forEach(([emoji, count]) => {
+    const span = document.createElement('span')
+    span.className = 'msg-reaction' + (userPicked[emoji] ? ' mine' : '')
+    span.textContent = emoji + ' ' + count
+    span.onclick = e => { e.stopPropagation(); addReaction(msgId, emoji) }
+    wrap.appendChild(span)
+  })
+}
+
+async function loadReactionsForChat() {
+  if (!activeMatch) return
+  const msgEls = document.querySelectorAll('.bubble[data-msg-id]')
+  if (!msgEls.length) return
+  const msgIds = Array.from(msgEls).map(el => el.dataset.msgId)
+  const { data: rxns } = await sb.from('message_reactions')
+    .select('message_id, emoji, user_id').in('message_id', msgIds)
+  if (!rxns?.length) return
+  const byMsg = {}
+  rxns.forEach(r => { if (!byMsg[r.message_id]) byMsg[r.message_id] = []; byMsg[r.message_id].push(r) })
+  Object.entries(byMsg).forEach(([msgId, reactions]) => renderReactions(msgId, reactions))
 }
 
 async function checkMessageLimit() {
@@ -5264,6 +5470,7 @@ let filterDistance = null // miles, null = worldwide
 let filterAgeMin = 18
 let filterAgeMax = 65
 let filterHsv = 'all'
+let filterGender = 'all'
 
 function updateDistanceLabel(val) {
   const step = DISTANCE_STEPS[parseInt(val)]
@@ -5281,6 +5488,12 @@ function toggleFilterHsv(btn, val) {
   document.querySelectorAll('.filter-hsv-btn').forEach(b => b.classList.remove('selected'))
   btn.classList.add('selected')
   filterHsv = val
+}
+
+function toggleFilterGender(btn, val) {
+  document.querySelectorAll('.filter-gender-btn').forEach(b => b.classList.remove('selected'))
+  btn.classList.add('selected')
+  filterGender = val
 }
 
 function applyFilters() {
