@@ -38,6 +38,7 @@
       padding: 14px; border-radius: 12px; border: 1px solid #252525;
       background: transparent; color: #9e9b97; font-size: 15px; cursor: pointer; width: 100%;
     }
+    .btn-ghost:disabled { opacity: 0.55; cursor: default; }
 
     .logo { display: flex; align-items: flex-end; gap: 2px; }
     .logo span:first-child { font-size: var(--logo-size, 28px); font-weight: 700; color: #f0ede8; letter-spacing: -1.5px; font-family: Georgia, serif; line-height: 1; }
@@ -184,7 +185,6 @@
       from { opacity: 0; transform: translateY(28px); }
       to   { opacity: 1; transform: translateY(0); }
     }
-    .match-heart { font-size: 50px; margin-bottom: 20px; display: inline-block; animation: heartPulse 0.85s ease-in-out infinite; }
     @keyframes heartPulse {
       0%, 100% { transform: scale(1); }
       50%       { transform: scale(1.2); }
@@ -2223,18 +2223,23 @@ function renderBoostBtn() {
     sub.textContent = `Active · ${mins} min remaining`
     sub.style.color = '#2ecc71'
     btn.style.borderColor = '#1a3311'
-    btn.onclick = null
+    btn.disabled = true
   } else {
     sub.textContent = 'Appear at top of Discover for 1hr'
     sub.style.color = '#6b6866'
     btn.style.borderColor = ''
-    btn.onclick = boostProfile
+    btn.disabled = false
   }
 }
 
 async function boostProfile() {
   if (!currentProfile?.is_premium) {
     showUpgradePrompt('Profile boost is a Plus feature. Upgrade to appear at the top of Discover for 1 hour.')
+    return
+  }
+  if (currentProfile?.boost_until && new Date(currentProfile.boost_until) > new Date()) {
+    const mins = Math.ceil((new Date(currentProfile.boost_until) - Date.now()) / 60000)
+    showToast(`Boost already active — ${mins} min remaining`)
     return
   }
   const boostUntil = new Date(Date.now() + 60 * 60 * 1000).toISOString()
