@@ -2014,12 +2014,16 @@ async function loadPostStats(postId) {
 
   const likeEl = document.getElementById('like-count-' + postId)
   const commentEl = document.getElementById('comment-count-' + postId)
+  const threadLikeEl = document.getElementById('thread-like-count-' + postId)
+  const threadCommentEl = document.getElementById('thread-comment-count-' + postId)
   const likeBtn = document.querySelector(`[data-post="${postId}"]`)
 
   const likeCount2 = likes?.length || 0
   const commentCount2 = allComments?.length || 0
   if (likeEl) likeEl.textContent = likeCount2
   if (commentEl) commentEl.textContent = commentCount2
+  if (threadLikeEl) threadLikeEl.textContent = likeCount2
+  if (threadCommentEl) threadCommentEl.textContent = commentCount2
   if (likeBtn && likes?.some(l => l.user_id === currentUser?.id)) likeBtn.style.color = '#e8503a'
   // Show new-activity dot if counts changed since post was last opened
   const _dot = document.getElementById('post-dot-' + postId)
@@ -2338,9 +2342,9 @@ async function openPostThread(postId) {
       <p style="color:#9e9b97;font-size:14px;line-height:1.7;white-space:pre-wrap">${escapeHtml(post.body)}</p>
       <div style="display:flex;gap:12px;margin-top:14px;padding-top:12px;border-top:1px solid #252525">
         <button id="thread-like-btn-${postId}" onclick="togglePostLike('${postId}', this)" data-post="${postId}" style="background:none;border:none;color:${iLiked ? '#e8503a' : '#6b6866'};font-size:13px;cursor:pointer;display:flex;align-items:center;gap:5px">
-          ❤️ <span id="like-count-${postId}" onclick="event.stopPropagation();showPostLikers('${postId}')" style="cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px">${likeCount}</span>
+          ❤️ <span id="thread-like-count-${postId}" onclick="event.stopPropagation();showPostLikers('${postId}')" style="cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px">${likeCount}</span>
         </button>
-        <span style="color:#6b6866;font-size:13px;display:flex;align-items:center;gap:5px">💬 <span id="comment-count-${postId}">${allComments?.length || 0}</span></span>
+        <span style="color:#6b6866;font-size:13px;display:flex;align-items:center;gap:5px">💬 <span id="thread-comment-count-${postId}">${allComments?.length || 0}</span></span>
       </div>
     </div>
     <p style="color:#9e9b97;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:12px">${allComments?.length || 0} Comment${allComments?.length !== 1 ? 's' : ''}</p>
