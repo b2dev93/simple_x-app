@@ -572,7 +572,10 @@
           <p style="font-weight:600;font-size:15px" id="chat-name"></p>
           <p style="color:#6b6866;font-size:12px" id="chat-city"></p>
         </div>
-        <button class="back-btn" onclick="showChatMenu()" style="margin-left:auto">
+        <button onclick="deleteActiveConversation()" style="border:none;background:transparent;cursor:pointer;padding:4px;display:flex;align-items:center;margin-left:auto" title="Delete conversation">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#e8503a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+        </button>
+        <button class="back-btn" onclick="showChatMenu()">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#9e9b97" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
         </button>
       </div>
@@ -4115,18 +4118,11 @@ async function loadMatches() {
 
     const wrapper = document.createElement('div')
     wrapper.dataset.matchWrapper = m.id
-    wrapper.style.cssText = 'position:relative;overflow:hidden'
-
-    const delBtn = document.createElement('button')
-    delBtn.style.cssText = 'position:absolute;right:0;top:0;bottom:0;width:80px;background:#e8503a;border:none;cursor:pointer;color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center'
-    delBtn.textContent = 'Delete'
-    delBtn.onclick = e => { e.stopPropagation(); deleteConversation(m.id, delBtn) }
-    wrapper.appendChild(delBtn)
 
     const photo = other?.photo_urls?.[0]
     const row = document.createElement('div')
     row.className = 'match-item'
-    row.style.cssText = 'position:relative;background:#0a0a0a'
+    row.style.cssText = 'position:relative;background:#0a0a0a;cursor:pointer'
     row.innerHTML = `
       <div style="position:relative">
         ${photo
@@ -4142,8 +4138,8 @@ async function loadMatches() {
         </div>
         <p class="match-preview" style="${unread ? 'color:#f0ede8' : ''}">${preview}</p>
       </div>`
+    row.onclick = () => openChatById(m.id)
     wrapper.appendChild(row)
-    attachMatchRowGestures(wrapper, m.id)
     matchFragment.appendChild(wrapper)
   })
   list.innerHTML = ''
@@ -4187,13 +4183,6 @@ function timeAgo(ts) {
   return Math.floor(diff / 1440) + 'd'
 }
 
-async function deleteConversation(matchId, rowEl) {
-  if (!confirm('Delete this conversation? This cannot be undone.')) return
-  await sb.from('messages').delete().eq('match_id', matchId)
-  await sb.from('matches').delete().eq('id', matchId)
-  localStorage.removeItem('sx_last_seen_' + matchId)
-  rowEl?.closest('[data-match-wrapper]')?.remove()
-}
 
 function getPinnedMatches() {
   try { return JSON.parse(localStorage.getItem('sx_pinned_matches') || '[]') } catch { return [] }
@@ -4206,84 +4195,15 @@ function togglePinMatch(id) {
   localStorage.setItem('sx_pinned_matches', JSON.stringify(pinned))
 }
 
-function showMatchContextMenu(matchId, rowEl) {
-  document.getElementById('match-ctx-menu')?.remove()
-  const pinned = isPinnedMatch(matchId)
-  const menu = document.createElement('div')
-  menu.id = 'match-ctx-menu'
-  menu.style.cssText = 'position:fixed;inset:0;z-index:200;background:rgba(0,0,0,0.5)'
-  menu.onclick = () => menu.remove()
-  const panel = document.createElement('div')
-  panel.style.cssText = 'position:absolute;bottom:0;left:0;right:0;background:#1c1c1c;border-radius:20px 20px 0 0;padding:20px 16px;border-top:1px solid #252525'
-  panel.onclick = e => e.stopPropagation()
-  const pinBtn = document.createElement('button')
-  pinBtn.style.cssText = 'display:block;width:100%;padding:14px 16px;border:none;background:transparent;color:#f0ede8;font-size:15px;text-align:left;cursor:pointer;border-bottom:1px solid #252525'
-  pinBtn.textContent = pinned ? '📌 Unpin' : '📌 Pin to top'
-  pinBtn.onclick = () => { togglePinMatch(matchId); menu.remove(); loadMatches() }
-  const delBtn = document.createElement('button')
-  delBtn.style.cssText = 'display:block;width:100%;padding:14px 16px;border:none;background:transparent;color:#e8503a;font-size:15px;text-align:left;cursor:pointer'
-  delBtn.textContent = 'Delete'
-  delBtn.onclick = () => { menu.remove(); deleteConversation(matchId, rowEl) }
-  panel.appendChild(pinBtn)
-  panel.appendChild(delBtn)
-  menu.appendChild(panel)
-  document.body.appendChild(menu)
-}
-
-function attachMatchRowGestures(wrapperEl, matchId) {
-  const row = wrapperEl.querySelector('.match-item')
-  if (!row) return
-  let startX = 0, startY = 0, isDragging = false
-  let revealed = false
-  let pressTimer = null
-
-  row.addEventListener('touchstart', e => {
-    startX = e.touches[0].clientX
-    startY = e.touches[0].clientY
-    isDragging = false
-    pressTimer = setTimeout(() => {
-      showMatchContextMenu(matchId, row)
-    }, 500)
-  }, { passive: true })
-
-  row.addEventListener('touchmove', e => {
-    clearTimeout(pressTimer)
-    const dx = e.touches[0].clientX - startX
-    const dy = e.touches[0].clientY - startY
-    if (!isDragging && Math.abs(dy) > Math.abs(dx)) return
-    isDragging = true
-    if (dx < 0) {
-      const clamped = Math.max(dx, -80)
-      row.style.transform = `translateX(${clamped}px)`
-      row.style.transition = 'none'
-    } else if (revealed) {
-      row.style.transform = `translateX(0)`
-    }
-  }, { passive: true })
-
-  row.addEventListener('touchend', e => {
-    clearTimeout(pressTimer)
-    const dx = e.changedTouches[0].clientX - startX
-    const dy = e.changedTouches[0].clientY - startY
-    row.style.transition = 'transform 0.2s ease'
-    if (isDragging && dx < -50) {
-      row.style.transform = 'translateX(-80px)'
-      revealed = true
-    } else if (!isDragging && Math.abs(dx) < 10 && Math.abs(dy) < 10) {
-      row.style.transform = 'translateX(0)'
-      revealed = false
-      row._lastTouchOpen = Date.now()
-      openChatById(matchId)
-    } else {
-      row.style.transform = 'translateX(0)'
-      revealed = false
-    }
-  }, { passive: true })
-
-  row.onclick = () => {
-    if (Date.now() - (row._lastTouchOpen || 0) < 300) return
-    openChatById(matchId)
-  }
+async function deleteActiveConversation() {
+  if (!activeMatch) return
+  if (!confirm('Delete this conversation? This cannot be undone.')) return
+  const matchId = activeMatch.id
+  closeChat()
+  await sb.from('messages').delete().eq('match_id', matchId)
+  await sb.from('matches').delete().eq('id', matchId)
+  localStorage.removeItem('sx_last_seen_' + matchId)
+  document.querySelector(`[data-match-wrapper="${matchId}"]`)?.remove()
 }
 
 // ── CHAT ──────────────────────────────────────────
