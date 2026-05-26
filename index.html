@@ -1009,6 +1009,7 @@ let lastMatchProfile = null
 let lastSeenIntervalId = null
 let loginInProgress = false
 let swReloadPending = false
+let loginFailCount = 0
 
 function show(id) { document.getElementById(id).classList.remove('hidden') }
 function hide(id) { document.getElementById(id).classList.add('hidden') }
@@ -1535,10 +1536,23 @@ async function handleAuth() {
       const { error } = await sb.auth.signInWithPassword({ email, password: pass })
       if (error) throw error
     }
+    loginFailCount = 0
     const { data: { session } } = await sb.auth.getSession()
     if (session) await enterApp(session.user)
   } catch (e) {
-    el('auth-error').textContent = e.message
+    loginFailCount++
+    const msg = e.message || ''
+    let displayMsg = msg
+    if (/rate.limit|too many request|over_email/i.test(msg)) {
+      displayMsg = 'Too many attempts — please wait a minute before trying again.'
+    } else if (/invalid.login|invalid.credential|wrong.password|email.not.confirm/i.test(msg)) {
+      displayMsg = 'Incorrect email or password. Please check your credentials.'
+    } else if (/user.not.found|no.user/i.test(msg)) {
+      displayMsg = 'No account found with that email. Try signing up instead.'
+    } else if (loginFailCount >= 3) {
+      displayMsg = msg + ' (Too many failed attempts — if this persists, try resetting your password.)'
+    }
+    el('auth-error').textContent = displayMsg
     el('auth-error').classList.remove('hidden')
     el('auth-submit').textContent = authTab === 'in' ? 'Sign in' : 'Create account'
   } finally {
@@ -3492,8 +3506,14 @@ async function updateLastSeen() {
 async function loadDiscover() {
   secondLookChecked = false
   el('card-stack').innerHTML = '<div class="empty-state"><p style="color:#6b6866;font-size:14px">Finding people nearby...</p></div>'
-  const { data: swipes } = await sb.from('swipes').select('swiped_id').eq('swiper_id', currentUser.id)
-  const swipedIds = (swipes || []).map(s => s.swiped_id)
+  const [{ data: swipes }, { data: hardNoSwipes }] = await Promise.all([
+    sb.from('swipes').select('swiped_id').eq('swiper_id', currentUser.id),
+    sb.from('swipes').select('swiped_id').eq('swiper_id', currentUser.id).eq('direction', 'hard_no').limit(5000)
+  ])
+  const swipedIds = [...new Set([
+    ...(swipes || []).map(s => s.swiped_id),
+    ...(hardNoSwipes || []).map(s => s.swiped_id)
+  ])]
   swipedIds.push(currentUser.id)
 
   const fetchLimit = filterDistance !== null ? 200 : 20
@@ -3999,8 +4019,15 @@ async function loadMatches() {
     })
   }
 
+  const pinnedIds = getPinnedMatches()
+  const sortedData = [...(data || [])].sort((a, b) => {
+    const aPin = pinnedIds.includes(a.id) ? 0 : 1
+    const bPin = pinnedIds.includes(b.id) ? 0 : 1
+    return aPin - bPin
+  })
+
   const matchFragment = document.createDocumentFragment()
-  ;(data || []).forEach((m, i) => {
+  sortedData.forEach((m, i) => {
     const other = m.user_a === currentUser.id ? m.profiles_b : m.profiles_a
     const color = AVATAR_COLORS[i % AVATAR_COLORS.length]
     const initial = (other?.display_name || '?')[0].toUpperCase()
@@ -4014,6 +4041,7 @@ async function loadMatches() {
     const msgTime = lastMsg ? new Date(lastMsg.created_at).getTime() : 0
     const seenTime = lastSeen ? new Date(lastSeen).getTime() : 0
     const unread = lastMsg && lastMsg.sender_id !== currentUser.id && msgTime > seenTime
+    const pinned = pinnedIds.includes(m.id)
 
     const wrapper = document.createElement('div')
     wrapper.dataset.matchWrapper = m.id
@@ -4029,7 +4057,6 @@ async function loadMatches() {
     const row = document.createElement('div')
     row.className = 'match-item'
     row.style.cssText = 'position:relative;background:#0a0a0a'
-    row.onclick = () => openChatById(m.id)
     row.innerHTML = `
       <div style="position:relative">
         ${photo
@@ -4040,7 +4067,7 @@ async function loadMatches() {
       </div>
       <div class="match-info">
         <div style="display:flex;justify-content:space-between;align-items:center">
-          <span class="match-name" style="${unread ? 'color:#fff;font-weight:700' : ''}">${escapeHtml(other?.display_name || 'User')}</span>
+          <span class="match-name" style="${unread ? 'color:#fff;font-weight:700' : ''}">${pinned ? '📌 ' : ''}${escapeHtml(other?.display_name || 'User')}</span>
           <span class="match-time">${age}</span>
         </div>
         <p class="match-preview" style="${unread ? 'color:#f0ede8' : ''}">${preview}</p>
@@ -4098,6 +4125,41 @@ async function deleteConversation(matchId, rowEl) {
   rowEl?.closest('[data-match-wrapper]')?.remove()
 }
 
+function getPinnedMatches() {
+  try { return JSON.parse(localStorage.getItem('sx_pinned_matches') || '[]') } catch { return [] }
+}
+function isPinnedMatch(id) { return getPinnedMatches().includes(id) }
+function togglePinMatch(id) {
+  const pinned = getPinnedMatches()
+  const idx = pinned.indexOf(id)
+  if (idx === -1) pinned.push(id); else pinned.splice(idx, 1)
+  localStorage.setItem('sx_pinned_matches', JSON.stringify(pinned))
+}
+
+function showMatchContextMenu(matchId, rowEl) {
+  document.getElementById('match-ctx-menu')?.remove()
+  const pinned = isPinnedMatch(matchId)
+  const menu = document.createElement('div')
+  menu.id = 'match-ctx-menu'
+  menu.style.cssText = 'position:fixed;inset:0;z-index:200;background:rgba(0,0,0,0.5)'
+  menu.onclick = () => menu.remove()
+  const panel = document.createElement('div')
+  panel.style.cssText = 'position:absolute;bottom:0;left:0;right:0;background:#1c1c1c;border-radius:20px 20px 0 0;padding:20px 16px;border-top:1px solid #252525'
+  panel.onclick = e => e.stopPropagation()
+  const pinBtn = document.createElement('button')
+  pinBtn.style.cssText = 'display:block;width:100%;padding:14px 16px;border:none;background:transparent;color:#f0ede8;font-size:15px;text-align:left;cursor:pointer;border-bottom:1px solid #252525'
+  pinBtn.textContent = pinned ? '📌 Unpin' : '📌 Pin to top'
+  pinBtn.onclick = () => { togglePinMatch(matchId); menu.remove(); loadMatches() }
+  const delBtn = document.createElement('button')
+  delBtn.style.cssText = 'display:block;width:100%;padding:14px 16px;border:none;background:transparent;color:#e8503a;font-size:15px;text-align:left;cursor:pointer'
+  delBtn.textContent = 'Delete'
+  delBtn.onclick = () => { menu.remove(); deleteConversation(matchId, rowEl) }
+  panel.appendChild(pinBtn)
+  panel.appendChild(delBtn)
+  menu.appendChild(panel)
+  document.body.appendChild(menu)
+}
+
 function attachMatchRowGestures(wrapperEl, matchId) {
   const row = wrapperEl.querySelector('.match-item')
   if (!row) return
@@ -4110,10 +4172,8 @@ function attachMatchRowGestures(wrapperEl, matchId) {
     startY = e.touches[0].clientY
     isDragging = false
     pressTimer = setTimeout(() => {
-      row.style.transition = 'transform 0.2s ease'
-      row.style.transform = 'translateX(-80px)'
-      revealed = true
-    }, 600)
+      showMatchContextMenu(matchId, row)
+    }, 500)
   }, { passive: true })
 
   row.addEventListener('touchmove', e => {
@@ -4131,27 +4191,29 @@ function attachMatchRowGestures(wrapperEl, matchId) {
     }
   }, { passive: true })
 
-  // Non-passive so we can call e.preventDefault() and fire openChatById directly,
-  // avoiding unreliable synthesized click events when touch listeners are present.
   row.addEventListener('touchend', e => {
     clearTimeout(pressTimer)
     const dx = e.changedTouches[0].clientX - startX
     const dy = e.changedTouches[0].clientY - startY
-    e.preventDefault() // Suppress synthesized click — handled below on taps
     row.style.transition = 'transform 0.2s ease'
     if (isDragging && dx < -50) {
       row.style.transform = 'translateX(-80px)'
       revealed = true
     } else if (!isDragging && Math.abs(dx) < 10 && Math.abs(dy) < 10) {
-      // Pure tap: open chat and collapse delete panel if open
       row.style.transform = 'translateX(0)'
       revealed = false
+      row._lastTouchOpen = Date.now()
       openChatById(matchId)
     } else {
       row.style.transform = 'translateX(0)'
       revealed = false
     }
-  })
+  }, { passive: true })
+
+  row.onclick = () => {
+    if (Date.now() - (row._lastTouchOpen || 0) < 300) return
+    openChatById(matchId)
+  }
 }
 
 // ── CHAT ──────────────────────────────────────────
@@ -4173,7 +4235,10 @@ function openChat(match) {
   setUnreadDot(false)
   markMessagesRead(match.id)
   const other = match.user_a === currentUser.id ? match.profiles_b : match.profiles_a
-  avatarEl(other?.display_name || '?', 38, 1, el('chat-avatar'), other?.photo_urls?.[0])
+  const chatAvEl = el('chat-avatar')
+  avatarEl(other?.display_name || '?', 38, 1, chatAvEl, other?.photo_urls?.[0])
+  chatAvEl.style.cursor = 'pointer'
+  chatAvEl.onclick = () => { if (other?.id) showProfilePreview(other.id) }
   el('chat-name').textContent = other?.display_name || 'User'
   el('chat-city').textContent = other?.city || ''
 
