@@ -2798,7 +2798,7 @@ function renderOnlineFeed(profiles) {
     const displayName = escapeHtml(p.display_name || 'Member')
     const bio = escapeHtml(p.bio || '')
     const city = escapeHtml(p.city || '')
-    const winkName = (p.display_name || '').split(' ')[0].replace(/\\/g, '\\\\').replace(/'/g, "\\'")
+    const winkName = (p.display_name || '').split(' ')[0].replace(/\\/g, '\\\\').replace(/"/g, '&quot;').replace(/'/g, "\\'")
     return `
     <div onclick="showProfilePreview('${p.id}')">
       <div style="position:relative">
@@ -2983,7 +2983,7 @@ async function openContactsSection(sectionKey) {
     const displayName = escapeHtml(p.display_name || 'Member')
     const bio = escapeHtml(p.bio || '')
     const city = escapeHtml(p.city || '')
-    const winkName = (p.display_name || '').split(' ')[0].replace(/\\/g, '\\\\').replace(/'/g, "\\'")
+    const winkName = (p.display_name || '').split(' ')[0].replace(/\\/g, '\\\\').replace(/"/g, '&quot;').replace(/'/g, "\\'")
     const isSuper = sectionKey === 'liked-me' && superIds.has(p.id)
     const _actMs = p.last_seen ? Date.now() - new Date(p.last_seen).getTime() : null
     const _actLabel = !_actMs ? null
@@ -4098,7 +4098,7 @@ async function loadMatches() {
           </div>
           <div class="match-info">
             <div style="display:flex;justify-content:space-between;align-items:center">
-              <span class="match-name">${s?.display_name || 'User'}</span>
+              <span class="match-name">${escapeHtml(s?.display_name || 'User')}</span>
               <span class="match-time">${timeAgo(w.created_at)}</span>
             </div>
             <p class="match-preview" style="color:#f5c518">😉 winked at you</p>
