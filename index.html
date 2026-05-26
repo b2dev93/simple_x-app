@@ -572,7 +572,8 @@
           <p style="font-weight:600;font-size:15px" id="chat-name"></p>
           <p style="color:#6b6866;font-size:12px" id="chat-city"></p>
         </div>
-        <button onclick="deleteActiveConversation()" style="border:none;background:transparent;cursor:pointer;padding:4px;display:flex;align-items:center;margin-left:auto" title="Delete conversation">
+        <button id="chat-pin-btn" onclick="togglePinActiveChat()" style="border:none;background:transparent;cursor:pointer;padding:4px;display:flex;align-items:center;margin-left:auto;font-size:18px;opacity:0.4" title="Pin conversation">📌</button>
+        <button onclick="deleteActiveConversation()" style="border:none;background:transparent;cursor:pointer;padding:4px;display:flex;align-items:center" title="Delete conversation">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#e8503a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
         </button>
         <button class="back-btn" onclick="showChatMenu()">
@@ -4195,6 +4196,15 @@ function togglePinMatch(id) {
   localStorage.setItem('sx_pinned_matches', JSON.stringify(pinned))
 }
 
+function togglePinActiveChat() {
+  if (!activeMatch) return
+  togglePinMatch(activeMatch.id)
+  const pinned = isPinnedMatch(activeMatch.id)
+  showToast(pinned ? 'Conversation pinned' : 'Conversation unpinned')
+  const pinBtn = document.getElementById('chat-pin-btn')
+  if (pinBtn) pinBtn.style.opacity = pinned ? '1' : '0.4'
+}
+
 async function deleteActiveConversation() {
   if (!activeMatch) return
   if (!confirm('Delete this conversation? This cannot be undone.')) return
@@ -4231,6 +4241,8 @@ function openChat(match) {
   chatAvEl.onclick = () => { if (other?.id) showProfilePreview(other.id) }
   el('chat-name').textContent = other?.display_name || 'User'
   el('chat-city').textContent = other?.city || ''
+  const pinBtn = document.getElementById('chat-pin-btn')
+  if (pinBtn) pinBtn.style.opacity = isPinnedMatch(match.id) ? '1' : '0.4'
 
   const chatEl = el('chat')
   chatEl.style.display = 'flex'
