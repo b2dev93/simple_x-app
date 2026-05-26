@@ -463,6 +463,7 @@
         </div>
         <p id="top-member-label" style="display:none;color:#f5c518;font-size:12px;font-weight:600;text-align:center;margin-top:-4px">Top Member ⭐</p>
         <p class="profile-city-label" id="profile-city-label"></p>
+        <p id="profile-view-count" style="color:#6b6866;font-size:12px;display:none"></p>
         <div style="display:flex;gap:8px;justify-content:center">
           <button class="edit-btn" onclick="toggleEdit()">Edit profile</button>
           <button class="edit-btn" onclick="showProfilePreview(currentUser.id)" style="background:#1c1c1c;border:1px solid #252525;color:#9e9b97">Preview</button>
@@ -2272,7 +2273,7 @@ async function openPostThread(postId) {
         ${isOwn || isAdminUser ? `<div style="display:flex;gap:6px">
           ${isOwn ? `<button onclick="editPost('${post.id}');document.getElementById('post-thread-page')?.remove()" style="background:none;border:none;color:#9e9b97;font-size:12px;cursor:pointer;padding:4px 8px;border-radius:8px;border:1px solid #252525">✏️ Edit</button>` : ''}
           <button onclick="deletePost('${post.id}');document.getElementById('post-thread-page')?.remove()" style="background:none;border:none;color:#6b6866;font-size:12px;cursor:pointer;padding:4px 8px;border-radius:8px;border:1px solid #252525">${isAdminUser && !isOwn ? 'Remove' : 'Delete'}</button>
-        </div>` : ''}
+        </div>` : `<button onclick="reportPost('${post.id}','${post.user_id}')" style="background:none;border:none;color:#6b6866;font-size:12px;cursor:pointer;padding:4px 8px;border-radius:8px;border:1px solid #252525">🚩 Report</button>`}
       </div>
       ${post.title ? `<p style="color:#f0ede8;font-size:16px;font-weight:700;margin-bottom:8px">${escapeHtml(post.title)}</p>` : ''}
       <p style="color:#9e9b97;font-size:14px;line-height:1.7;white-space:pre-wrap">${escapeHtml(post.body)}</p>
@@ -2650,7 +2651,7 @@ function startRealtimeListeners() {
           if (data) {
             showMatchModal(data)
             // Notify the OTHER user they got a match
-            sendPush(otherId, "It's a match! 🎉", `You matched with ${currentProfile?.display_name || 'someone'} on Simple-x`, 'match', m.id)
+            sendPush(otherId, `You matched with ${currentProfile?.display_name || 'someone'}! 🎉`, `Send them a message — don't keep them waiting!`, 'match', m.id)
           }
         })
       }
@@ -3670,14 +3671,25 @@ function renderCard() {
   setupSwipeGesture()
 }
 
-function renderEmptyState() {
+async function renderEmptyState() {
+  const { count: matchCount } = await sb.from('matches')
+    .select('*', { count: 'exact', head: true })
+    .or(`user_a.eq.${currentUser.id},user_b.eq.${currentUser.id}`)
   el('card-stack').innerHTML = `
     <div class="empty-state">
       <p class="empty-icon">🌿</p>
       <p class="empty-title">All caught up</p>
-      <p class="empty-sub">Check back soon — new people join every day</p>
+      <p class="empty-sub">You have ${matchCount || 0} match${matchCount === 1 ? '' : 'es'} so far. Try updating your filters or reset passed profiles to see everyone again.</p>
       <button class="btn-ghost" style="margin-top:16px;width:auto;padding:12px 28px" onclick="loadDiscover()">Refresh</button>
+      <button class="btn-ghost" style="margin-top:10px;width:auto;padding:12px 28px" onclick="resetPassedProfiles()">Reset passed profiles</button>
     </div>`
+}
+
+async function resetPassedProfiles() {
+  if (!confirm('This will let you see everyone you previously passed. Continue?')) return
+  await sb.from('swipes').delete().eq('swiper_id', currentUser.id).eq('direction', 'pass')
+  showToast('Passed profiles reset!')
+  loadDiscover()
 }
 
 async function maybeShowSecondLook(stack) {
@@ -4051,11 +4063,13 @@ async function loadMatches() {
   ])
 
   if ((!data || data.length === 0) && (!winks || winks.length === 0)) {
+    const isNew = currentProfile?.created_at && (Date.now() - new Date(currentProfile.created_at).getTime()) < 7 * 24 * 60 * 60 * 1000
     list.innerHTML = `
       <div class="empty-state" style="margin-top:40px">
-        <p class="empty-icon">💬</p>
-        <p class="empty-title">No matches yet</p>
-        <p class="empty-sub">Keep swiping — your first match is out there</p>
+        <p class="empty-icon">${isNew ? '✨' : '💬'}</p>
+        <p class="empty-title">${isNew ? 'Welcome to Simple-x!' : 'No matches yet'}</p>
+        <p class="empty-sub">${isNew ? 'Start swiping in Discover to find your first match! The community is here for you 💫' : 'Keep swiping — your first match is out there'}</p>
+        ${isNew ? `<button class="btn-ghost" style="margin-top:16px;width:auto;padding:12px 28px" onclick="switchTab2('discover')">Go to Discover</button>` : ''}
       </div>`
     return
   }
@@ -4972,6 +4986,23 @@ function renderProfileScreen() {
   renderStreakBadge()
   renderProfileCompletion()
   checkProfileNudge()
+  loadProfileViewCount()
+}
+
+async function loadProfileViewCount() {
+  const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+  const { count } = await sb.from('profile_views')
+    .select('*', { count: 'exact', head: true })
+    .eq('viewed_id', currentUser.id)
+    .gte('created_at', weekAgo)
+  const vcEl = document.getElementById('profile-view-count')
+  if (!vcEl) return
+  if (count > 0) {
+    vcEl.textContent = `👀 ${count} ${count === 1 ? 'person' : 'people'} viewed your profile this week`
+    vcEl.style.display = ''
+  } else {
+    vcEl.style.display = 'none'
+  }
 }
 
 function renderPhotoGrid() {
@@ -5692,6 +5723,18 @@ function reportUser() {
   document.querySelectorAll('.report-reason-btn').forEach(b => b.classList.remove('selected'))
   el('report-details').value = ''
   show('report-modal')
+}
+
+async function reportPost(postId, postUserId) {
+  if (!confirm('Report this post as inappropriate?')) return
+  const { error } = await sb.from('reports').insert({
+    reporter_id: currentUser.id,
+    reported_id: postUserId,
+    reason: 'Inappropriate post',
+    details: `Post ID: ${postId}`,
+  })
+  if (error) { showToast('Could not submit report.'); return }
+  showToast('Post reported. Thank you.')
 }
 
 async function submitReport() {
