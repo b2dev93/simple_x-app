@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -1815,50 +1815,76 @@ async function loadCommunity() {
     return
   }
 
-  list.innerHTML = posts.map(p => {
-    const name = escapeHtml(p.profiles?.display_name || 'Member')
-    const avatar = p.profiles?.photo_urls?.[0]
-    const isOwn = p.user_id === currentUser.id
-    const isAdminUser = currentProfile?.is_admin
-    const pinned = p.is_pinned
-    return `
-    <div style="background:#1c1c1c;border-radius:16px;border:1px solid ${pinned ? '#2e2a0a' : '#252525'};padding:16px;margin-bottom:14px;position:relative">
-      <div id="post-dot-${p.id}" style="display:none;position:absolute;top:14px;right:14px;width:8px;height:8px;border-radius:50%;background:#e8503a"></div>
-      ${pinned ? `<div style="position:absolute;top:12px;right:12px;font-size:14px">📌</div>` : ''}
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
-        <div class="avatar" style="width:36px;height:36px;font-size:13px;flex-shrink:0;background:${avatar ? 'none' : AVATAR_COLORS[Math.abs(name.charCodeAt(0)) % AVATAR_COLORS.length]}">
-          ${avatar ? `<img src="${avatar}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">` : name.charAt(0).toUpperCase()}
-        </div>
-        <div style="flex:1">
-          <p style="color:#f0ede8;font-size:14px;font-weight:600">${name}${pinned ? ' <span style="color:#f5c518;font-size:11px;font-weight:500">Pinned</span>' : ''}</p>
-          <p style="color:#6b6866;font-size:12px">${new Date(p.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
-        </div>
-        ${isOwn || isAdminUser ? `
-        <div style="display:flex;gap:6px" onclick="event.stopPropagation()">
-          ${isAdminUser ? `<button onclick="${pinned ? `unpinPost('${p.id}')` : `pinPost('${p.id}')`}" style="background:none;border:none;color:#f5c518;font-size:12px;cursor:pointer;padding:4px 8px;border-radius:8px;border:1px solid #2e2a0a">${pinned ? 'Unpin' : '📌 Pin'}</button>` : ''}
-          ${isOwn ? `<button onclick="editPost('${p.id}')" style="background:none;border:none;color:#9e9b97;font-size:12px;cursor:pointer;padding:4px 8px;border-radius:8px;border:1px solid #252525">✏️ Edit</button>` : ''}
-          <button onclick="deletePost('${p.id}')" style="background:none;border:none;color:#6b6866;font-size:12px;cursor:pointer;padding:4px 8px;border-radius:8px;border:1px solid #252525">
-            ${isAdminUser && !isOwn ? 'Remove' : 'Delete'}
-          </button>
-        </div>` : ''}
-      </div>
-      <div onclick="openPostThread('${p.id}')" style="cursor:pointer">
-        ${p.title ? `<p style="color:#f0ede8;font-size:15px;font-weight:600;margin-bottom:6px">${escapeHtml(p.title)}</p>` : ''}
-        <p style="color:#9e9b97;font-size:14px;line-height:1.6;white-space:pre-wrap;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden">${escapeHtml(p.body)}</p>
-      </div>
-      <div style="display:flex;gap:12px;margin-top:12px;padding-top:12px;border-top:1px solid #252525">
-        <button onclick="togglePostLike('${p.id}', this)" data-post="${p.id}" style="background:none;border:none;color:#6b6866;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:5px">
-          ❤️ <span id="like-count-${p.id}" onclick="event.stopPropagation();showPostLikers('${p.id}')" style="cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px">0</span>
-        </button>
-        <button onclick="openPostThread('${p.id}')" style="background:none;border:none;color:#6b6866;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:5px">
-          💬 <span id="comment-count-${p.id}">0</span>
-        </button>
-      </div>
-    </div>`
-  }).join('')
+  // Compute trending: top 3 most-liked posts from last 7 days (skip for 'mine' view)
+  let trendingPostIds = []
+  if (communityFilter !== 'mine' && posts.length > 0) {
+    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+    const { data: recentLikes } = await sb.from('post_likes')
+      .select('post_id')
+      .in('post_id', posts.map(p => p.id))
+      .gte('created_at', weekAgo)
+    if (recentLikes && recentLikes.length > 0) {
+      const likeCounts = {}
+      recentLikes.forEach(l => { likeCounts[l.post_id] = (likeCounts[l.post_id] || 0) + 1 })
+      trendingPostIds = Object.entries(likeCounts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3)
+        .map(([id]) => id)
+    }
+  }
+  const trendingPosts = trendingPostIds.map(id => posts.find(p => p.id === id)).filter(Boolean)
+  const mainPosts = posts.filter(p => !trendingPostIds.includes(p.id))
+
+  let trendingHtml = ''
+  if (trendingPosts.length > 0) {
+    trendingHtml = `<div style="margin-bottom:4px"><p style="color:#f0ede8;font-size:13px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;margin-bottom:12px">&#x1F525; Trending this week</p>${trendingPosts.map(p => renderPostCard(p, true)).join('')}</div><div style="border-top:1px solid #252525;margin-bottom:18px"></div>`
+  }
+
+  list.innerHTML = trendingHtml + mainPosts.map(p => renderPostCard(p, false)).join('')
 
   posts.forEach(p => loadPostStats(p.id))
   loadCommunityNotifs()
+}
+
+function renderPostCard(p, isTrending = false) {
+  const name = escapeHtml(p.profiles?.display_name || 'Member')
+  const avatar = p.profiles?.photo_urls?.[0]
+  const isOwn = p.user_id === currentUser.id
+  const isAdminUser = currentProfile?.is_admin
+  const pinned = p.is_pinned
+  const avatarBg = avatar ? 'none' : AVATAR_COLORS[Math.abs(name.charCodeAt(0)) % AVATAR_COLORS.length]
+  return `
+  <div style="background:#1c1c1c;border-radius:16px;border:1px solid ${isTrending ? '#3a1f00' : pinned ? '#2e2a0a' : '#252525'};padding:16px;margin-bottom:14px;position:relative">
+    <div id="post-dot-${p.id}" style="display:none;position:absolute;top:14px;right:14px;width:8px;height:8px;border-radius:50%;background:#e8503a"></div>
+    ${isTrending ? '<div style="position:absolute;top:12px;right:12px;background:#3a1f00;color:#ff8c42;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">&#x1F525; Trending</div>' : pinned ? '<div style="position:absolute;top:12px;right:12px;font-size:14px">&#x1F4CC;</div>' : ''}
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+      <div onclick="showProfilePreview('${p.user_id}')" class="avatar" style="width:36px;height:36px;font-size:13px;flex-shrink:0;background:${avatarBg};cursor:pointer">
+        ${avatar ? `<img src="${avatar}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">` : name.charAt(0).toUpperCase()}
+      </div>
+      <div style="flex:1">
+        <p style="color:#f0ede8;font-size:14px;font-weight:600">${name}${pinned ? ' <span style="color:#f5c518;font-size:11px;font-weight:500">Pinned</span>' : ''}</p>
+        <p style="color:#6b6866;font-size:12px">${new Date(p.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
+      </div>
+      ${isOwn || isAdminUser ? `
+      <div style="display:flex;gap:6px" onclick="event.stopPropagation()">
+        ${isAdminUser ? `<button onclick="${pinned ? `unpinPost('${p.id}')` : `pinPost('${p.id}')`}" style="background:none;border:none;color:#f5c518;font-size:12px;cursor:pointer;padding:4px 8px;border-radius:8px;border:1px solid #2e2a0a">${pinned ? 'Unpin' : '&#x1F4CC; Pin'}</button>` : ''}
+        ${isOwn ? `<button onclick="editPost('${p.id}')" style="background:none;border:none;color:#9e9b97;font-size:12px;cursor:pointer;padding:4px 8px;border-radius:8px;border:1px solid #252525">&#x270F;&#xFE0F; Edit</button>` : ''}
+        <button onclick="deletePost('${p.id}')" style="background:none;border:none;color:#6b6866;font-size:12px;cursor:pointer;padding:4px 8px;border-radius:8px;border:1px solid #252525">${isAdminUser && !isOwn ? 'Remove' : 'Delete'}</button>
+      </div>` : `<button onclick="reportPost('${p.id}','${p.user_id}')" style="background:none;border:none;color:#6b6866;font-size:12px;cursor:pointer;padding:4px 8px;border-radius:8px;border:1px solid #252525">&#x1F6A9; Report</button>`}
+    </div>
+    <div onclick="openPostThread('${p.id}')" style="cursor:pointer">
+      ${p.title ? `<p style="color:#f0ede8;font-size:15px;font-weight:600;margin-bottom:6px">${escapeHtml(p.title)}</p>` : ''}
+      <p style="color:#9e9b97;font-size:14px;line-height:1.6;white-space:pre-wrap;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden">${escapeHtml(p.body)}</p>
+    </div>
+    <div style="display:flex;gap:12px;margin-top:12px;padding-top:12px;border-top:1px solid #252525">
+      <button onclick="togglePostLike('${p.id}', this)" data-post="${p.id}" style="background:none;border:none;color:#6b6866;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:5px">
+        &#x2764;&#xFE0F; <span id="like-count-${p.id}" onclick="event.stopPropagation();showPostLikers('${p.id}')" style="cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px">0</span>
+      </button>
+      <button onclick="openPostThread('${p.id}')" style="background:none;border:none;color:#6b6866;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:5px">
+        &#x1F4AC; <span id="comment-count-${p.id}">0</span>
+      </button>
+    </div>
+  </div>`
 }
 
 const COMMUNITY_NOTIFS_SEEN_KEY = 'sx_community_notifs_seen'
@@ -3133,6 +3159,7 @@ async function showProfilePreview(userId) {
   previewPhotos = p.photo_urls || []
   previewPhotoIdx = 0
   previewCaptions = p.photo_captions || []
+  _previewProfile = p
 
   const modal = document.createElement('div')
   modal.id = 'profile-preview-modal'
@@ -3165,8 +3192,9 @@ async function showProfilePreview(userId) {
   })()
 
   modal.innerHTML = `
-    <div style="position:absolute;top:0;left:0;right:0;z-index:10;display:flex;padding:48px 16px 16px;background:linear-gradient(to bottom,rgba(0,0,0,0.65) 0%,transparent 100%);pointer-events:none">
+    <div style="position:absolute;top:0;left:0;right:0;z-index:10;display:flex;justify-content:space-between;padding:48px 16px 16px;background:linear-gradient(to bottom,rgba(0,0,0,0.65) 0%,transparent 100%);pointer-events:none">
       <button onclick="document.getElementById('profile-preview-modal')?.remove()" style="pointer-events:auto;background:rgba(0,0,0,0.45);border:none;border-radius:50%;width:46px;height:46px;color:#f0ede8;font-size:28px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1">‹</button>
+      <button onclick="shareCurrentPreview()" style="pointer-events:auto;background:rgba(0,0,0,0.45);border:none;border-radius:50%;width:46px;height:46px;color:#f0ede8;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center">📤</button>
     </div>
     <div id="preview-scroll" style="position:absolute;inset:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain">
       ${previewPhotos.length > 0
@@ -3404,6 +3432,21 @@ function previewCarouselGoTo(i) {
 }
 function previewCarouselNext() { previewCarouselNav(1) }
 function previewCarouselPrev() { previewCarouselNav(-1) }
+
+function shareCurrentPreview() {
+  const p = _previewProfile
+  if (!p) return
+  const name = p.display_name || 'Member'
+  const url = 'https://b2dev93.github.io/simple_x-app/'
+  const text = `Check out ${name}'s profile on Simple-x: ${url}`
+  if (navigator.share) {
+    navigator.share({ title: `${name} on Simple-x`, text, url }).catch(() => {})
+  } else {
+    navigator.clipboard?.writeText(url)
+      .then(() => showToast('Link copied!'))
+      .catch(() => showToast('Copy link: ' + url))
+  }
+}
 
 function askQuestion(userId, name) {
   const existing = document.getElementById('ask-question-modal')
@@ -3800,6 +3843,7 @@ function isVideoUrl(url) {
 let previewPhotos = []
 let previewPhotoIdx = 0
 let previewCaptions = []
+let _previewProfile = null
 
 function setupSwipeGesture() {
   const card = el('current-card')
@@ -4116,6 +4160,7 @@ async function loadMatches() {
     const seenTime = lastSeen ? new Date(lastSeen).getTime() : 0
     const unread = lastMsg && lastMsg.sender_id !== currentUser.id && msgTime > seenTime
     const pinned = pinnedIds.includes(m.id)
+    const isOnline = other?.last_seen && (Date.now() - new Date(other.last_seen).getTime()) < 15 * 60 * 1000
 
     const wrapper = document.createElement('div')
     wrapper.dataset.matchWrapper = m.id
@@ -4131,6 +4176,7 @@ async function loadMatches() {
           : `<div class="avatar" style="width:50px;height:50px;font-size:18px;background:${color}">${initial}</div>`
         }
         ${unread ? '<div style="position:absolute;top:0;right:0;width:12px;height:12px;border-radius:50%;background:#e8503a;border:2px solid #0a0a0a"></div>' : ''}
+        ${isOnline ? '<div style="position:absolute;bottom:1px;right:0;width:11px;height:11px;border-radius:50%;background:#2ecc71;border:2px solid #0a0a0a"></div>' : ''}
       </div>
       <div class="match-info">
         <div style="display:flex;justify-content:space-between;align-items:center">
