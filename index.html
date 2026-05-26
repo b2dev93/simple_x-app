@@ -922,6 +922,16 @@
           <option>Spiritual but not religious</option><option>Christian</option><option>Catholic</option><option>Jewish</option><option>Muslim</option><option>Hindu</option><option>Buddhist</option><option>Agnostic</option><option>Atheist</option><option>Prefer not to say</option><option>Other</option>
         </select>
       </div>
+      <div>
+        <p style="color:#6b6866;font-size:12px;margin-bottom:8px">Dating distance</p>
+        <select id="edit-dating-distance" class="input" style="color:#f0ede8;background:#1e1e1e">
+          <option value="">No preference</option>
+          <option>Local only (within 50 miles)</option>
+          <option>Open to short distance</option>
+          <option>Open to long distance</option>
+          <option>International friendly</option>
+        </select>
+      </div>
       <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-top:1px solid #1e1e1c">
         <div>
           <p style="color:#f0ede8;font-size:14px;font-weight:600">Willing to fly to meet</p>
@@ -1606,6 +1616,7 @@ async function enterApp(user) {
   renderProfileScreen()
   startRealtimeListeners()
   checkUnreadOnLoad()
+  setTimeout(checkUnrepliedMessages, 5000)
   requestLocation()
   checkUpgradeReturn()
   checkPremiumExpiry()
@@ -1700,6 +1711,51 @@ async function checkUnreadOnLoad() {
       return new Date(msg.created_at).getTime() > new Date(lastSeen).getTime()
     })
     if (hasActualUnread) setUnreadDot(true)
+  }
+}
+
+async function checkUnrepliedMessages() {
+  if (!currentUser || !currentProfile) return
+  try {
+    const { data: matches } = await sb.from('matches')
+      .select('id, user_a, user_b')
+      .or(`user_a.eq.${currentUser.id},user_b.eq.${currentUser.id}`)
+    if (!matches?.length) return
+
+    const matchIds = matches.map(m => m.id)
+    // Fetch most-recent message per match (ordered desc, 500 covers all active convos)
+    const { data: msgs } = await sb.from('messages')
+      .select('match_id, sender_id, created_at')
+      .in('match_id', matchIds)
+      .order('created_at', { ascending: false })
+      .limit(500)
+    if (!msgs?.length) return
+
+    // Build map: match_id → last message
+    const lastMsgMap = {}
+    msgs.forEach(msg => { if (!lastMsgMap[msg.match_id]) lastMsgMap[msg.match_id] = msg })
+
+    const threeDaysAgo = Date.now() - 3 * 24 * 60 * 60 * 1000
+    const myName = currentProfile.display_name || 'Someone'
+
+    matches.forEach(match => {
+      const lastMsg = lastMsgMap[match.id]
+      if (!lastMsg) return
+      // Only nudge if WE sent the last message and they haven't replied in 3+ days
+      if (lastMsg.sender_id !== currentUser.id) return
+      if (new Date(lastMsg.created_at).getTime() > threeDaysAgo) return
+
+      const otherId = match.user_a === currentUser.id ? match.user_b : match.user_a
+      // Throttle: one nudge per conversation per 24 hours
+      const nudgeKey = 'sx_nudge_' + match.id
+      const lastNudge = localStorage.getItem(nudgeKey)
+      if (lastNudge && Date.now() - parseInt(lastNudge) < 24 * 60 * 60 * 1000) return
+
+      sendPush(otherId, `${myName} is waiting for your reply 💬`, 'Open Simple-x to continue your conversation', 'message', match.id)
+      localStorage.setItem(nudgeKey, String(Date.now()))
+    })
+  } catch (e) {
+    console.error('[Nudge]', e)
   }
 }
 
@@ -3092,6 +3148,7 @@ async function showProfilePreview(userId) {
     p.children ? `Children: ${eH(p.children)}` : null,
     p.religion ? `Religion: ${eH(p.religion)}` : null,
     p.willing_to_fly ? `✈️ Willing to fly to meet` : null,
+    p.dating_distance ? `📍 Distance: ${eH(p.dating_distance)}` : null,
   ].filter(Boolean)
   const activityLabel = (() => {
     if (!p.last_seen) return null
@@ -4982,6 +5039,7 @@ function toggleEdit() {
   el('edit-cannabis').value = currentProfile?.cannabis || ''
   el('edit-children').value = currentProfile?.children || ''
   el('edit-religion').value = currentProfile?.religion || ''
+  el('edit-dating-distance').value = currentProfile?.dating_distance || ''
   const flyChecked = currentProfile?.willing_to_fly || false
   const flyEl = el('edit-willing-to-fly')
   if (flyEl) { flyEl.checked = flyChecked; updateFlyToggle(flyChecked) }
@@ -5198,6 +5256,7 @@ async function saveProfile() {
     children: el('edit-children').value || null,
     religion: el('edit-religion').value || null,
     willing_to_fly: el('edit-willing-to-fly')?.checked || false,
+    dating_distance: el('edit-dating-distance').value || null,
   }
   await sb.from('profiles').upsert(updates)
   currentProfile = { ...currentProfile, ...updates }
