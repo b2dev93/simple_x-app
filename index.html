@@ -1462,7 +1462,7 @@ async function handleForgotPassword() {
   const email = el('auth-email').value.trim()
   if (!email) { el('auth-error').textContent = 'Enter your email first'; el('auth-error').classList.remove('hidden'); return }
   el('auth-error').classList.add('hidden')
-  const redirectTo = window.location.origin + window.location.pathname
+  const redirectTo = 'https://b2dev93.github.io/simple_x-app/'
   const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo })
   if (error) { el('auth-error').textContent = error.message; el('auth-error').classList.remove('hidden') }
   else { showToast('Password reset email sent. Check your inbox.') }
