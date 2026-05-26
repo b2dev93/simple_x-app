@@ -1462,9 +1462,8 @@ async function handleForgotPassword() {
   const email = el('auth-email').value.trim()
   if (!email) { el('auth-error').textContent = 'Enter your email first'; el('auth-error').classList.remove('hidden'); return }
   el('auth-error').classList.add('hidden')
-  const { error } = await sb.auth.resetPasswordForEmail(email, {
-    redirectTo: window.location.href
-  })
+  const redirectTo = window.location.origin + window.location.pathname
+  const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo })
   if (error) { el('auth-error').textContent = error.message; el('auth-error').classList.remove('hidden') }
   else { showToast('Password reset email sent. Check your inbox.') }
 }
@@ -5906,9 +5905,82 @@ async function sendFeedback() {
   btn.disabled = false
 }
 
+// ── PASSWORD RESET ────────────────────────────────
+function showPasswordResetForm() {
+  document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'))
+  const existing = document.getElementById('pw-reset-screen')
+  if (existing) { existing.classList.remove('hidden'); return }
+  const div = document.createElement('div')
+  div.id = 'pw-reset-screen'
+  div.className = 'screen'
+  div.style.cssText = 'background:#0a0a0a;padding:60px 28px 40px;overflow-y:auto;flex-direction:column'
+  div.innerHTML = `
+    <div class="logo" style="--logo-size:34px;margin-bottom:8px"><span>simple</span><span>x</span></div>
+    <p style="color:#6b6866;font-size:14px;margin-bottom:36px">Set your new password</p>
+    <div class="form-fields">
+      <input class="input" id="pw-reset-new" type="password" placeholder="New password (min 6 characters)" autocomplete="new-password" />
+      <input class="input" id="pw-reset-confirm" type="password" placeholder="Confirm new password" autocomplete="new-password" />
+    </div>
+    <p class="error-msg hidden" id="pw-reset-error" style="margin-top:12px"></p>
+    <button class="btn-primary" id="pw-reset-btn" style="margin-top:20px" onclick="submitPasswordReset()">Set new password</button>
+  `
+  document.getElementById('app').appendChild(div)
+}
+
+async function submitPasswordReset() {
+  const newPass = document.getElementById('pw-reset-new')?.value || ''
+  const confirm = document.getElementById('pw-reset-confirm')?.value || ''
+  const errEl = document.getElementById('pw-reset-error')
+  const btn = document.getElementById('pw-reset-btn')
+  if (!newPass || newPass.length < 6) {
+    errEl.textContent = 'Password must be at least 6 characters.'
+    errEl.classList.remove('hidden')
+    return
+  }
+  if (newPass !== confirm) {
+    errEl.textContent = 'Passwords do not match.'
+    errEl.classList.remove('hidden')
+    return
+  }
+  errEl.classList.add('hidden')
+  if (btn) { btn.textContent = 'Saving…'; btn.disabled = true }
+  const { error } = await sb.auth.updateUser({ password: newPass })
+  if (error) {
+    errEl.textContent = error.message
+    errEl.classList.remove('hidden')
+    if (btn) { btn.textContent = 'Set new password'; btn.disabled = false }
+  } else {
+    document.getElementById('pw-reset-screen')?.remove()
+    showToast('Password updated! Signing you in…')
+    const { data: { session } } = await sb.auth.getSession()
+    if (session) await enterApp(session.user)
+    else show('auth')
+  }
+}
+
 // ── INIT ──────────────────────────────────────────
 async function init() {
+  // Detect password recovery redirect — Supabase puts tokens in the URL hash
+  const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''))
+  const searchParams = new URLSearchParams(window.location.search)
+  const isRecovery = hashParams.get('type') === 'recovery' || searchParams.get('type') === 'recovery'
+
+  // Listen for the Supabase PASSWORD_RECOVERY auth event as a reliable fallback
+  sb.auth.onAuthStateChange((event) => {
+    if (event === 'PASSWORD_RECOVERY') {
+      hide('splash')
+      showPasswordResetForm()
+    }
+  })
+
+  // If we can see the recovery token now, skip the splash delay
+  const delay = isRecovery ? 100 : 1800
   setTimeout(async () => {
+    if (isRecovery) {
+      hide('splash')
+      showPasswordResetForm()
+      return
+    }
     try {
       const { data: { session } } = await sb.auth.getSession()
       hide('splash')
@@ -5921,7 +5993,7 @@ async function init() {
       hide('splash')
       show('auth')
     }
-  }, 1800)
+  }, delay)
 }
 
 init()
