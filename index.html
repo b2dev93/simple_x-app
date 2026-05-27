@@ -580,9 +580,10 @@
         </div>
       </div>
       <div id="chat-starters">
-        <button class="starter-btn" onclick="useStarter(this)">Hey! How long have you been on Simple-x? 👋</button>
-        <button class="starter-btn" onclick="useStarter(this)">What's something you're passionate about? ✨</button>
-        <button class="starter-btn" onclick="useStarter(this)">Have you tried any good restaurants lately? 🍕</button>
+        <button class="starter-btn" onclick="useStarter(this)">How long have you been on your HSV journey? 🌱</button>
+        <button class="starter-btn" onclick="useStarter(this)">What's something that helped you most when you first found out? 💙</button>
+        <button class="starter-btn" onclick="useStarter(this)">Do you prefer suppressive therapy or episodic? 💊</button>
+        <button class="starter-btn" onclick="useStarter(this)">What's something you wish more people understood about HSV? 🧡</button>
       </div>
       <div id="emoji-picker" style="display:none;padding:10px 16px 8px;border-top:1px solid #1c1c1c;background:#141414;flex-shrink:0;flex-wrap:wrap;gap:2px;justify-content:space-around">
         <div style="display:flex;flex-wrap:wrap;gap:4px;justify-content:center">
@@ -841,6 +842,13 @@
         <textarea id="feedback-textarea" class="input" placeholder="Share your feedback or describe an issue..." rows="4" style="resize:none;margin-bottom:12px"></textarea>
         <button id="feedback-send-btn" onclick="sendFeedback()" class="btn-primary" style="margin-bottom:16px">Send</button>
         <p style="color:#6b6866;font-size:13px">Or email us: <a href="mailto:mostvaluedplanter@gmail.com" style="color:#e8503a;text-decoration:none">mostvaluedplanter@gmail.com</a></p>
+      </div>
+
+      <!-- Report a Bug -->
+      <div style="padding:20px 24px;border-bottom:1px solid #1e1e1c">
+        <h2 style="color:#9e9b97;font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:16px">Report a Bug 🐛</h2>
+        <textarea id="bug-report-textarea" class="input" placeholder="Describe the bug or issue you encountered..." rows="4" style="resize:none;margin-bottom:12px"></textarea>
+        <button id="bug-report-send-btn" onclick="sendBugReport()" class="btn-primary">Submit Bug Report</button>
       </div>
 
       <!-- App Updates -->
@@ -2004,8 +2012,17 @@ async function loadCommunityNotifs() {
         <span style="color:#f0ede8;font-size:14px;font-weight:700">🔔 Notifications</span>
         <span style="background:#e8503a;color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px">${notifs.length}</span>
       </div>
-      <button style="background:none;border:none;color:#6b6866;font-size:18px;cursor:pointer;padding:4px">${isExpanded ? '▲' : '▼'}</button>`
-    header.querySelector('button').onclick = () => { isExpanded = !isExpanded; render() }
+      <div style="display:flex;align-items:center;gap:6px">
+        <button id="clear-notifs-btn" style="background:none;border:1px solid #252525;color:#9e9b97;font-size:11px;font-weight:600;cursor:pointer;padding:4px 10px;border-radius:20px">Clear all</button>
+        <button id="toggle-notifs-btn" style="background:none;border:none;color:#6b6866;font-size:18px;cursor:pointer;padding:4px">${isExpanded ? '▲' : '▼'}</button>
+      </div>`
+    header.querySelector('#toggle-notifs-btn').onclick = () => { isExpanded = !isExpanded; render() }
+    header.querySelector('#clear-notifs-btn').onclick = () => {
+      localStorage.setItem(COMMUNITY_NOTIFS_SEEN_KEY, new Date().toISOString())
+      container.style.display = 'none'
+      const badge = document.getElementById('community-badge')
+      if (badge) badge.style.display = 'none'
+    }
     container.appendChild(header)
     if (!isExpanded) return
     notifs.slice(0, 10).forEach(n => {
@@ -3203,7 +3220,7 @@ async function showProfilePreview(userId) {
 
   // Check if matched
   const { data: match } = await sb.from('matches')
-    .select('id')
+    .select('id, created_at')
     .or(`and(user_a.eq.${currentUser.id},user_b.eq.${p.id}),and(user_a.eq.${p.id},user_b.eq.${currentUser.id})`)
     .maybeSingle()
 
@@ -3300,7 +3317,7 @@ async function showProfilePreview(userId) {
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap">
           <h2 style="color:#f0ede8;font-size:22px;font-weight:700">${eName}${age ? `, ${age}` : ''}${p.verified ? ' <span style="color:#4fc3f7;font-weight:900">✓</span>' : ''}</h2>
           ${activityLabel ? `<span style="background:${activityLabel.bg};color:${activityLabel.color};font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">${activityLabel.text}</span>` : ''}
-          ${isMatched ? `<span style="background:#3a1a14;color:#e8503a;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">✓ Matched</span>` : ''}
+          ${isMatched ? `<span style="background:#3a1a14;color:#e8503a;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">✓ Matched</span><span style="color:#6b6866;font-size:10px;margin-left:2px">Matched ${new Date(match.created_at).toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'})}</span>` : ''}
           ${isNewMember(p) ? `<span style="background:#0d2838;color:#4fc3f7;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">✦ NEW</span>` : ''}
         </div>
         ${p.badges?.length ? `<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px">${p.badges.map(b => `<span style="background:#1c1c1c;border:1px solid #252525;border-radius:20px;padding:3px 10px;font-size:12px;color:#f0ede8">${escapeHtml(b)}</span>`).join('')}</div>` : ''}
@@ -6235,6 +6252,30 @@ async function sendFeedback() {
     showToast('Failed to send. Please email us directly.')
   }
   btn.textContent = 'Send'
+  btn.disabled = false
+}
+
+async function sendBugReport() {
+  const textarea = el('bug-report-textarea')
+  const btn = el('bug-report-send-btn')
+  const text = textarea?.value.trim()
+  if (!text) { showToast('Please describe the bug before submitting.'); return }
+  btn.textContent = 'Sending...'
+  btn.disabled = true
+  try {
+    await emailjs.send('simplex_service', 'template_no11won', {
+      to_email: 'mostvaluedplanter@gmail.com',
+      to_name: 'Simple-x Support',
+      message: '[BUG REPORT] ' + text,
+      from_name: currentProfile?.display_name || 'User',
+      reply_to: currentUser?.email || '',
+    })
+    textarea.value = ''
+    showToast('Bug report sent. Thank you!')
+  } catch(e) {
+    showToast('Failed to send. Please email us directly.')
+  }
+  btn.textContent = 'Submit Bug Report'
   btn.disabled = false
 }
 
