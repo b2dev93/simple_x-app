@@ -361,10 +361,6 @@
 
       <!-- SWIPE VIEW -->
       <div id="discover-swipe-view" style="position:absolute;top:44px;left:0;right:0;bottom:0">
-        <div id="nearby-strip" style="display:none;position:absolute;top:0;left:0;right:0;z-index:5;background:#0a0a0a;padding:10px 16px 8px;border-bottom:1px solid #1c1c1c">
-          <p style="color:#9e9b97;font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;margin-bottom:8px">&#x1F4CD; People near you</p>
-          <div id="nearby-profiles" style="display:flex;gap:12px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding-bottom:2px"></div>
-        </div>
         <div class="card-stack" id="card-stack"></div>
       </div>
 
@@ -381,6 +377,7 @@
           <button onclick="setOnlineSort('oldest')" id="sort-oldest" style="flex-shrink:0;padding:6px 14px;border-radius:20px;border:1px solid #252525;background:transparent;color:#6b6866;font-size:13px;cursor:pointer">Oldest</button>
           <button onclick="setOnlineSort('newest')" id="sort-newest" style="flex-shrink:0;padding:6px 14px;border-radius:20px;border:1px solid #252525;background:transparent;color:#6b6866;font-size:13px;cursor:pointer">Newest Profiles</button>
           <button onclick="setOnlineSort('closest')" id="sort-closest" style="flex-shrink:0;padding:6px 14px;border-radius:20px;border:1px solid #252525;background:transparent;color:#6b6866;font-size:13px;cursor:pointer">Nearest</button>
+          <button onclick="setOnlineSort('today')" id="sort-today" style="flex-shrink:0;padding:6px 14px;border-radius:20px;border:1px solid #252525;background:transparent;color:#6b6866;font-size:13px;cursor:pointer">Active Today</button>
         </div>
         <div id="online-grid">
           <div style="grid-column:1/-1;text-align:center;padding:40px 0"><p style="color:#6b6866;font-size:14px">Loading...</p></div>
@@ -524,9 +521,10 @@
         <span class="nav-icon">🔍</span>
         <span class="nav-label">Discover</span>
       </button>
-      <button class="nav-btn" id="nav-messages" onclick="switchTab2('messages')" style="position:relative">
+      <button class="nav-btn" id="nav-messages" onclick="switchTab2('messages');setUnreadDot(false)" style="position:relative">
         <span class="nav-icon">💬</span>
         <span class="nav-label">Messages</span>
+        <span id="messages-badge" style="display:none;position:absolute;top:4px;right:18px;background:#e8503a;color:#fff;font-size:10px;font-weight:700;border-radius:50%;width:16px;height:16px;align-items:center;justify-content:center;line-height:1"></span>
       </button>
       <button class="nav-btn" id="nav-research" onclick="switchTab2('research');clearResearchBadge()" style="position:relative">
         <span class="nav-icon">📖</span>
@@ -1659,7 +1657,6 @@ async function enterApp(user) {
   currentProfile = data
   if (data?.lat) userLat = data.lat
   if (data?.lng) userLng = data.lng
-  if (userLat && userLng) setTimeout(loadNearbyProfiles, 1000)
   // Backfill email if missing
   if (data && !data.email && user.email) {
     await sb.from('profiles').update({ email: user.email }).eq('id', user.id)
@@ -2787,17 +2784,8 @@ function startRealtimeListeners() {
 }
 
 function setUnreadDot(show) {
-  let dot = document.getElementById('msg-dot')
-  if (show && !dot) {
-    dot = document.createElement('div')
-    dot.id = 'msg-dot'
-    dot.style.cssText = 'position:absolute;top:8px;right:50%;transform:translateX(14px);width:9px;height:9px;border-radius:50%;background:#e8503a;border:2px solid #141414;z-index:10'
-    const nav = el('nav-messages')
-    nav.style.position = 'relative'
-    nav.appendChild(dot)
-  } else if (!show && dot) {
-    dot.remove()
-  }
+  const badge = document.getElementById('messages-badge')
+  if (badge) badge.style.display = show ? 'flex' : 'none'
 }
 
 // ── NAV ───────────────────────────────────────────
@@ -2848,7 +2836,7 @@ function switchDiscoverTab(tab) {
 
 function setOnlineSort(sort) {
   currentOnlineSort = sort
-  const sorts = ['recent', 'youngest', 'oldest', 'newest', 'closest']
+  const sorts = ['recent', 'youngest', 'oldest', 'newest', 'closest', 'today']
   sorts.forEach(s => {
     const btn = el(`sort-${s}`)
     if (!btn) return
@@ -2911,16 +2899,15 @@ async function loadOnlineNow() {
     query = query.order('birthdate', { ascending: false })
   } else if (currentOnlineSort === 'oldest') {
     query = query.order('birthdate', { ascending: true })
-  } else if (currentOnlineSort === 'closest') {
+  } else if (currentOnlineSort === 'closest' || currentOnlineSort === 'today') {
     query = query.order('last_seen', { ascending: false, nullsFirst: false })
   }
 
   const { data } = await query
 
   let filtered = (data || []).filter(p => {
-    if (currentOnlineSort === 'recent') {
-      return p.last_seen != null
-    }
+    if (currentOnlineSort === 'recent') return p.last_seen != null
+    if (currentOnlineSort === 'today') return p.last_seen != null && (Date.now() - new Date(p.last_seen).getTime()) < 86400000
     return true
   })
 
@@ -4335,7 +4322,7 @@ async function loadMatches() {
     const preview = lastMsg
       ? (lastMsg.sender_id === currentUser.id ? 'You: ' : '') + escapeHtml(lastMsg.content)
       : 'Matched — say hey!'
-    const age = timeAgo(lastMsg ? lastMsg.created_at : m.created_at)
+    const age = formatMsgTime(lastMsg ? lastMsg.created_at : m.created_at)
     const seenKey = 'sx_last_seen_' + m.id
     const lastSeen = localStorage.getItem(seenKey)
     const msgTime = lastMsg ? new Date(lastMsg.created_at).getTime() : 0
@@ -4412,6 +4399,23 @@ function timeAgo(ts) {
   if (diff < 60) return Math.floor(diff) + 'm'
   if (diff < 1440) return Math.floor(diff / 60) + 'h'
   return Math.floor(diff / 1440) + 'd'
+}
+
+function formatMsgTime(ts) {
+  if (!ts) return ''
+  const d = new Date(ts)
+  const now = new Date()
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const yesterdayStart = new Date(todayStart.getTime() - 86400000)
+  if (d >= todayStart) {
+    let h = d.getHours(), m = d.getMinutes()
+    const ampm = h >= 12 ? 'pm' : 'am'
+    h = h % 12 || 12
+    return h + ':' + String(m).padStart(2, '0') + ampm
+  }
+  if (d >= yesterdayStart) return 'Yesterday'
+  if (d.getFullYear() === now.getFullYear()) return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  return d.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: '2-digit' })
 }
 
 
@@ -5889,51 +5893,9 @@ function requestLocation() {
     await sb.from('profiles').update({ lat: userLat, lng: userLng }).eq('id', currentUser.id)
     currentProfile.lat = userLat
     currentProfile.lng = userLng
-    loadNearbyProfiles()
   }, () => {}) // silently fail if denied
 }
 
-async function loadNearbyProfiles() {
-  if (!userLat || !userLng) return
-  const strip = document.getElementById('nearby-strip')
-  const container = document.getElementById('nearby-profiles')
-  if (!strip || !container) return
-
-  const { data: profiles } = await sb.from('profiles')
-    .select('id, display_name, photo_urls, lat, lng')
-    .or('incognito.is.null,incognito.eq.false')
-    .neq('id', currentUser.id)
-    .not('lat', 'is', null)
-    .limit(100)
-
-  if (!profiles?.length) return
-
-  const nearby = profiles
-    .filter(p => p.lat && p.lng && haversineDistance(userLat, userLng, p.lat, p.lng) <= 25)
-    .sort((a, b) => haversineDistance(userLat, userLng, a.lat, a.lng) - haversineDistance(userLat, userLng, b.lat, b.lng))
-    .slice(0, 5)
-
-  if (!nearby.length) return
-
-  strip.style.display = ''
-  container.innerHTML = nearby.map(p => {
-    const photo = p.photo_urls?.[0]
-    const name = escapeHtml((p.display_name || 'Member').split(' ')[0])
-    const dist = Math.round(haversineDistance(userLat, userLng, p.lat, p.lng))
-    const color = AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length]
-    return `<div onclick="showProfilePreview('${p.id}')" style="display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;flex-shrink:0;width:58px">
-      <div style="width:52px;height:52px;border-radius:50%;overflow:hidden;border:2px solid #e8503a;background:${color};display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:#fff;flex-shrink:0">
-        ${photo ? `<img src="${photo}" style="width:100%;height:100%;object-fit:cover">` : name.charAt(0)}
-      </div>
-      <span style="color:#f0ede8;font-size:11px;font-weight:600;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:58px">${name}</span>
-      <span style="color:#6b6866;font-size:10px">${dist}mi</span>
-    </div>`
-  }).join('')
-
-  // Push card stack below strip
-  const cardStack = document.getElementById('card-stack')
-  if (cardStack) cardStack.style.top = strip.offsetHeight + 'px'
-}
 
 function haversineDistance(lat1, lng1, lat2, lng2) {
   const R = 3958.8 // miles
