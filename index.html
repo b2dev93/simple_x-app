@@ -521,7 +521,7 @@
         <span class="nav-icon">🔍</span>
         <span class="nav-label">Discover</span>
       </button>
-      <button class="nav-btn" id="nav-messages" onclick="switchTab2('messages');setUnreadDot(false)" style="position:relative">
+      <button class="nav-btn" id="nav-messages" onclick="switchTab2('messages')" style="position:relative">
         <span class="nav-icon">💬</span>
         <span class="nav-label">Messages</span>
         <span id="messages-badge" style="display:none;position:absolute;top:4px;right:18px;background:#e8503a;color:#fff;font-size:10px;font-weight:700;border-radius:50%;width:16px;height:16px;align-items:center;justify-content:center;line-height:1"></span>
@@ -2801,7 +2801,7 @@ function switchTab2(tab) {
   })
   el('location-pill').style.display = tab === 'discover' ? '' : 'none'
   el('settings-gear-btn').style.display = tab === 'profile' ? '' : 'none'
-  if (tab === 'messages') { loadMatches(); loadGroups() }
+  if (tab === 'messages') { loadMatches(); loadGroups(); setUnreadDot(false) }
   if (tab === 'research') loadResearch()
   if (tab === 'community') loadCommunity()
   if (tab === 'profile') { renderProfileScreen(); loadMyQuestions() }
@@ -3276,7 +3276,7 @@ async function showProfilePreview(userId) {
       <div id="preview-photo-section">
         ${previewPhotos.length > 0
           ? buildPreviewCarouselHtml(previewPhotos, captions)
-          : `<div style="width:100%;height:420px;background:#252525;display:flex;align-items:center;justify-content:center;font-size:64px;color:#f0ede8">${name.charAt(0).toUpperCase()}</div>`
+          : `<div style="width:100%;height:420px;background:#252525;display:flex;align-items:center;justify-content:center;font-size:64px;color:#f0ede8">${escapeHtml(name.charAt(0).toUpperCase())}</div>`
         }
       </div>
       ${userId !== currentUser.id ? `
@@ -3523,7 +3523,7 @@ function switchPreviewTab(tab) {
     previewCaptions = _previewPublicCaptions
     previewPhotoIdx = 0
     photoSection.innerHTML = buildPreviewCarouselHtml(previewPhotos, previewCaptions)
-    if (!previewPhotos.length) photoSection.innerHTML = `<div id="preview-photo-section-empty" style="width:100%;height:420px;background:#252525;display:flex;align-items:center;justify-content:center;font-size:64px;color:#f0ede8">${(_previewProfile?.display_name || '?').charAt(0).toUpperCase()}</div>`
+    if (!previewPhotos.length) photoSection.innerHTML = `<div id="preview-photo-section-empty" style="width:100%;height:420px;background:#252525;display:flex;align-items:center;justify-content:center;font-size:64px;color:#f0ede8">${escapeHtml((_previewProfile?.display_name || '?').charAt(0).toUpperCase())}</div>`
     attachPreviewCarouselTouch()
   } else {
     if (_previewAlbumStatus === 'approved' && _previewPrivatePhotos.length > 0) {
@@ -3715,7 +3715,7 @@ async function updateLastSeen() {
 
 async function loadDiscover() {
   secondLookChecked = false
-  el('card-stack').innerHTML = '<div class="empty-state"><p style="color:#6b6866;font-size:14px">Finding people nearby...</p></div>'
+  el('card-stack').innerHTML = '<div class="empty-state"><p style="color:#6b6866;font-size:14px">Loading profiles...</p></div>'
   const [{ data: swipes }, { data: hardNoSwipes }] = await Promise.all([
     sb.from('swipes').select('swiped_id').eq('swiper_id', currentUser.id),
     sb.from('swipes').select('swiped_id').eq('swiper_id', currentUser.id).eq('direction', 'hard_no').limit(5000)
@@ -4194,7 +4194,7 @@ function showMatchModal(profile) {
     } else {
       const myName = currentProfile?.display_name || '?'
       ringMe.style.background = cols[myName.charCodeAt(0) % cols.length]
-      ringMe.innerHTML = `<span style="color:#fff;font-size:36px;font-weight:700;line-height:1">${myName[0].toUpperCase()}</span>`
+      ringMe.innerHTML = `<span style="color:#fff;font-size:36px;font-weight:700;line-height:1">${escapeHtml(myName[0].toUpperCase())}</span>`
     }
   }
   const ringThem = el('match-photo-ring-them')
@@ -4203,7 +4203,7 @@ function showMatchModal(profile) {
       ringThem.innerHTML = `<img src="${profile.photo_urls[0]}" style="width:100%;height:100%;object-fit:cover" />`
     } else {
       ringThem.style.background = cols[(profile.display_name || '?').charCodeAt(0) % cols.length]
-      ringThem.innerHTML = `<span style="color:#fff;font-size:36px;font-weight:700;line-height:1">${(profile.display_name || '?')[0].toUpperCase()}</span>`
+      ringThem.innerHTML = `<span style="color:#fff;font-size:36px;font-weight:700;line-height:1">${escapeHtml((profile.display_name || '?')[0].toUpperCase())}</span>`
     }
   }
   el('match-modal-sub').textContent = `You and ${profile.display_name} liked each other`
