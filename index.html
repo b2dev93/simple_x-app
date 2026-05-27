@@ -580,10 +580,9 @@
         </div>
       </div>
       <div id="chat-starters">
-        <button class="starter-btn" onclick="useStarter(this)">How long have you been on your HSV journey? 🌱</button>
-        <button class="starter-btn" onclick="useStarter(this)">What's something that helped you most when you first found out? 💙</button>
-        <button class="starter-btn" onclick="useStarter(this)">Do you prefer suppressive therapy or episodic? 💊</button>
-        <button class="starter-btn" onclick="useStarter(this)">What's something you wish more people understood about HSV? 🧡</button>
+        <button class="starter-btn" onclick="useStarter(this)">Hey! How long have you been on Simple-x? 👋</button>
+        <button class="starter-btn" onclick="useStarter(this)">What's something you're passionate about? ✨</button>
+        <button class="starter-btn" onclick="useStarter(this)">Have you tried any good restaurants lately? 🍕</button>
       </div>
       <div id="emoji-picker" style="display:none;padding:10px 16px 8px;border-top:1px solid #1c1c1c;background:#141414;flex-shrink:0;flex-wrap:wrap;gap:2px;justify-content:space-around">
         <div style="display:flex;flex-wrap:wrap;gap:4px;justify-content:center">
@@ -3317,7 +3316,7 @@ async function showProfilePreview(userId) {
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap">
           <h2 style="color:#f0ede8;font-size:22px;font-weight:700">${eName}${age ? `, ${age}` : ''}${p.verified ? ' <span style="color:#4fc3f7;font-weight:900">✓</span>' : ''}</h2>
           ${activityLabel ? `<span style="background:${activityLabel.bg};color:${activityLabel.color};font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">${activityLabel.text}</span>` : ''}
-          ${isMatched ? `<span style="background:#3a1a14;color:#e8503a;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">✓ Matched</span><span style="color:#6b6866;font-size:10px;margin-left:2px">Matched ${new Date(match.created_at).toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'})}</span>` : ''}
+          ${isMatched ? `<span style="background:#3a1a14;color:#e8503a;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">✓ Matched</span>${match.created_at ? `<span style="color:#6b6866;font-size:10px;margin-left:2px">Matched ${new Date(match.created_at).toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'})}</span>` : ''}` : ''}
           ${isNewMember(p) ? `<span style="background:#0d2838;color:#4fc3f7;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">✦ NEW</span>` : ''}
         </div>
         ${p.badges?.length ? `<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px">${p.badges.map(b => `<span style="background:#1c1c1c;border:1px solid #252525;border-radius:20px;padding:3px 10px;font-size:12px;color:#f0ede8">${escapeHtml(b)}</span>`).join('')}</div>` : ''}
@@ -5717,6 +5716,28 @@ const RESEARCH_ARTICLES = [
     tagColor: "#3b9eff",
     tagBg: "#0a1929",
     link: "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3890387/",
+    isNew: true
+  },
+  {
+    title: "Berberine: emerging natural antiviral with early lab evidence",
+    date: "Holistic — Emerging Evidence",
+    oneLiner: "A plant-derived compound showing antiviral activity against herpes in early lab studies.",
+    summary: "Berberine is a natural alkaloid found in plants like goldenseal, barberry, and Oregon grape. Several in vitro (lab) studies have shown berberine can inhibit HSV-1 and HSV-2 replication by interfering with viral attachment and entry into cells. While human clinical trials are limited, berberine is widely used as a supplement for metabolic health and is generally well tolerated at 500mg daily. Some HSV community members report reduced outbreak frequency. More research is needed before strong claims can be made. Consult your doctor before adding any supplement.",
+    tag: "Holistic",
+    tagColor: "#27ae60",
+    tagBg: "#0d2e1a",
+    link: "https://pubmed.ncbi.nlm.nih.gov/30366385/",
+    isNew: true
+  },
+  {
+    title: "Propolis: bee-derived compound with clinical evidence for outbreak healing",
+    date: "Holistic — Evidence Based",
+    oneLiner: "A natural bee product shown in clinical trials to heal HSV outbreaks faster than acyclovir cream.",
+    summary: "Propolis is a resin-like substance bees use to seal their hives. It has strong antiviral, antibacterial, and anti-inflammatory properties. A randomized controlled trial comparing propolis ointment to acyclovir cream for genital herpes found propolis healed outbreaks faster and had higher rates of complete healing by day 10. It is available as a topical ointment or extract. Look for products labeled 3% propolis extract. While impressive, this was a single trial and more research is needed. A good complementary option alongside conventional treatment.",
+    tag: "Holistic",
+    tagColor: "#27ae60",
+    tagBg: "#0d2e1a",
+    link: "https://pubmed.ncbi.nlm.nih.gov/11560161/",
     isNew: true
   },
 ]
