@@ -945,6 +945,20 @@
         </select>
       </div>
       <div>
+        <p style="color:#6b6866;font-size:12px;margin-bottom:8px">Nicotine</p>
+        <select id="edit-nicotine" class="input" style="color:#f0ede8;background:#1e1e1e">
+          <option value="">Select</option>
+          <option>No nicotine</option><option>Social use</option><option>Daily use</option><option>Sober/Recovery</option>
+        </select>
+      </div>
+      <div>
+        <p style="color:#6b6866;font-size:12px;margin-bottom:8px">Work lifestyle</p>
+        <select id="edit-work-lifestyle" class="input" style="color:#f0ede8;background:#1e1e1e">
+          <option value="">Select</option>
+          <option>Remote worker</option><option>Hybrid worker</option><option>Travel for work</option><option>Open to relocation</option>
+        </select>
+      </div>
+      <div>
         <p style="color:#6b6866;font-size:12px;margin-bottom:8px">Children</p>
         <select id="edit-children" class="input" style="color:#f0ede8;background:#1e1e1e">
           <option value="">Select</option>
@@ -3250,6 +3264,8 @@ async function showProfilePreview(userId) {
     (p.looking_for_age_min || p.looking_for_age_max) ? `Looking for ages: ${p.looking_for_age_min ?? 18}–${p.looking_for_age_max ?? 99}` : null,
     p.alcohol ? `Alcohol: ${eH(p.alcohol)}` : null,
     p.cannabis ? `Cannabis: ${eH(p.cannabis)}` : null,
+    p.nicotine ? `Nicotine: ${eH(p.nicotine)}` : null,
+    p.work_lifestyle ? `Work: ${eH(p.work_lifestyle)}` : null,
     p.children ? `Children: ${eH(p.children)}` : null,
     p.religion ? `Religion: ${eH(p.religion)}` : null,
     p.willing_to_fly ? `✈️ Willing to fly to meet` : null,
@@ -3793,8 +3809,12 @@ function renderCard() {
           <div>
             <p class="card-name">${escapeHtml(p.display_name || 'Member')}${p.birthdate ? ', ' + getAge(p.birthdate) : ''}${p.verified ? " ✓" : ""}</p>
             <p class="card-city">${escapeHtml(p.city || 'Nearby')}${(userLat && userLng && p.lat && p.lng) ? ' · ' + Math.round(haversineDistance(userLat, userLng, p.lat, p.lng)) + ' mi' : ''}${p.relationship_type ? ' · ' + escapeHtml(p.relationship_type) : ''}</p>
+            ${p.occupation ? `<p class="card-city" style="margin-top:2px;opacity:0.85">💼 ${escapeHtml(p.occupation)}</p>` : ''}
           </div>
-          ${p.hsv_type ? `<span class="card-badge">${escapeHtml(p.hsv_type)}</span>` : ''}
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+            ${p.hsv_type ? `<span class="card-badge">${escapeHtml(p.hsv_type)}</span>` : ''}
+            ${p.relationship_status ? `<span style="display:inline-block;background:rgba(255,255,255,0.18);color:#fff;font-size:12px;font-weight:600;padding:4px 10px;border-radius:20px;backdrop-filter:blur(4px)">${escapeHtml(p.relationship_status)}</span>` : ''}
+          </div>
         </div>
         ${p.bio ? `<p class="card-bio">${escapeHtml(p.bio)}</p>` : ''}
       </div>
@@ -5231,6 +5251,8 @@ function toggleEdit() {
   el('edit-rel-status').value = currentProfile?.relationship_status || ''
   el('edit-alcohol').value = currentProfile?.alcohol || ''
   el('edit-cannabis').value = currentProfile?.cannabis || ''
+  el('edit-nicotine').value = currentProfile?.nicotine || ''
+  el('edit-work-lifestyle').value = currentProfile?.work_lifestyle || ''
   el('edit-children').value = currentProfile?.children || ''
   el('edit-religion').value = currentProfile?.religion || ''
   el('edit-dating-distance').value = currentProfile?.dating_distance || ''
@@ -5447,6 +5469,8 @@ async function saveProfile() {
     relationship_status: el('edit-rel-status').value || null,
     alcohol: el('edit-alcohol').value || null,
     cannabis: el('edit-cannabis').value || null,
+    nicotine: el('edit-nicotine').value || null,
+    work_lifestyle: el('edit-work-lifestyle').value || null,
     children: el('edit-children').value || null,
     religion: el('edit-religion').value || null,
     willing_to_fly: el('edit-willing-to-fly')?.checked || false,
