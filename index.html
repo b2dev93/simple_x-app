@@ -460,6 +460,7 @@
         </div>
         <div style="display:flex;align-items:center;gap:8px;justify-content:center;flex-wrap:wrap">
           <p class="profile-name" id="profile-display-name"></p>
+          <span id="profile-verified-badge" style="display:none;color:#4fc3f7;font-size:18px;font-weight:900;line-height:1">✓</span>
           <span id="streak-badge" style="display:none;background:#ff6348;color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;white-space:nowrap"></span>
         </div>
         <p id="top-member-label" style="display:none;color:#f5c518;font-size:12px;font-weight:600;text-align:center;margin-top:-4px">Top Member ⭐</p>
@@ -469,6 +470,7 @@
           <button class="edit-btn" onclick="toggleEdit()">Edit profile</button>
           <button class="edit-btn" onclick="showProfilePreview(currentUser.id)" style="background:#1c1c1c;border:1px solid #252525;color:#9e9b97">Preview</button>
         </div>
+        <button onclick="copyProfileLink()" style="background:transparent;border:none;color:#6b6866;font-size:12px;cursor:pointer;padding:4px 0;margin-top:2px">🔗 Copy profile link</button>
         <div id="profile-completion-bar" style="margin-top:12px;display:none;align-self:stretch;width:100%">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
             <span style="color:#9e9b97;font-size:12px">Profile strength</span>
@@ -494,17 +496,6 @@
           <p id="premium-sub-label" class="premium-sub">Unlimited likes · Unlimited messages</p>
         </div>
         <span id="premium-badge-label" class="premium-badge">$10/mo</span>
-      </div>
-      <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 0;border-top:1px solid #1e1e1c">
-        <div>
-          <p style="color:#f0ede8;font-size:14px;font-weight:600">Incognito mode</p>
-          <p style="color:#6b6866;font-size:12px;margin-top:2px">Hide from Discover. Only people you like can find you.</p>
-        </div>
-        <label style="position:relative;display:inline-block;width:44px;height:24px;cursor:pointer">
-          <input type="checkbox" id="incognito-toggle" onchange="toggleIncognito(this.checked)" style="opacity:0;width:0;height:0">
-          <span id="incognito-slider" style="position:absolute;inset:0;background:#2a2a2a;border-radius:24px;transition:0.2s"></span>
-          <span id="incognito-thumb" style="position:absolute;left:3px;top:3px;width:18px;height:18px;background:#fff;border-radius:50%;transition:0.2s"></span>
-        </label>
       </div>
       <button id="boost-btn" class="btn-ghost" onclick="boostProfile()" style="display:flex;justify-content:space-between;align-items:center">
         <span>🚀 Boost profile</span>
@@ -801,6 +792,22 @@
             <input type="checkbox" id="sounds-toggle" onchange="toggleSounds(this.checked)" style="opacity:0;width:0;height:0">
             <span id="sounds-slider" style="position:absolute;inset:0;background:#2a2a2a;border-radius:24px;transition:0.2s"></span>
             <span id="sounds-thumb" style="position:absolute;left:3px;top:3px;width:18px;height:18px;background:#fff;border-radius:50%;transition:0.2s"></span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Privacy -->
+      <div style="padding:20px 24px;border-bottom:1px solid #1e1e1c">
+        <h2 style="color:#9e9b97;font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:16px">Privacy</h2>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0">
+          <div>
+            <p style="color:#f0ede8;font-size:15px">Incognito mode</p>
+            <p style="color:#6b6866;font-size:12px;margin-top:2px">Hide from Discover &amp; Online. Only people you like can find you.</p>
+          </div>
+          <label style="position:relative;display:inline-block;width:44px;height:24px;cursor:pointer;flex-shrink:0">
+            <input type="checkbox" id="incognito-toggle" onchange="toggleIncognito(this.checked)" style="opacity:0;width:0;height:0">
+            <span id="incognito-slider" style="position:absolute;inset:0;background:#2a2a2a;border-radius:24px;transition:0.2s"></span>
+            <span id="incognito-thumb" style="position:absolute;left:3px;top:3px;width:18px;height:18px;background:#fff;border-radius:50%;transition:0.2s"></span>
           </label>
         </div>
       </div>
@@ -1858,9 +1865,10 @@ async function loadCommunity() {
   if (!posts || posts.length === 0) {
     list.innerHTML = `
       <div style="text-align:center;padding:60px 20px">
-        <p style="font-size:32px;margin-bottom:12px">💬</p>
-        <p style="color:#f0ede8;font-size:16px;font-weight:600;margin-bottom:8px">${communityFilter === 'mine' ? 'No posts yet' : 'No posts yet'}</p>
-        <p style="color:#6b6866;font-size:14px">${communityFilter === 'mine' ? "You haven't posted yet." : 'Be the first to share something with the community.'}</p>
+        <p style="font-size:32px;margin-bottom:12px">${communityFilter === 'mine' ? '📝' : '🌱'}</p>
+        <p style="color:#f0ede8;font-size:16px;font-weight:600;margin-bottom:8px">${communityFilter === 'mine' ? "You haven't posted yet" : 'Be the first to post!'}</p>
+        <p style="color:#6b6866;font-size:14px;margin-bottom:20px">${communityFilter === 'mine' ? 'Share your thoughts, ask a question, or start a discussion.' : 'This community is waiting for its first voice — make it yours.'}</p>
+        <button onclick="showNewPostModal()" style="background:#e8503a;border:none;border-radius:24px;color:#fff;font-size:14px;font-weight:700;padding:12px 28px;cursor:pointer">Write a post</button>
       </div>`
     return
   }
@@ -3290,7 +3298,7 @@ async function showProfilePreview(userId) {
       </div>` : ''}
       <div style="padding:20px 24px 40px;background:#141414">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap">
-          <h2 style="color:#f0ede8;font-size:22px;font-weight:700">${eName}${age ? `, ${age}` : ''}</h2>
+          <h2 style="color:#f0ede8;font-size:22px;font-weight:700">${eName}${age ? `, ${age}` : ''}${p.verified ? ' <span style="color:#4fc3f7;font-weight:900">✓</span>' : ''}</h2>
           ${activityLabel ? `<span style="background:${activityLabel.bg};color:${activityLabel.color};font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">${activityLabel.text}</span>` : ''}
           ${isMatched ? `<span style="background:#3a1a14;color:#e8503a;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">✓ Matched</span>` : ''}
           ${isNewMember(p) ? `<span style="background:#0d2838;color:#4fc3f7;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">✦ NEW</span>` : ''}
@@ -3794,7 +3802,7 @@ function renderCard() {
       <div class="card-overlay" onclick="if(discoverProfiles[discoverIdx])showProfilePreview(discoverProfiles[discoverIdx].id)" style="cursor:pointer">
         <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:8px">
           <div>
-            <p class="card-name">${escapeHtml(p.display_name || 'Member')}${p.birthdate ? ', ' + getAge(p.birthdate) : ''}${p.verified ? " ✓" : ""}</p>
+            <p class="card-name">${escapeHtml(p.display_name || 'Member')}${p.birthdate ? ', ' + getAge(p.birthdate) : ''}${p.verified ? ' <span style="color:#4fc3f7;font-weight:900">✓</span>' : ''}</p>
             <p class="card-city">${escapeHtml(p.city || 'Nearby')}${(userLat && userLng && p.lat && p.lng) ? ' · ' + Math.round(haversineDistance(userLat, userLng, p.lat, p.lng)) + ' mi' : ''}${p.relationship_type ? ' · ' + escapeHtml(p.relationship_type) : ''}</p>
             ${p.occupation ? `<p class="card-city" style="margin-top:2px;opacity:0.85">💼 ${escapeHtml(p.occupation)}</p>` : ''}
           </div>
@@ -4284,9 +4292,9 @@ async function loadMatches() {
     list.innerHTML = `
       <div class="empty-state" style="margin-top:40px">
         <p class="empty-icon">${isNew ? '✨' : '💬'}</p>
-        <p class="empty-title">${isNew ? 'Welcome to Simple-x!' : 'No matches yet'}</p>
-        <p class="empty-sub">${isNew ? 'Start swiping in Discover to find your first match! The community is here for you 💫' : 'Keep swiping — your first match is out there'}</p>
-        ${isNew ? `<button class="btn-ghost" style="margin-top:16px;width:auto;padding:12px 28px" onclick="switchTab2('discover')">Go to Discover</button>` : ''}
+        <p class="empty-title">${isNew ? 'Welcome to Simple-x!' : 'No conversations yet'}</p>
+        <p class="empty-sub">${isNew ? 'Start swiping to find your first match!' : 'Start swiping in Discover to find a match and start talking.'}</p>
+        <button class="btn-ghost" style="margin-top:16px;width:auto;padding:12px 28px" onclick="switchTab2('discover')">Go to Discover</button>
       </div>`
     return
   }
@@ -5142,6 +5150,8 @@ function renderProfileScreen() {
   const p = currentProfile
   avatarEl(p.display_name || '?', 76, 2, el('profile-avatar'), p.photo_urls?.[0])
   el('profile-display-name').textContent = p.display_name || ''
+  const verifiedBadge = document.getElementById('profile-verified-badge')
+  if (verifiedBadge) verifiedBadge.style.display = p.verified ? 'inline' : 'none'
   el('profile-city-label').textContent = p.city || 'Add your city'
   const fields = [['Type', p.hsv_type], ['City', p.city], ['Bio', p.bio]].filter(([,v]) => v)
   el('profile-fields').innerHTML = fields.map(([l, v]) =>
@@ -5279,6 +5289,21 @@ function toggleEdit() {
 
 function closeEditPage() {
   el('edit-profile-page').style.display = 'none'
+}
+
+function copyProfileLink() {
+  const url = 'https://b2dev93.github.io/simple_x-app/'
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(url).then(() => showToast('Link copied!'))
+  } else {
+    const ta = document.createElement('textarea')
+    ta.value = url
+    document.body.appendChild(ta)
+    ta.select()
+    document.execCommand('copy')
+    ta.remove()
+    showToast('Link copied!')
+  }
 }
 
 // Touch drag state for photo reordering
@@ -6110,6 +6135,12 @@ function openSettings() {
     if (sl)  sl.style.background = val ? '#e8503a' : '#2a2a2a'
     if (th)  th.style.transform  = val ? 'translateX(16px)' : 'translateX(0)'
   })
+
+  const incogToggle = el('incognito-toggle'), incogSlider = el('incognito-slider'), incogThumb = el('incognito-thumb')
+  const isIncognito = currentProfile?.incognito || false
+  if (incogToggle) incogToggle.checked = isIncognito
+  if (incogSlider) incogSlider.style.background = isIncognito ? '#e8503a' : '#2a2a2a'
+  if (incogThumb) incogThumb.style.transform = isIncognito ? 'translateX(20px)' : 'translateX(0)'
 
   loadBlockedMembers()
 }
