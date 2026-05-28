@@ -3697,12 +3697,41 @@ async function sendWink(userId, name, btn) {
     .select('id').eq('sender_id', currentUser.id).eq('receiver_id', userId)
     .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
     .maybeSingle()
-
-  if (existing) { showToast(`You already winked at ${name} recently.`); return }
+  if (existing) { showToast(`You already winked at ${name} recently.`); if (btn) { btn.textContent = '😉'; btn.disabled = false } return }
 
   await sb.from('winks').insert({ sender_id: currentUser.id, receiver_id: userId })
-  sendPush(userId, '😉 Someone winked at you!', `${currentProfile?.display_name || 'Someone'} winked at you on Simple-x`, 'wink')
+
+  // Find or create a conversation thread for the wink
+  let { data: winkMatch } = await sb.from('matches')
+    .select('id, user_a, user_b')
+    .or(`and(user_a.eq.${currentUser.id},user_b.eq.${userId}),and(user_a.eq.${userId},user_b.eq.${currentUser.id})`)
+    .maybeSingle()
+  if (!winkMatch) {
+    const { data: nm } = await sb.from('matches')
+      .insert({ user_a: currentUser.id, user_b: userId })
+      .select('id, user_a, user_b')
+      .single()
+    winkMatch = nm
+  }
+  if (winkMatch) {
+    await sb.from('messages').insert({ match_id: winkMatch.id, sender_id: currentUser.id, content: '[wink]' })
+    sendPush(userId, '😉 ' + (currentProfile?.display_name || 'Someone') + ' winked at you!',
+      `Tap to open the conversation on Simple-x`, 'wink', winkMatch.id)
+  } else {
+    sendPush(userId, '😉 Someone winked at you!', `${currentProfile?.display_name || 'Someone'} winked at you on Simple-x`, 'wink')
+  }
   showToast(`Wink sent to ${name}! 😉`)
+}
+
+async function winkBackFromChat(btn) {
+  if (!activeMatch) return
+  const other = activeMatch.user_a === currentUser.id ? activeMatch.profiles_b : activeMatch.profiles_a
+  if (!other) return
+  if (btn) { btn.disabled = true; btn.textContent = 'Sent! 😉' }
+  await sb.from('winks').insert({ sender_id: currentUser.id, receiver_id: other.id }).catch(() => {})
+  await sb.from('messages').insert({ match_id: activeMatch.id, sender_id: currentUser.id, content: '[wink]' })
+  sendPush(other.id, '😉 ' + (currentProfile?.display_name || 'Someone') + ' winked back!',
+    `Tap to open the conversation on Simple-x`, 'wink', activeMatch.id)
 }
 
 async function likeFromPreview(userId) {
@@ -4306,18 +4335,12 @@ async function loadMatches() {
   const list = el('matches-list')
   list.innerHTML = '<p style="color:#6b6866;font-size:14px;text-align:center;margin-top:40px">Loading...</p>'
 
-  const [{ data }, { data: winks }] = await Promise.all([
-    sb.from('matches')
-      .select('*, profiles_a:profiles!matches_user_a_fkey(*), profiles_b:profiles!matches_user_b_fkey(*)')
-      .or(`user_a.eq.${currentUser.id},user_b.eq.${currentUser.id}`)
-      .order('created_at', { ascending: false }),
-    sb.from('winks')
-      .select('*, sender:profiles!winks_sender_id_fkey(id, display_name, photo_urls, birthdate, hsv_type, city, bio, gender, seeking, lat, lng)')
-      .eq('receiver_id', currentUser.id)
-      .order('created_at', { ascending: false })
-  ])
+  const { data } = await sb.from('matches')
+    .select('*, profiles_a:profiles!matches_user_a_fkey(*), profiles_b:profiles!matches_user_b_fkey(*)')
+    .or(`user_a.eq.${currentUser.id},user_b.eq.${currentUser.id}`)
+    .order('created_at', { ascending: false })
 
-  if ((!data || data.length === 0) && (!winks || winks.length === 0)) {
+  if (!data || data.length === 0) {
     const isNew = currentProfile?.created_at && (Date.now() - new Date(currentProfile.created_at).getTime()) < 7 * 24 * 60 * 60 * 1000
     list.innerHTML = `
       <div class="empty-state" style="margin-top:40px">
@@ -4357,8 +4380,11 @@ async function loadMatches() {
     const color = AVATAR_COLORS[i % AVATAR_COLORS.length]
     const initial = (other?.display_name || '?')[0].toUpperCase()
     const lastMsg = lastMsgMap[m.id]
+    const otherFirstName = escapeHtml((other?.display_name || '').split(' ')[0] || 'They')
     const preview = lastMsg
-      ? (lastMsg.sender_id === currentUser.id ? 'You: ' : '') + escapeHtml(lastMsg.content)
+      ? lastMsg.content === '[wink]'
+        ? (lastMsg.sender_id === currentUser.id ? '😉 You winked' : `😉 ${otherFirstName} winked at you`)
+        : (lastMsg.sender_id === currentUser.id ? 'You: ' : '') + escapeHtml(lastMsg.content)
       : 'Matched — say hey!'
     const age = formatMsgTime(lastMsg ? lastMsg.created_at : m.created_at)
     const seenKey = 'sx_last_seen_' + m.id
@@ -4400,36 +4426,6 @@ async function loadMatches() {
   })
   list.innerHTML = ''
   list.appendChild(matchFragment)
-
-  // Append winks at the top if any
-  if (winks && winks.length > 0) {
-    const winkItems = winks.map(w => {
-      const s = w.sender
-      const color = AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)]
-      const initial = (s?.display_name || '?')[0].toUpperCase()
-      const photo = s?.photo_urls?.[0]
-      const seenKey = 'sx_wink_seen_' + w.id
-      const isSeen = localStorage.getItem(seenKey)
-      return `
-        <div class="match-item" onclick="localStorage.setItem('sx_wink_seen_${w.id}','1');showProfilePreview('${s?.id}')" style="border-left:3px solid #f5c518">
-          <div style="position:relative">
-            ${photo
-              ? `<div style="width:50px;height:50px;border-radius:50%;overflow:hidden"><img src="${photo}" style="width:100%;height:100%;object-fit:cover"/></div>`
-              : `<div class="avatar" style="width:50px;height:50px;font-size:18px;background:${color}">${initial}</div>`
-            }
-            ${!isSeen ? '<div style="position:absolute;top:0;right:0;width:12px;height:12px;border-radius:50%;background:#f5c518;border:2px solid #0a0a0a"></div>' : ''}
-          </div>
-          <div class="match-info">
-            <div style="display:flex;justify-content:space-between;align-items:center">
-              <span class="match-name">${escapeHtml(s?.display_name || 'User')}</span>
-              <span class="match-time">${timeAgo(w.created_at)}</span>
-            </div>
-            <p class="match-preview" style="color:#f5c518">😉 winked at you</p>
-          </div>
-        </div>`
-    }).join('')
-    list.innerHTML = winkItems + list.innerHTML
-  }
 }
 
 function timeAgo(ts) {
@@ -4901,6 +4897,35 @@ function appendMessage(msg) {
   if (msg.id && msgs.querySelector(`[data-msg-id="${CSS.escape(String(msg.id))}"]`)) return
   const placeholder = msgs.querySelector('p')
   if (placeholder) placeholder.remove()
+  hideStarters()
+
+  // ── Wink bubble ──────────────────────────────────
+  if (msg.content === '[wink]') {
+    const mine = msg.sender_id === currentUser.id
+    const other = activeMatch ? (activeMatch.user_a === currentUser.id ? activeMatch.profiles_b : activeMatch.profiles_a) : null
+    const senderName = mine
+      ? (currentProfile?.display_name?.split(' ')[0] || 'You')
+      : (other?.display_name?.split(' ')[0] || 'They')
+    const wrap = document.createElement('div')
+    wrap.dataset.msgId = msg.id
+    wrap.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:10px;margin:14px 0'
+    const bubble = document.createElement('div')
+    bubble.style.cssText = 'background:#1c1c1c;border:1px solid #2e2e2e;border-radius:20px;padding:10px 22px;color:#9e9b97;font-style:italic;font-size:14px;text-align:center;max-width:80%'
+    bubble.textContent = mine ? `${senderName} winked 😉` : `${senderName} winked at you 😉`
+    wrap.appendChild(bubble)
+    if (!mine) {
+      const winkBtn = document.createElement('button')
+      winkBtn.textContent = 'Wink back 😉'
+      winkBtn.style.cssText = 'background:transparent;border:1px solid #f5c518;color:#f5c518;border-radius:20px;padding:8px 22px;font-size:13px;font-weight:600;cursor:pointer;touch-action:manipulation'
+      winkBtn.addEventListener('click', () => winkBackFromChat(winkBtn))
+      wrap.appendChild(winkBtn)
+    }
+    msgs.appendChild(wrap)
+    msgs.scrollTop = msgs.scrollHeight
+    return
+  }
+  // ─────────────────────────────────────────────────
+
   const mine = msg.sender_id === currentUser.id
   const msgDate = new Date(msg.created_at)
   const dateKey = msgDate.toDateString()
