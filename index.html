@@ -872,6 +872,9 @@
 
 <!-- EDIT PROFILE PAGE -->
 <div id="edit-profile-page" style="display:none;position:fixed;inset:0;background:#0a0a0a;flex-direction:column;z-index:200;overflow:hidden">
+  <!-- Dedicated file inputs for iOS (must be inside this page, not inside display:none profile-content) -->
+  <input type="file" id="edit-photo-input" accept="image/*,video/*,.heic,.heif" style="position:absolute;opacity:0;pointer-events:none;width:0;height:0" onchange="uploadPhoto(this)" multiple />
+  <input type="file" id="edit-private-photo-input" accept="image/*,.heic,.heif" style="position:absolute;opacity:0;pointer-events:none;width:0;height:0" onchange="uploadPrivatePhoto(this)" multiple />
   <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid #1e1e1e;flex-shrink:0;background:#0a0a0a">
     <button onclick="closeEditPage()" style="background:none;border:none;cursor:pointer;padding:4px;color:#f0ede8;display:flex;align-items:center">
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
@@ -972,10 +975,20 @@
       </div>
       <div>
         <p style="color:#6b6866;font-size:12px;margin-bottom:8px">Children</p>
-        <select id="edit-children" class="input" style="color:#f0ede8;background:#1e1e1e">
+        <select id="edit-children" class="input" style="color:#f0ede8;background:#1e1e1e" onchange="updateChildrenSuboption(this)">
           <option value="">Select</option>
           <option>No children</option><option>One child</option><option>Multiple children</option><option>Wants children</option><option>Does not want children</option><option>Open to children</option>
         </select>
+        <div id="children-suboption-wrap" style="display:none;margin-top:8px">
+          <p style="color:#6b6866;font-size:12px;margin-bottom:8px">Where do they live?</p>
+          <select id="edit-children-custody" class="input" style="color:#f0ede8;background:#1e1e1e">
+            <option value="">Select</option>
+            <option value="live at home full-time">Children live at home full-time</option>
+            <option value="live at home 50% of the time">Children live at home 50% of the time</option>
+            <option value="occasionally live at home">Children occasionally live at home</option>
+            <option value="empty nest">Empty nest</option>
+          </select>
+        </div>
       </div>
       <div>
         <p style="color:#6b6866;font-size:12px;margin-bottom:8px">Religion</p>
@@ -1368,15 +1381,15 @@ function renderPrivateAlbum() {
     img.onclick = () => showLightbox(url)
     cell.appendChild(img)
     const del = document.createElement('button')
-    del.onclick = e => { e.stopPropagation(); deletePrivatePhoto(i) }
-    del.style.cssText = 'position:absolute;top:4px;right:4px;width:22px;height:22px;border-radius:50%;background:rgba(0,0,0,0.7);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;line-height:1'
-    del.textContent = '×'
+    del.addEventListener('click', e => { e.stopPropagation(); deletePrivatePhoto(i) })
+    del.style.cssText = 'position:absolute;top:0;right:0;width:44px;height:44px;border-radius:50%;background:transparent;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;touch-action:manipulation'
+    del.innerHTML = '<span style="width:26px;height:26px;border-radius:50%;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;color:#fff;font-size:16px;line-height:1;pointer-events:none">×</span>'
     cell.appendChild(del)
     grid.appendChild(cell)
   })
   if (photos.length < 20) {
     const add = document.createElement('div')
-    add.style.cssText = 'aspect-ratio:1;border-radius:10px;border:1px dashed #3a2a14;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;gap:4px;background:#1a1208'
+    add.style.cssText = 'aspect-ratio:1;border-radius:10px;border:1px dashed #3a2a14;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;gap:4px;background:#1a1208;touch-action:manipulation'
     add.onclick = () => el('private-photo-input').click()
     add.innerHTML = '<span style="font-size:20px">🔒</span><span style="color:#6b6866;font-size:11px">Add private</span>'
     grid.appendChild(add)
@@ -3537,6 +3550,7 @@ function switchPreviewTab(tab) {
   const privBtn = document.getElementById('preview-tab-private')
   const photoSection = document.getElementById('preview-photo-section')
   if (!pubBtn || !privBtn || !photoSection) return
+  if (!_previewProfile) return
   const isPublic = tab === 'public'
   pubBtn.style.color = isPublic ? '#f0ede8' : '#6b6866'
   pubBtn.style.borderBottom = isPublic ? '2px solid #e8503a' : '2px solid transparent'
@@ -5283,7 +5297,16 @@ function toggleEdit() {
   el('edit-cannabis').value = currentProfile?.cannabis || ''
   el('edit-nicotine').value = currentProfile?.nicotine || ''
   el('edit-work-lifestyle').value = currentProfile?.work_lifestyle || ''
-  el('edit-children').value = currentProfile?.children || ''
+  const _cv = currentProfile?.children || ''
+  const _cdash = _cv.indexOf(' — ')
+  if (_cdash > -1) {
+    el('edit-children').value = _cv.slice(0, _cdash)
+    el('edit-children-custody').value = _cv.slice(_cdash + 3)
+  } else {
+    el('edit-children').value = _cv
+    el('edit-children-custody').value = ''
+  }
+  updateChildrenSuboption(el('edit-children'))
   el('edit-religion').value = currentProfile?.religion || ''
   el('edit-dating-distance').value = currentProfile?.dating_distance || ''
   const flyChecked = currentProfile?.willing_to_fly || false
@@ -5300,11 +5323,28 @@ function toggleEdit() {
     b.classList.toggle('selected', b.textContent.trim() === editRelType || (editRelType === 'Open' && b.textContent.includes('Open')))
   })
   renderEditPhotos()
-  el('edit-profile-page').style.display = 'flex'
+  const editPage = el('edit-profile-page')
+  editPage.style.display = 'flex'
+  editPage.style.height = ''
+  if (window.visualViewport) {
+    const _vpAdjust = () => {
+      if (editPage.style.display === 'flex') editPage.style.height = window.visualViewport.height + 'px'
+    }
+    window.visualViewport.addEventListener('resize', _vpAdjust)
+    window.visualViewport.addEventListener('scroll', _vpAdjust)
+    editPage._vpCleanup = () => {
+      window.visualViewport.removeEventListener('resize', _vpAdjust)
+      window.visualViewport.removeEventListener('scroll', _vpAdjust)
+    }
+    _vpAdjust()
+  }
 }
 
 function closeEditPage() {
-  el('edit-profile-page').style.display = 'none'
+  const editPage = el('edit-profile-page')
+  if (editPage?._vpCleanup) { editPage._vpCleanup(); delete editPage._vpCleanup }
+  editPage.style.display = 'none'
+  editPage.style.height = ''
 }
 
 function copyProfileLink() {
@@ -5398,8 +5438,8 @@ function renderEditPhotos() {
     }
     const del = document.createElement('button')
     del.addEventListener('click', e => { e.stopPropagation(); deletePhoto(i) })
-    del.style.cssText = 'position:absolute;top:4px;right:4px;width:22px;height:22px;border-radius:50%;background:rgba(0,0,0,0.7);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;line-height:1'
-    del.textContent = '×'
+    del.style.cssText = 'position:absolute;top:0;right:0;width:44px;height:44px;border-radius:50%;background:transparent;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;touch-action:manipulation'
+    del.innerHTML = '<span style="width:26px;height:26px;border-radius:50%;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;color:#fff;font-size:16px;line-height:1;pointer-events:none">×</span>'
     cell.appendChild(del)
     if (i === 0) {
       const star = document.createElement('div')
@@ -5441,8 +5481,8 @@ function renderEditPhotos() {
   })
   if (photos.length < 20) {
     const add = document.createElement('div')
-    add.style.cssText = 'aspect-ratio:1;border-radius:10px;border:1px dashed #252525;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;gap:4px'
-    add.onclick = () => el('photo-input').click()
+    add.style.cssText = 'aspect-ratio:1;border-radius:10px;border:1px dashed #252525;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;gap:4px;touch-action:manipulation'
+    add.addEventListener('click', () => (el('edit-photo-input') || el('photo-input')).click())
     add.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#6b6866" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg><span style="color:#6b6866;font-size:11px">' + (20 - photos.length) + ' left</span>'
     pubGrid.appendChild(add)
   }
@@ -5468,20 +5508,28 @@ function renderEditPhotos() {
     img.onclick = () => showLightbox(url)
     cell.appendChild(img)
     const del = document.createElement('button')
-    del.onclick = e => { e.stopPropagation(); deletePrivatePhoto(i) }
-    del.style.cssText = 'position:absolute;top:4px;right:4px;width:22px;height:22px;border-radius:50%;background:rgba(0,0,0,0.7);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;line-height:1'
-    del.textContent = '×'
+    del.addEventListener('click', e => { e.stopPropagation(); deletePrivatePhoto(i) })
+    del.style.cssText = 'position:absolute;top:0;right:0;width:44px;height:44px;border-radius:50%;background:transparent;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;touch-action:manipulation'
+    del.innerHTML = '<span style="width:26px;height:26px;border-radius:50%;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;color:#fff;font-size:16px;line-height:1;pointer-events:none">×</span>'
     cell.appendChild(del)
     privGrid.appendChild(cell)
   })
   if (privPhotos.length < 20) {
     const add = document.createElement('div')
-    add.style.cssText = 'aspect-ratio:1;border-radius:10px;border:1px dashed #3a2a14;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;gap:4px;background:#1a1208'
-    add.onclick = () => el('private-photo-input').click()
+    add.style.cssText = 'aspect-ratio:1;border-radius:10px;border:1px dashed #3a2a14;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;gap:4px;background:#1a1208;touch-action:manipulation'
+    add.addEventListener('click', () => (el('edit-private-photo-input') || el('private-photo-input')).click())
     add.innerHTML = '<span style="font-size:18px">🔒</span><span style="color:#6b6866;font-size:11px">Add private</span>'
     privGrid.appendChild(add)
   }
   grid.appendChild(privGrid)
+}
+
+function updateChildrenSuboption(sel) {
+  const wrap = el('children-suboption-wrap')
+  if (!wrap) return
+  const showSub = sel.value === 'One child' || sel.value === 'Multiple children'
+  wrap.style.display = showSub ? '' : 'none'
+  if (!showSub) el('edit-children-custody').value = ''
 }
 
 function selectEditHsv(btn, val) {
@@ -5516,7 +5564,13 @@ async function saveProfile() {
     cannabis: el('edit-cannabis').value || null,
     nicotine: el('edit-nicotine').value || null,
     work_lifestyle: el('edit-work-lifestyle').value || null,
-    children: el('edit-children').value || null,
+    children: (() => {
+      const main = el('edit-children').value
+      if (!main) return null
+      const wrap = el('children-suboption-wrap')
+      const sub = (wrap && wrap.style.display !== 'none') ? el('edit-children-custody').value : ''
+      return sub ? main + ' — ' + sub : main
+    })(),
     religion: el('edit-religion').value || null,
     willing_to_fly: el('edit-willing-to-fly')?.checked || false,
     dating_distance: el('edit-dating-distance').value || null,
