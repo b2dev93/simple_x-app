@@ -527,9 +527,10 @@
         <span class="nav-label">Community</span>
         <span id="community-badge" style="display:none;position:absolute;top:4px;right:18px;background:#e8503a;color:#fff;font-size:10px;font-weight:700;border-radius:50%;width:16px;height:16px;align-items:center;justify-content:center;line-height:1"></span>
       </button>
-      <button class="nav-btn" id="nav-profile" onclick="switchTab2('profile')">
+      <button class="nav-btn" id="nav-profile" onclick="switchTab2('profile');clearAnonQuestionsBadge()" style="position:relative">
         <span class="nav-icon">👤</span>
         <span class="nav-label">Profile</span>
+        <span id="anon-q-badge" style="display:none;position:absolute;top:4px;right:18px;background:#e8503a;color:#fff;font-size:10px;font-weight:700;border-radius:50%;width:16px;height:16px;align-items:center;justify-content:center;line-height:1"></span>
       </button>
     </div>
 
@@ -733,6 +734,14 @@
     </div>
     <div style="flex:1;overflow-y:auto;padding-bottom:40px">
 
+      <!-- Account -->
+      <div style="padding:20px 24px;border-bottom:1px solid #1e1e1c">
+        <h2 style="color:#9e9b97;font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:16px">Account</h2>
+        <button class="btn-ghost" onclick="closeSettings();toggleEdit()" style="margin-bottom:10px">Edit Profile</button>
+        <button class="btn-ghost" onclick="closeSettings();switchTab2('profile')" style="margin-bottom:10px">Preview My Profile</button>
+        <button class="btn-ghost" onclick="copyProfileLink()">🔗 Copy Profile Link</button>
+      </div>
+
       <!-- Notifications -->
       <div style="padding:20px 24px;border-bottom:1px solid #1e1e1c">
         <h2 style="color:#9e9b97;font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:16px">Notifications</h2>
@@ -799,7 +808,7 @@
       <!-- Privacy -->
       <div style="padding:20px 24px;border-bottom:1px solid #1e1e1c">
         <h2 style="color:#9e9b97;font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:16px">Privacy</h2>
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #252525">
           <div>
             <p style="color:#f0ede8;font-size:15px">Incognito mode</p>
             <p style="color:#6b6866;font-size:12px;margin-top:2px">Hide from Discover &amp; Online. Only people you like can find you.</p>
@@ -810,58 +819,57 @@
             <span id="incognito-thumb" style="position:absolute;left:3px;top:3px;width:18px;height:18px;background:#fff;border-radius:50%;transition:0.2s"></span>
           </label>
         </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #252525">
+          <div>
+            <p style="color:#f0ede8;font-size:15px">Allow anonymous questions</p>
+            <p style="color:#6b6866;font-size:12px;margin-top:2px">Let others ask you questions anonymously from your profile.</p>
+          </div>
+          <label style="position:relative;display:inline-block;width:44px;height:24px;cursor:pointer;flex-shrink:0">
+            <input type="checkbox" id="anon-q-toggle" onchange="toggleAnonQuestions(this.checked)" style="opacity:0;width:0;height:0">
+            <span id="anon-q-slider" style="position:absolute;inset:0;background:#2a2a2a;border-radius:24px;transition:0.2s"></span>
+            <span id="anon-q-thumb" style="position:absolute;left:3px;top:3px;width:18px;height:18px;background:#fff;border-radius:50%;transition:0.2s"></span>
+          </label>
+        </div>
+        <div style="padding-top:16px">
+          <p style="color:#9e9b97;font-size:12px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;margin-bottom:12px">Blocked Members</p>
+          <div id="blocked-list"><p style="color:#6b6866;font-size:14px">Loading...</p></div>
+        </div>
       </div>
 
-      <!-- Blocked Members -->
+      <!-- Support -->
       <div style="padding:20px 24px;border-bottom:1px solid #1e1e1c">
-        <h2 style="color:#9e9b97;font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:16px">Blocked Members</h2>
-        <div id="blocked-list"><p style="color:#6b6866;font-size:14px">Loading...</p></div>
-      </div>
-
-      <!-- Legal -->
-      <div style="padding:20px 24px;border-bottom:1px solid #1e1e1c">
-        <h2 style="color:#9e9b97;font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:4px">Legal</h2>
-        <a href="https://b2dev93.github.io/simple_x-app/privacy.html" target="_blank" rel="noopener" style="display:flex;justify-content:space-between;align-items:center;padding:14px 0;border-bottom:1px solid #252525;text-decoration:none">
+        <h2 style="color:#9e9b97;font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:16px">Support</h2>
+        <p style="color:#6b6866;font-size:12px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;margin-bottom:8px">Feedback</p>
+        <textarea id="feedback-textarea" class="input" placeholder="Share your feedback or ideas..." rows="3" style="resize:none;margin-bottom:12px"></textarea>
+        <button id="feedback-send-btn" onclick="sendFeedback()" class="btn-primary" style="margin-bottom:16px">Send Feedback</button>
+        <p style="color:#6b6866;font-size:12px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;margin-bottom:8px;margin-top:4px">Report a Bug 🐛</p>
+        <textarea id="bug-report-textarea" class="input" placeholder="Describe the bug you encountered..." rows="3" style="resize:none;margin-bottom:12px"></textarea>
+        <button id="bug-report-send-btn" onclick="sendBugReport()" class="btn-primary" style="margin-bottom:16px">Submit Bug Report</button>
+        <p style="color:#6b6866;font-size:13px;margin-bottom:16px">Email us: <a href="mailto:mostvaluedplanter@gmail.com" style="color:#e8503a;text-decoration:none">mostvaluedplanter@gmail.com</a></p>
+        <p style="color:#6b6866;font-size:12px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;margin-bottom:8px">Legal</p>
+        <a href="https://b2dev93.github.io/simple_x-app/privacy.html" target="_blank" rel="noopener" style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid #252525;text-decoration:none">
           <span style="color:#f0ede8;font-size:15px">Privacy Policy</span>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b6866" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
         </a>
-        <a href="https://b2dev93.github.io/simple_x-app/terms.html" target="_blank" rel="noopener" style="display:flex;justify-content:space-between;align-items:center;padding:14px 0;border-bottom:1px solid #252525;text-decoration:none">
+        <a href="https://b2dev93.github.io/simple_x-app/terms.html" target="_blank" rel="noopener" style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid #252525;text-decoration:none">
           <span style="color:#f0ede8;font-size:15px">Terms of Service</span>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b6866" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
         </a>
-        <a href="https://b2dev93.github.io/simple_x-app/child-safety.html" target="_blank" rel="noopener" style="display:flex;justify-content:space-between;align-items:center;padding:14px 0;text-decoration:none">
+        <a href="https://b2dev93.github.io/simple_x-app/child-safety.html" target="_blank" rel="noopener" style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid #252525;text-decoration:none">
           <span style="color:#f0ede8;font-size:15px">Child Safety Standards</span>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b6866" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
         </a>
+        <div style="padding-top:12px">
+          <p style="color:#6b6866;font-size:13px;margin-bottom:12px">Get the latest version of Simple-x.</p>
+          <a href="https://play.google.com/apps/testing/com.simplexlabs.simplex" target="_blank" rel="noopener" style="text-decoration:none;display:block">
+            <button class="btn-primary">Get Latest Version on Google Play</button>
+          </a>
+        </div>
       </div>
 
-      <!-- Feedback & Support -->
-      <div style="padding:20px 24px;border-bottom:1px solid #1e1e1c">
-        <h2 style="color:#9e9b97;font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:16px">Feedback & Support</h2>
-        <textarea id="feedback-textarea" class="input" placeholder="Share your feedback or describe an issue..." rows="4" style="resize:none;margin-bottom:12px"></textarea>
-        <button id="feedback-send-btn" onclick="sendFeedback()" class="btn-primary" style="margin-bottom:16px">Send</button>
-        <p style="color:#6b6866;font-size:13px">Or email us: <a href="mailto:mostvaluedplanter@gmail.com" style="color:#e8503a;text-decoration:none">mostvaluedplanter@gmail.com</a></p>
-      </div>
-
-      <!-- Report a Bug -->
-      <div style="padding:20px 24px;border-bottom:1px solid #1e1e1c">
-        <h2 style="color:#9e9b97;font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:16px">Report a Bug 🐛</h2>
-        <textarea id="bug-report-textarea" class="input" placeholder="Describe the bug or issue you encountered..." rows="4" style="resize:none;margin-bottom:12px"></textarea>
-        <button id="bug-report-send-btn" onclick="sendBugReport()" class="btn-primary">Submit Bug Report</button>
-      </div>
-
-      <!-- App Updates -->
-      <div style="padding:20px 24px;border-bottom:1px solid #1e1e1c">
-        <h2 style="color:#9e9b97;font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:8px">App Updates</h2>
-        <p style="color:#6b6866;font-size:13px;margin-bottom:14px">Get the latest version of Simple-x.</p>
-        <a href="https://play.google.com/apps/testing/com.simplexlabs.simplex" target="_blank" rel="noopener" style="text-decoration:none;display:block">
-          <button class="btn-primary">Get Latest Version on Google Play</button>
-        </a>
-      </div>
-
-      <!-- Account -->
+      <!-- Danger Zone -->
       <div style="padding:20px 24px">
-        <h2 style="color:#9e9b97;font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:16px">Account</h2>
+        <h2 style="color:#e8503a;font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:16px">Danger Zone</h2>
         <button class="btn-ghost" onclick="closeSettings();showDeleteAccountModal()" style="color:#e8503a;border-color:#3a1a14">Delete account</button>
       </div>
 
@@ -2268,6 +2276,16 @@ async function toggleIncognito(val) {
   showToast(val ? 'Incognito on — hidden from Discover' : 'Incognito off — visible in Discover')
 }
 
+async function toggleAnonQuestions(val) {
+  const slider = document.getElementById('anon-q-slider')
+  const thumb = document.getElementById('anon-q-thumb')
+  if (slider) slider.style.background = val ? '#e8503a' : '#2a2a2a'
+  if (thumb) thumb.style.transform = val ? 'translateX(20px)' : 'translateX(0)'
+  await sb.from('profiles').update({ allow_anon_questions: val }).eq('id', currentUser.id)
+  if (currentProfile) currentProfile.allow_anon_questions = val
+  showToast(val ? 'Anonymous questions enabled' : 'Anonymous questions disabled')
+}
+
 function renderBoostBtn() {
   const btn = document.getElementById('boost-btn')
   const sub = document.getElementById('boost-btn-sub')
@@ -2841,7 +2859,7 @@ function switchTab2(tab) {
   if (tab === 'messages') { loadMatches(); loadGroups(); setUnreadDot(false) }
   if (tab === 'research') loadResearch()
   if (tab === 'community') loadCommunity()
-  if (tab === 'profile') { renderProfileScreen(); loadMyQuestions() }
+  if (tab === 'profile') { renderProfileScreen(); loadMyQuestions(); clearAnonQuestionsBadge() }
 }
 
 
@@ -3410,25 +3428,40 @@ async function showProfilePreview(userId) {
       msgB.onclick = () => { document.getElementById('profile-preview-modal')?.remove(); showUpgradePrompt('Upgrade to Plus to message anyone directly — no match required.') }
     }
 
-    const askB = document.createElement('button')
-    askB.style.cssText = 'flex:1;padding:14px;border-radius:12px;border:1px solid #252525;background:transparent;color:#9e9b97;font-size:16px;cursor:pointer'
-    askB.textContent = '❓'
-    askB.title = 'Ask anonymously'
-    askB.onclick = () => { document.getElementById('profile-preview-modal')?.remove(); askQuestion(p.id, name.split(' ')[0]) }
-
-    if (!alreadyLiked && !isMatched) {
-      const likeB = document.createElement('button')
-      likeB.style.cssText = 'flex:2;padding:14px;border-radius:12px;border:none;background:#252525;color:#f0ede8;font-size:15px;font-weight:600;cursor:pointer'
-      likeB.textContent = '❤️ Like'
-      likeB.onclick = () => { document.getElementById('profile-preview-modal')?.remove(); likeFromPreview(p.id) }
-      btnsContainer.appendChild(winkB)
-      btnsContainer.appendChild(likeB)
-      btnsContainer.appendChild(msgB)
-      btnsContainer.appendChild(askB)
+    const canAsk = p.allow_anon_questions !== false && p.id !== currentUser.id
+    if (canAsk) {
+      const askB = document.createElement('button')
+      askB.style.cssText = 'flex:1;padding:14px;border-radius:12px;border:1px solid #252525;background:transparent;color:#9e9b97;font-size:16px;cursor:pointer'
+      askB.textContent = '❓'
+      askB.title = 'Ask anonymously'
+      askB.onclick = () => { document.getElementById('profile-preview-modal')?.remove(); askQuestion(p.id, name.split(' ')[0]) }
+      if (!alreadyLiked && !isMatched) {
+        const likeB = document.createElement('button')
+        likeB.style.cssText = 'flex:2;padding:14px;border-radius:12px;border:none;background:#252525;color:#f0ede8;font-size:15px;font-weight:600;cursor:pointer'
+        likeB.textContent = '❤️ Like'
+        likeB.onclick = () => { document.getElementById('profile-preview-modal')?.remove(); likeFromPreview(p.id) }
+        btnsContainer.appendChild(winkB)
+        btnsContainer.appendChild(likeB)
+        btnsContainer.appendChild(msgB)
+        btnsContainer.appendChild(askB)
+      } else {
+        btnsContainer.appendChild(winkB)
+        btnsContainer.appendChild(msgB)
+        btnsContainer.appendChild(askB)
+      }
     } else {
-      btnsContainer.appendChild(winkB)
-      btnsContainer.appendChild(msgB)
-      btnsContainer.appendChild(askB)
+      if (!alreadyLiked && !isMatched) {
+        const likeB = document.createElement('button')
+        likeB.style.cssText = 'flex:2;padding:14px;border-radius:12px;border:none;background:#252525;color:#f0ede8;font-size:15px;font-weight:600;cursor:pointer'
+        likeB.textContent = '❤️ Like'
+        likeB.onclick = () => { document.getElementById('profile-preview-modal')?.remove(); likeFromPreview(p.id) }
+        btnsContainer.appendChild(winkB)
+        btnsContainer.appendChild(likeB)
+        btnsContainer.appendChild(msgB)
+      } else {
+        btnsContainer.appendChild(winkB)
+        btnsContainer.appendChild(msgB)
+      }
     }
 
     // Block button — only shown when viewing someone else
@@ -3625,6 +3658,26 @@ function askQuestion(userId, name) {
   }
 }
 
+let _anonQCount = 0
+
+function updateAnonQuestionsBadge() {
+  const badge = document.getElementById('anon-q-badge')
+  if (!badge) return
+  const seen = parseInt(localStorage.getItem('sx_anon_q_seen') || '0')
+  if (_anonQCount > seen) {
+    badge.textContent = _anonQCount > 9 ? '9+' : String(_anonQCount)
+    badge.style.display = 'flex'
+  } else {
+    badge.style.display = 'none'
+  }
+}
+
+function clearAnonQuestionsBadge() {
+  localStorage.setItem('sx_anon_q_seen', String(_anonQCount))
+  const badge = document.getElementById('anon-q-badge')
+  if (badge) badge.style.display = 'none'
+}
+
 async function loadMyQuestions() {
   const section = document.getElementById('my-questions-section')
   const list = document.getElementById('questions-list')
@@ -3632,6 +3685,8 @@ async function loadMyQuestions() {
   if (!section || !list) return
   const { data: questions } = await sb.from('anonymous_questions')
     .select('*').eq('target_id', currentUser.id).order('created_at', { ascending: false })
+  _anonQCount = questions?.length || 0
+  updateAnonQuestionsBadge()
   if (!questions?.length) { section.style.display = 'none'; return }
   section.style.display = ''
   if (countEl) countEl.textContent = questions.length + (questions.length === 1 ? ' question' : ' questions')
@@ -4913,10 +4968,16 @@ function appendMessage(msg) {
     bubble.style.cssText = 'background:#1c1c1c;border:1px solid #2e2e2e;border-radius:20px;padding:10px 22px;color:#9e9b97;font-style:italic;font-size:14px;text-align:center;max-width:80%'
     bubble.textContent = mine ? `${senderName} winked 😉` : `${senderName} winked at you 😉`
     wrap.appendChild(bubble)
+    if (mine && msg.read_at) {
+      const seen = document.createElement('p')
+      seen.style.cssText = 'color:#6b6866;font-size:11px;margin-top:-4px'
+      seen.textContent = 'Seen ✓'
+      wrap.appendChild(seen)
+    }
     if (!mine) {
       const winkBtn = document.createElement('button')
       winkBtn.textContent = 'Wink back 😉'
-      winkBtn.style.cssText = 'background:transparent;border:1px solid #f5c518;color:#f5c518;border-radius:20px;padding:8px 22px;font-size:13px;font-weight:600;cursor:pointer;touch-action:manipulation'
+      winkBtn.style.cssText = 'background:#e8503a;border:none;color:#fff;border-radius:20px;padding:8px 22px;font-size:13px;font-weight:600;cursor:pointer;touch-action:manipulation'
       winkBtn.addEventListener('click', () => winkBackFromChat(winkBtn))
       wrap.appendChild(winkBtn)
     }
@@ -6258,6 +6319,12 @@ function openSettings() {
   if (incogToggle) incogToggle.checked = isIncognito
   if (incogSlider) incogSlider.style.background = isIncognito ? '#e8503a' : '#2a2a2a'
   if (incogThumb) incogThumb.style.transform = isIncognito ? 'translateX(20px)' : 'translateX(0)'
+
+  const anonQToggle = el('anon-q-toggle'), anonQSlider = el('anon-q-slider'), anonQThumb = el('anon-q-thumb')
+  const anonQEnabled = currentProfile?.allow_anon_questions !== false
+  if (anonQToggle) anonQToggle.checked = anonQEnabled
+  if (anonQSlider) anonQSlider.style.background = anonQEnabled ? '#e8503a' : '#2a2a2a'
+  if (anonQThumb) anonQThumb.style.transform = anonQEnabled ? 'translateX(20px)' : 'translateX(0)'
 
   loadBlockedMembers()
 }
