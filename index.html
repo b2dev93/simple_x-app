@@ -2922,7 +2922,7 @@ function switchTab2(tab) {
   if (tab === 'messages') { loadMatches(); loadGroups(); setUnreadDot(false) }
   if (tab === 'research') loadResearch()
   if (tab === 'community') loadCommunity()
-  if (tab === 'profile') { renderProfileScreen(); loadMyQuestions() }
+  if (tab === 'profile') { renderProfileScreen(); loadMyQuestions(); clearAnonQuestionsBadge() }
 }
 
 
@@ -4213,7 +4213,9 @@ function clearAnonQuestionsBadge() {
 async function checkAnonQuestionsBadge() {
   if (!currentUser) return
   const { count } = await sb.from('anonymous_questions')
-    .select('id', { count: 'exact', head: true }).eq('target_id', currentUser.id)
+    .select('id', { count: 'exact', head: true })
+    .eq('target_id', currentUser.id)
+    .is('answer', null)
   _anonQCount = count || 0
   updateAnonQuestionsBadge()
 }
@@ -4226,7 +4228,7 @@ async function loadMyQuestions() {
   const { data: questions } = await sb.from('anonymous_questions')
     .select('*, asker_profile:profiles!asker_id(display_name)')
     .eq('target_id', currentUser.id).order('created_at', { ascending: false })
-  _anonQCount = questions?.length || 0
+  _anonQCount = (questions || []).filter(q => !q.answer).length
   clearAnonQuestionsBadge()
   if (!questions?.length) { section.style.display = 'none'; return }
   section.style.display = ''
@@ -5602,9 +5604,10 @@ function appendMessage(msg) {
   if (msg.content === '[wink]') {
     const mine = msg.sender_id === currentUser.id
     const other = activeMatch ? (activeMatch.user_a === currentUser.id ? activeMatch.profiles_b : activeMatch.profiles_a) : null
+    const chatHeaderName = el('chat-name')?.textContent?.split(' ')[0] || null
     const senderName = mine
       ? (currentProfile?.display_name?.split(' ')[0] || 'You')
-      : (other?.display_name?.split(' ')[0] || 'They')
+      : (other?.display_name?.split(' ')[0] || chatHeaderName || 'They')
     const wrap = document.createElement('div')
     wrap.dataset.msgId = msg.id
     wrap.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:10px;margin:14px 0'
@@ -6846,12 +6849,13 @@ function shareResearchArticle(idx) {
 }
 
 function sharePost(postId) {
-  const url = window.location.origin + window.location.pathname + '?post=' + postId
+  const url = 'https://b2dev93.github.io/simple_x-app/?post=' + postId
   if (navigator.share) {
-    navigator.share({ title: 'Simple-x post', url }).catch(() => {})
+    navigator.share({ title: 'Simple-x community post', text: 'Requires the Simple-x app to view.', url }).catch(() => {})
   } else {
-    navigator.clipboard?.writeText(url)
-      .then(() => showToast('Link copied! (Requires app login to view)'))
+    const text = url + '\n(Requires the Simple-x app to view)'
+    navigator.clipboard?.writeText(text)
+      .then(() => showToast('Link copied! (Requires app to view)'))
       .catch(() => showToast('Link: ' + url))
   }
 }
