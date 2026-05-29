@@ -211,6 +211,16 @@
     .msg-reaction.mine { background:#3a1a14;border-color:#8c2a1c; }
     .seen-by-row { display:flex;gap:3px;margin-top:4px; }
     .seen-avatar { width:16px;height:16px;border-radius:50%;object-fit:cover;border:1px solid #0a0a0a; }
+
+    /* MOMENTS */
+    .moment-item { display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;flex-shrink:0;width:68px }
+    .moment-ring { border:2.5px solid #e8503a;border-radius:50%;padding:2px;display:inline-flex }
+    .moment-ring-seen { border:2.5px solid #3a3a3a;border-radius:50%;padding:2px;display:inline-flex }
+    .moment-av { width:52px;height:52px;border-radius:50%;overflow:hidden;background:#252525;display:flex;align-items:center;justify-content:center }
+    .moment-label { color:#9e9b97;font-size:10px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:68px }
+    .moment-add-ring { border:2px dashed #444;border-radius:50%;padding:2px;display:inline-flex;position:relative }
+    .moment-add-av { width:52px;height:52px;border-radius:50%;background:#1c1c1c;display:flex;align-items:center;justify-content:center;font-size:22px;color:#6b6866 }
+    #moments-strip::-webkit-scrollbar { display:none }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
   <script>emailjs.init("6hhTlpLKzeQ4Q2eRv")</script>
@@ -366,6 +376,12 @@
 
       <!-- ONLINE NOW VIEW -->
       <div id="discover-online-view" style="display:none;position:absolute;top:44px;left:0;right:0;bottom:0;overflow-y:auto">
+
+        <!-- MOMENTS STRIP -->
+        <div id="moments-strip-wrap" style="padding:12px 0 0;border-bottom:1px solid #1a1a1a">
+          <div id="moments-strip" style="display:flex;gap:10px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding:4px 16px 12px;scrollbar-width:none"></div>
+        </div>
+
         <div style="padding:16px">
         <div style="position:relative;margin-bottom:12px">
           <input id="online-search" type="search" placeholder="Search by name or city…" oninput="filterOnlineSearch(this.value)" style="width:100%;padding:11px 16px 11px 40px;background:#1c1c1c;border:1px solid #252525;border-radius:12px;color:#f0ede8;font-size:14px;outline:none;box-sizing:border-box;-webkit-appearance:none">
@@ -482,6 +498,7 @@
         </div>
       </div>
       <div id="profile-fields"></div>
+      <div id="profile-featured" style="margin-bottom:4px"></div>
 
       <div id="my-questions-section" style="margin-bottom:16px;display:none">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
@@ -920,6 +937,12 @@
       <input class="input" id="edit-quote" placeholder="A headline about yourself" />
       <input class="input" id="edit-occupation" placeholder="Occupation" />
       <textarea class="input" id="edit-about-match" placeholder="What are you looking for in a partner?" rows="3" style="resize:vertical"></textarea>
+
+      <p style="color:#9e9b97;font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;margin-top:8px;margin-bottom:12px">Featured Highlights</p>
+      <input class="input" id="edit-featured-quote" placeholder="💬 Favorite quote" />
+      <input class="input" id="edit-featured-fact" placeholder="💡 Fun fact about you" />
+      <input class="input" id="edit-featured-question" placeholder="❓ Ask me about…" />
+
       <div>
         <p style="color:#6b6866;font-size:12px;margin-bottom:8px">Height</p>
         <select id="edit-height" class="input" style="color:#f0ede8;background:#1e1e1e">
@@ -2925,7 +2948,7 @@ function switchDiscoverTab(tab) {
     }
     if (view) view.style.display = isActive ? '' : 'none'
   })
-  if (tab === 'online') loadOnlineNow()
+  if (tab === 'online') { loadOnlineNow(); loadMoments() }
   if (tab === 'liked') loadContacts()
 }
 
@@ -3072,6 +3095,353 @@ function renderOnlineFeed(profiles) {
       <div style="display:flex;align-items:center;justify-content:center;padding:12px 0"><div style="flex:1;height:1px;background:#1e1e1c"></div><span style="margin:0 12px;color:#333;font-size:18px">✦</span><div style="flex:1;height:1px;background:#1e1e1c"></div></div>
     </div>`
   }).join('')
+}
+
+// ── MOMENTS ─────────────────────────────────────────────────────
+
+let _momentSeenIds = new Set(JSON.parse(localStorage.getItem('sx_moments_seen') || '[]'))
+
+async function loadMoments() {
+  const strip = document.getElementById('moments-strip')
+  if (!strip || !currentUser) return
+
+  const now = new Date().toISOString()
+  const { data: moments } = await sb.from('moments')
+    .select('*, profiles(*)')
+    .gt('expires_at', now)
+    .order('created_at', { ascending: false })
+
+  const myLatest = (moments || []).find(m => m.user_id === currentUser.id) || null
+  const othersMap = {}
+  ;(moments || []).filter(m => m.user_id !== currentUser.id).forEach(m => {
+    if (!othersMap[m.user_id]) othersMap[m.user_id] = m
+  })
+  const others = Object.values(othersMap)
+
+  renderMomentsStrip(myLatest, others)
+}
+
+function renderMomentsStrip(myMoment, others) {
+  const strip = document.getElementById('moments-strip')
+  if (!strip) return
+  strip.innerHTML = ''
+
+  // ── My moment / Add button ──
+  const myItem = document.createElement('div')
+  myItem.className = 'moment-item'
+
+  const myRingWrap = document.createElement('div')
+  myRingWrap.style.cssText = 'position:relative'
+
+  if (myMoment) {
+    const ring = document.createElement('div')
+    ring.className = 'moment-ring'
+    const av = document.createElement('div')
+    av.className = 'moment-av'
+    if (myMoment.content_url) {
+      const img = document.createElement('img')
+      img.src = myMoment.content_url
+      img.style.cssText = 'width:100%;height:100%;object-fit:cover'
+      av.appendChild(img)
+    } else {
+      av.style.cssText += ';background:#1c1c1c;color:#e8503a;font-size:20px;font-weight:700'
+      av.textContent = '✦'
+    }
+    ring.appendChild(av)
+    myRingWrap.appendChild(ring)
+    myItem.onclick = () => viewMoment(myMoment, currentProfile, true)
+  } else {
+    const addRing = document.createElement('div')
+    addRing.className = 'moment-add-ring'
+    const addAv = document.createElement('div')
+    addAv.className = 'moment-add-av'
+    addAv.textContent = '+'
+    addRing.appendChild(addAv)
+    const plusBadge = document.createElement('div')
+    plusBadge.style.cssText = 'position:absolute;bottom:2px;right:2px;width:18px;height:18px;border-radius:50%;background:#e8503a;border:2px solid #0a0a0a;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:700;line-height:1'
+    plusBadge.textContent = '+'
+    myRingWrap.appendChild(addRing)
+    myRingWrap.appendChild(plusBadge)
+    myItem.onclick = () => showAddMomentModal()
+  }
+
+  myItem.appendChild(myRingWrap)
+  const myLabel = document.createElement('span')
+  myLabel.className = 'moment-label'
+  myLabel.textContent = myMoment ? 'Your moment' : 'Add yours'
+  myItem.appendChild(myLabel)
+  strip.appendChild(myItem)
+
+  // ── Others' moments ──
+  others.forEach(m => {
+    const profile = m.profiles
+    const name = (profile?.display_name || 'Member').split(' ')[0]
+    const photo = profile?.photo_urls?.[0]
+    const color = AVATAR_COLORS[(name.charCodeAt(0) || 0) % AVATAR_COLORS.length]
+    const seen = _momentSeenIds.has(m.id)
+
+    const item = document.createElement('div')
+    item.className = 'moment-item'
+
+    const ring = document.createElement('div')
+    ring.className = seen ? 'moment-ring-seen' : 'moment-ring'
+    const av = document.createElement('div')
+    av.className = 'moment-av'
+    av.style.background = color
+    if (photo) {
+      const img = document.createElement('img')
+      img.src = photo
+      img.style.cssText = 'width:100%;height:100%;object-fit:cover'
+      av.appendChild(img)
+    } else {
+      const initial = document.createElement('span')
+      initial.style.cssText = 'color:#fff;font-size:18px;font-weight:700'
+      initial.textContent = name[0].toUpperCase()
+      av.appendChild(initial)
+    }
+    ring.appendChild(av)
+    item.appendChild(ring)
+
+    const label = document.createElement('span')
+    label.className = 'moment-label'
+    label.textContent = name
+    item.appendChild(label)
+
+    item.onclick = () => viewMoment(m, profile, false)
+    strip.appendChild(item)
+  })
+}
+
+function viewMoment(moment, profile, isOwn) {
+  if (!isOwn) {
+    _momentSeenIds.add(moment.id)
+    localStorage.setItem('sx_moments_seen', JSON.stringify([..._momentSeenIds]))
+    // Update ring to seen state immediately
+    const rings = document.querySelectorAll('#moments-strip .moment-ring')
+    rings.forEach(r => {
+      // Refresh strip rings by re-rendering (lightweight enough)
+    })
+  }
+
+  document.getElementById('moment-viewer')?.remove()
+  const viewer = document.createElement('div')
+  viewer.id = 'moment-viewer'
+  viewer.style.cssText = 'position:fixed;inset:0;background:#000;z-index:10003;display:flex;flex-direction:column;touch-action:none'
+
+  const name = profile?.display_name || 'Member'
+  const expiresAt = moment.expires_at ? new Date(moment.expires_at) : null
+  const hoursLeft = expiresAt ? Math.max(0, Math.round((expiresAt - Date.now()) / 3600000)) : 0
+
+  // Progress bar animation
+  const progressWrap = document.createElement('div')
+  progressWrap.style.cssText = 'position:absolute;top:0;left:0;right:0;height:3px;background:rgba(255,255,255,0.25);z-index:10'
+  const progressBar = document.createElement('div')
+  progressBar.style.cssText = 'height:100%;background:#fff;width:0;will-change:width'
+  progressWrap.appendChild(progressBar)
+  viewer.appendChild(progressWrap)
+  setTimeout(() => {
+    progressBar.style.transition = 'width 5s linear'
+    progressBar.style.width = '100%'
+  }, 50)
+
+  // Header
+  const header = document.createElement('div')
+  header.style.cssText = 'position:absolute;top:0;left:0;right:0;padding:20px 16px 32px;display:flex;align-items:center;gap:10px;z-index:5;background:linear-gradient(to bottom,rgba(0,0,0,0.65) 0%,transparent 100%)'
+  const photo = profile?.photo_urls?.[0]
+  const color = AVATAR_COLORS[((name.charCodeAt(0) || 0)) % AVATAR_COLORS.length]
+
+  const avEl = document.createElement('div')
+  avEl.style.cssText = `width:36px;height:36px;border-radius:50%;overflow:hidden;flex-shrink:0;background:${color};display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff`
+  if (photo) {
+    const img = document.createElement('img')
+    img.src = photo
+    img.style.cssText = 'width:100%;height:100%;object-fit:cover'
+    avEl.appendChild(img)
+  } else {
+    avEl.textContent = name[0].toUpperCase()
+  }
+  if (!isOwn) avEl.style.cursor = 'pointer'
+  if (!isOwn) avEl.onclick = () => { closeViewer(); showProfilePreview(profile.id) }
+  header.appendChild(avEl)
+
+  const nameWrap = document.createElement('div')
+  nameWrap.style.cssText = 'flex:1;min-width:0'
+  const nameEl = document.createElement('p')
+  nameEl.style.cssText = 'color:#fff;font-size:14px;font-weight:600;margin-bottom:1px'
+  nameEl.textContent = isOwn ? 'Your moment' : escapeHtml(name)
+  const timeEl = document.createElement('p')
+  timeEl.style.cssText = 'color:rgba(255,255,255,0.6);font-size:11px'
+  timeEl.textContent = hoursLeft <= 1 ? 'Expires in < 1h' : `${hoursLeft}h left`
+  nameWrap.appendChild(nameEl)
+  nameWrap.appendChild(timeEl)
+  header.appendChild(nameWrap)
+
+  const closeBtn = document.createElement('button')
+  closeBtn.style.cssText = 'background:rgba(0,0,0,0.45);border:none;border-radius:50%;width:34px;height:34px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#fff;font-size:22px;padding:0;flex-shrink:0;line-height:1'
+  closeBtn.textContent = '×'
+  closeBtn.onclick = () => closeViewer()
+  header.appendChild(closeBtn)
+  viewer.appendChild(header)
+
+  // Content
+  if (moment.content_url) {
+    const img = document.createElement('img')
+    img.src = moment.content_url
+    img.style.cssText = 'width:100%;height:100%;object-fit:contain;position:absolute;inset:0'
+    img.loading = 'eager'
+    viewer.appendChild(img)
+  } else {
+    const textWrap = document.createElement('div')
+    textWrap.style.cssText = 'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:48px 28px;background:#0d0d0d'
+    const textEl = document.createElement('p')
+    textEl.style.cssText = 'color:#f0ede8;font-size:22px;font-weight:600;text-align:center;line-height:1.45'
+    textEl.textContent = moment.caption || ''
+    textWrap.appendChild(textEl)
+    viewer.appendChild(textWrap)
+  }
+
+  // Caption overlay for photo moments
+  if (moment.content_url && moment.caption) {
+    const captionWrap = document.createElement('div')
+    captionWrap.style.cssText = 'position:absolute;bottom:0;left:0;right:0;padding:48px 20px 28px;background:linear-gradient(to top,rgba(0,0,0,0.72) 0%,transparent 100%);z-index:5'
+    const cap = document.createElement('p')
+    cap.style.cssText = 'color:#fff;font-size:16px;text-align:center;line-height:1.4'
+    cap.textContent = moment.caption
+    captionWrap.appendChild(cap)
+    viewer.appendChild(captionWrap)
+  }
+
+  // Delete button for own moments
+  if (isOwn) {
+    const footer = document.createElement('div')
+    footer.style.cssText = 'position:absolute;bottom:calc(20px + env(safe-area-inset-bottom));left:0;right:0;display:flex;justify-content:center;z-index:6'
+    const deleteBtn = document.createElement('button')
+    deleteBtn.style.cssText = 'background:rgba(232,80,58,0.18);border:1px solid rgba(232,80,58,0.6);color:#e8503a;border-radius:20px;padding:10px 24px;font-size:14px;font-weight:600;cursor:pointer'
+    deleteBtn.textContent = '🗑 Delete moment'
+    deleteBtn.onclick = () => deleteMoment(moment.id, viewer)
+    footer.appendChild(deleteBtn)
+    viewer.appendChild(footer)
+  }
+
+  function closeViewer() {
+    viewer.remove()
+    loadMoments()
+  }
+
+  // Auto-close after 5s
+  const autoClose = setTimeout(() => closeViewer(), 5000)
+  closeBtn.addEventListener('click', () => clearTimeout(autoClose), { once: true })
+
+  // Tap right half to advance/close, tap left to close
+  viewer.addEventListener('click', e => {
+    if (e.target === closeBtn || closeBtn.contains(e.target)) return
+    if (e.target === avEl || avEl.contains(e.target)) return
+    if (e.target.closest('button')) return
+    closeViewer()
+    clearTimeout(autoClose)
+  })
+
+  document.body.appendChild(viewer)
+}
+
+function showAddMomentModal() {
+  document.getElementById('add-moment-modal')?.remove()
+  const modal = document.createElement('div')
+  modal.id = 'add-moment-modal'
+  modal.style.cssText = 'position:fixed;inset:0;z-index:10004;background:rgba(0,0,0,0.72)'
+  modal.onclick = e => { if (e.target === modal) modal.remove() }
+
+  const box = document.createElement('div')
+  box.style.cssText = 'position:absolute;bottom:0;left:0;right:0;background:#141414;border-radius:20px 20px 0 0;padding:20px 20px calc(24px + env(safe-area-inset-bottom))'
+  box.onclick = e => e.stopPropagation()
+
+  const handle = document.createElement('div')
+  handle.style.cssText = 'width:40px;height:4px;border-radius:2px;background:#333;margin:0 auto 20px'
+  box.appendChild(handle)
+
+  const title = document.createElement('h2')
+  title.style.cssText = 'color:#f0ede8;font-size:17px;font-weight:700;margin-bottom:6px'
+  title.textContent = 'Add a moment'
+  const sub = document.createElement('p')
+  sub.style.cssText = 'color:#6b6866;font-size:13px;margin-bottom:16px'
+  sub.textContent = 'Disappears in 24 hours'
+  box.appendChild(title)
+  box.appendChild(sub)
+
+  // Caption input
+  const captionInput = document.createElement('textarea')
+  captionInput.placeholder = 'Write something… (optional for photo, required for text)'
+  captionInput.maxLength = 200
+  captionInput.rows = 3
+  captionInput.style.cssText = 'width:100%;background:#1c1c1c;border:1px solid #252525;border-radius:12px;color:#f0ede8;font-size:15px;padding:12px 14px;outline:none;resize:none;font-family:inherit;margin-bottom:16px;box-sizing:border-box;-webkit-appearance:none'
+  box.appendChild(captionInput)
+
+  // Hidden file input
+  const fileInput = document.createElement('input')
+  fileInput.type = 'file'
+  fileInput.accept = 'image/*,.heic,.heif'
+  fileInput.style.display = 'none'
+  fileInput.onchange = () => {
+    if (fileInput.files[0]) submitMoment(fileInput.files[0], captionInput.value.trim(), modal)
+  }
+  box.appendChild(fileInput)
+
+  // Buttons
+  const btnRow = document.createElement('div')
+  btnRow.style.cssText = 'display:flex;gap:10px'
+
+  const photoBtn = document.createElement('button')
+  photoBtn.style.cssText = 'flex:1;padding:14px;border-radius:12px;border:1px solid #252525;background:#1c1c1c;color:#f0ede8;font-size:15px;cursor:pointer'
+  photoBtn.textContent = '📷 Photo'
+  photoBtn.onclick = () => fileInput.click()
+
+  const textBtn = document.createElement('button')
+  textBtn.style.cssText = 'flex:1;padding:14px;border-radius:12px;border:none;background:#e8503a;color:#fff;font-size:15px;font-weight:600;cursor:pointer'
+  textBtn.textContent = 'Post Text'
+  textBtn.onclick = () => {
+    const cap = captionInput.value.trim()
+    if (!cap) { showToast('Write something first'); return }
+    submitMoment(null, cap, modal)
+  }
+
+  btnRow.appendChild(photoBtn)
+  btnRow.appendChild(textBtn)
+  box.appendChild(btnRow)
+  modal.appendChild(box)
+  document.body.appendChild(modal)
+  setTimeout(() => captionInput.focus(), 200)
+}
+
+async function submitMoment(file, caption, modal) {
+  let contentUrl = null
+  if (file) {
+    showToast('Uploading…')
+    let ext = (file.name.split('.').pop() || 'jpg').toLowerCase()
+    let contentType = file.type || 'image/jpeg'
+    if (['heic', 'heif'].includes(ext)) { ext = 'jpg'; contentType = 'image/jpeg' }
+    const path = `moments/${currentUser.id}/${Date.now()}.${ext}`
+    const { error: upErr } = await sb.storage.from('avatars').upload(path, file, { upsert: false, contentType })
+    if (upErr) { showToast('Upload failed: ' + upErr.message); return }
+    const { data: urlData } = sb.storage.from('avatars').getPublicUrl(path)
+    contentUrl = urlData.publicUrl
+  }
+  const { error } = await sb.from('moments').insert({
+    user_id: currentUser.id,
+    content_url: contentUrl || null,
+    caption: caption || null,
+  })
+  if (error) { showToast('Could not post moment.'); return }
+  modal?.remove()
+  showToast('Moment posted! ✨')
+  loadMoments()
+}
+
+async function deleteMoment(momentId, viewer) {
+  if (!confirm('Delete this moment?')) return
+  viewer?.remove()
+  await sb.from('moments').delete().eq('id', momentId).eq('user_id', currentUser.id)
+  showToast('Moment deleted')
+  loadMoments()
 }
 
 async function loadContacts() {
@@ -3485,6 +3855,16 @@ async function showProfilePreview(userId) {
         <div style="background:#1c1c1c;border-radius:14px;padding:16px;margin-bottom:12px;border:1px solid #252525">
           <p style="color:#9e9b97;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:10px">About My Match</p>
           <p style="color:#9e9b97;font-size:14px;line-height:1.6;white-space:pre-wrap">${eH(p.about_match)}</p>
+        </div>` : ''}
+
+        ${(p.featured_quote || p.featured_fact || p.featured_question) ? `
+        <div style="margin-bottom:12px">
+          <p style="color:#9e9b97;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:10px">Highlights</p>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            ${p.featured_quote ? `<div style="background:#1c1c1c;border:1px solid #252525;border-radius:14px;padding:14px 16px"><p style="color:#f5c518;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:5px">💬 Quote</p><p style="color:#f0ede8;font-size:14px;line-height:1.5;font-style:italic">"${eH(p.featured_quote)}"</p></div>` : ''}
+            ${p.featured_fact ? `<div style="background:#1c1c1c;border:1px solid #252525;border-radius:14px;padding:14px 16px"><p style="color:#2ecc71;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:5px">💡 Fun Fact</p><p style="color:#f0ede8;font-size:14px;line-height:1.5">${eH(p.featured_fact)}</p></div>` : ''}
+            ${p.featured_question ? `<div style="background:#1c1c1c;border:1px solid #252525;border-radius:14px;padding:14px 16px"><p style="color:#e8503a;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:5px">❓ Ask Me</p><p style="color:#f0ede8;font-size:14px;line-height:1.5">${eH(p.featured_question)}</p></div>` : ''}
+          </div>
         </div>` : ''}
 
         ${basicsItems.length ? `
@@ -5669,9 +6049,35 @@ function renderProfileScreen() {
   renderPrivateAlbum()
   renderStreakBadge()
   renderProfileCompletion()
+  renderFeaturedSection()
   checkProfileNudge()
   loadProfileViewCount()
   renderBoostBtn()
+}
+
+function renderFeaturedSection() {
+  const container = document.getElementById('profile-featured')
+  if (!container) return
+  const p = currentProfile
+  if (!p) return
+  const eH = escapeHtml
+  const cards = [
+    p.featured_quote ? { color: '#f5c518', label: '💬 Quote', text: `"${eH(p.featured_quote)}"`, italic: true } : null,
+    p.featured_fact ? { color: '#2ecc71', label: '💡 Fun Fact', text: eH(p.featured_fact), italic: false } : null,
+    p.featured_question ? { color: '#e8503a', label: '❓ Ask Me', text: eH(p.featured_question), italic: false } : null,
+  ].filter(Boolean)
+  if (!cards.length) { container.innerHTML = ''; return }
+  container.innerHTML = `
+    <div style="margin-bottom:16px">
+      <p style="color:#9e9b97;font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:10px">Highlights</p>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        ${cards.map(c => `
+        <div style="background:#1c1c1c;border:1px solid #252525;border-radius:14px;padding:14px 16px;cursor:pointer" onclick="toggleEdit()">
+          <p style="color:${c.color};font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:5px">${c.label}</p>
+          <p style="color:#f0ede8;font-size:14px;line-height:1.5${c.italic ? ';font-style:italic' : ''}">${c.text}</p>
+        </div>`).join('')}
+      </div>
+    </div>`
 }
 
 async function loadProfileViewCount() {
@@ -5741,6 +6147,9 @@ function toggleEdit() {
   el('edit-quote').value = currentProfile?.quote || ''
   el('edit-occupation').value = currentProfile?.occupation || ''
   el('edit-about-match').value = currentProfile?.about_match || ''
+  el('edit-featured-quote').value = currentProfile?.featured_quote || ''
+  el('edit-featured-fact').value = currentProfile?.featured_fact || ''
+  el('edit-featured-question').value = currentProfile?.featured_question || ''
   el('edit-height').value = currentProfile?.height || ''
   el('edit-body-type').value = currentProfile?.body_type || ''
   el('edit-hair-color').value = currentProfile?.hair_color || ''
@@ -6017,6 +6426,9 @@ async function saveProfile() {
     quote: el('edit-quote').value.trim() || null,
     occupation: el('edit-occupation').value.trim() || null,
     about_match: el('edit-about-match').value.trim() || null,
+    featured_quote: el('edit-featured-quote').value.trim() || null,
+    featured_fact: el('edit-featured-fact').value.trim() || null,
+    featured_question: el('edit-featured-question').value.trim() || null,
     height: el('edit-height').value || null,
     body_type: el('edit-body-type').value || null,
     hair_color: el('edit-hair-color').value || null,
