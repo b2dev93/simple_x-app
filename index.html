@@ -618,6 +618,7 @@
   <!-- BLOCK/REPORT MENU -->
   <div id="chat-menu" class="hidden" style="position:fixed;inset:0;z-index:150" onclick="hideChatMenu()">
     <div style="position:absolute;top:70px;right:16px;background:#1c1c1c;border-radius:14px;border:1px solid #252525;overflow:hidden;min-width:180px" onclick="event.stopPropagation()">
+      <button onclick="clearMessages()" style="width:100%;padding:16px 20px;border:none;background:transparent;color:#f0ede8;font-size:15px;text-align:left;cursor:pointer;border-bottom:1px solid #252525">Clear</button>
       <button onclick="unmatchUser()" style="width:100%;padding:16px 20px;border:none;background:transparent;color:#f0ede8;font-size:15px;text-align:left;cursor:pointer;border-bottom:1px solid #252525">Unmatch</button>
       <button onclick="reportUser()" style="width:100%;padding:16px 20px;border:none;background:transparent;color:#f0ede8;font-size:15px;text-align:left;cursor:pointer;border-bottom:1px solid #252525">Report</button>
       <button onclick="blockUser()" style="width:100%;padding:16px 20px;border:none;background:transparent;color:#e8503a;font-size:15px;text-align:left;cursor:pointer">Block</button>
@@ -3343,12 +3344,20 @@ async function openContactsSection(sectionKey) {
 }
 
 async function showProfilePreview(userId) {
+  // Show loading overlay immediately before any async work
+  document.getElementById('profile-preview-loading')?.remove()
+  const loadingOverlay = document.createElement('div')
+  loadingOverlay.id = 'profile-preview-loading'
+  loadingOverlay.style.cssText = 'position:fixed;inset:0;background:#0a0a0a;z-index:10002;display:flex;align-items:center;justify-content:center'
+  loadingOverlay.innerHTML = `<div style="display:flex;align-items:center;gap:2px"><span style="font-size:32px;font-weight:700;color:#f0ede8;letter-spacing:-1.5px;font-family:Georgia,serif;line-height:1">simple</span><div style="position:relative;width:46px;height:46px;display:flex;align-items:center;justify-content:center"><span style="font-size:32px;font-weight:700;color:#e8503a;letter-spacing:-1.5px;font-family:Georgia,serif;line-height:1;position:relative;z-index:1">x</span><div style="position:absolute;inset:0;border-radius:50%;border:3px solid #e8503a;border-top-color:transparent;animation:spin 0.8s linear infinite"></div></div></div>`
+  document.body.appendChild(loadingOverlay)
+
   // Track profile view
   if (currentUser && userId !== currentUser.id) {
     sb.from('profile_views').insert({ viewer_id: currentUser.id, viewed_id: userId }).then(() => {})
   }
   const { data: p } = await sb.from('profiles').select('*').eq('id', userId).maybeSingle()
-  if (!p) return
+  if (!p) { document.getElementById('profile-preview-loading')?.remove(); return }
 
   const existing = document.getElementById('profile-preview-modal')
   if (existing) existing.remove()
@@ -3504,6 +3513,7 @@ async function showProfilePreview(userId) {
       </div>
     </div>
   `
+  document.getElementById('profile-preview-loading')?.remove()
   document.body.appendChild(modal)
 
   // Swipe down to close (only when scroll is at top)
@@ -4617,11 +4627,69 @@ async function loadMatches() {
         <p class="match-preview" style="${unread ? 'color:#f0ede8' : ''}">${preview}</p>
       </div>`
     row.onclick = () => openChatById(m.id)
+
+    // Long-press to show conversation options
+    let _lpTimer = null, _lpX = 0, _lpY = 0
+    row.addEventListener('touchstart', e => {
+      _lpX = e.touches[0].clientX; _lpY = e.touches[0].clientY
+      clearTimeout(_lpTimer)
+      _lpTimer = setTimeout(() => { showConversationOptions(m, lastMsg) }, 600)
+    }, { passive: true })
+    row.addEventListener('touchend', () => clearTimeout(_lpTimer))
+    row.addEventListener('touchcancel', () => clearTimeout(_lpTimer))
+    row.addEventListener('touchmove', e => {
+      if (Math.abs(e.touches[0].clientX - _lpX) > 10 || Math.abs(e.touches[0].clientY - _lpY) > 10) clearTimeout(_lpTimer)
+    }, { passive: true })
+
     wrapper.appendChild(row)
     matchFragment.appendChild(wrapper)
   })
   list.innerHTML = ''
   list.appendChild(matchFragment)
+}
+
+function showConversationOptions(match, lastMsg) {
+  const isWinkOnly = lastMsg?.content === '[wink]'
+  document.getElementById('conv-action-sheet')?.remove()
+  const sheet = document.createElement('div')
+  sheet.id = 'conv-action-sheet'
+  sheet.style.cssText = 'position:fixed;inset:0;z-index:500;background:rgba(0,0,0,0.6)'
+  sheet.onclick = () => sheet.remove()
+  const menu = document.createElement('div')
+  menu.style.cssText = 'position:absolute;bottom:0;left:0;right:0;background:#1c1c1c;border-radius:20px 20px 0 0;padding:8px 0 calc(16px + env(safe-area-inset-bottom))'
+  menu.onclick = e => e.stopPropagation()
+  const handle = document.createElement('div')
+  handle.style.cssText = 'width:40px;height:4px;border-radius:2px;background:#333;margin:8px auto 16px'
+  menu.appendChild(handle)
+  if (isWinkOnly) {
+    const unsendBtn = document.createElement('button')
+    unsendBtn.style.cssText = 'width:100%;padding:16px 20px;border:none;background:transparent;color:#e8503a;font-size:15px;text-align:left;cursor:pointer;display:block'
+    unsendBtn.textContent = 'Unsend wink'
+    unsendBtn.onclick = () => { sheet.remove(); unsendWink(match) }
+    menu.appendChild(unsendBtn)
+  }
+  const cancelBtn = document.createElement('button')
+  cancelBtn.style.cssText = 'width:100%;padding:16px 20px;border:none;background:transparent;color:#9e9b97;font-size:15px;text-align:left;cursor:pointer;display:block'
+  cancelBtn.textContent = 'Cancel'
+  cancelBtn.onclick = () => sheet.remove()
+  menu.appendChild(cancelBtn)
+  sheet.appendChild(menu)
+  document.body.appendChild(sheet)
+}
+
+async function unsendWink(match) {
+  if (!confirm('Remove wink and unmatch?')) return
+  const matchId = match.id
+  const { data: msgs } = await sb.from('messages').select('content').eq('match_id', matchId)
+  if (msgs && msgs.some(msg => msg.content !== '[wink]')) {
+    showToast('This conversation has regular messages.')
+    return
+  }
+  await sb.from('messages').delete().eq('match_id', matchId)
+  await sb.from('matches').delete().eq('id', matchId)
+  localStorage.removeItem('sx_last_seen_' + matchId)
+  document.querySelector(`[data-match-wrapper="${matchId}"]`)?.remove()
+  showToast('Wink unsent')
 }
 
 function timeAgo(ts) {
@@ -6455,6 +6523,21 @@ let selectedReportReason = ''
 
 function showChatMenu() { show('chat-menu') }
 function hideChatMenu() { hide('chat-menu') }
+
+async function clearMessages() {
+  hideChatMenu()
+  if (!activeMatch) return
+  if (!confirm('Clear all messages? The match will be kept.')) return
+  await sb.from('messages').delete().eq('match_id', activeMatch.id)
+  const msgs = el('chat-messages')
+  if (msgs) {
+    const other = activeMatch.user_a === currentUser.id ? activeMatch.profiles_b : activeMatch.profiles_a
+    msgs.innerHTML = `<p style="color:#6b6866;font-size:14px;text-align:center;margin-top:40px">You matched with ${escapeHtml(other?.display_name || 'someone')}. Say hey!</p>`
+  }
+  showStarters()
+  showToast('Messages cleared')
+  loadMatches()
+}
 
 function selectReason(btn, reason) {
   selectedReportReason = reason
