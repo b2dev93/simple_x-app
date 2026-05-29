@@ -527,7 +527,7 @@
         <span class="nav-label">Community</span>
         <span id="community-badge" style="display:none;position:absolute;top:4px;right:18px;background:#e8503a;color:#fff;font-size:10px;font-weight:700;border-radius:50%;width:16px;height:16px;align-items:center;justify-content:center;line-height:1"></span>
       </button>
-      <button class="nav-btn" id="nav-profile" onclick="switchTab2('profile');clearAnonQuestionsBadge()" style="position:relative">
+      <button class="nav-btn" id="nav-profile" onclick="switchTab2('profile')" style="position:relative">
         <span class="nav-icon">👤</span>
         <span class="nav-label">Profile</span>
         <span id="anon-q-badge" style="display:none;position:absolute;top:4px;right:18px;background:#e8503a;color:#fff;font-size:10px;font-weight:700;border-radius:50%;width:16px;height:16px;align-items:center;justify-content:center;line-height:1"></span>
@@ -829,6 +829,19 @@
             <span id="anon-q-slider" style="position:absolute;inset:0;background:#2a2a2a;border-radius:24px;transition:0.2s"></span>
             <span id="anon-q-thumb" style="position:absolute;left:3px;top:3px;width:18px;height:18px;background:#fff;border-radius:50%;transition:0.2s"></span>
           </label>
+        </div>
+        <div style="padding:12px 0;border-bottom:1px solid #252525">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <p style="color:#f0ede8;font-size:15px">Who can see my profile</p>
+              <p style="color:#6b6866;font-size:12px;margin-top:2px">Control who can discover you.</p>
+            </div>
+          </div>
+          <select id="visibility-select" onchange="saveVisibility(this.value)" class="input" style="margin-top:10px;color:#f0ede8;background:#1e1e1e">
+            <option value="everyone">Everyone</option>
+            <option value="matches_only">Matches only</option>
+            <option value="nobody">Nobody (invisible)</option>
+          </select>
         </div>
         <div style="padding-top:16px">
           <p style="color:#9e9b97;font-size:12px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;margin-bottom:12px">Blocked Members</p>
@@ -1201,6 +1214,17 @@ async function savePhotoCaptions() {
   const arr = Array.from({ length: len }, (_, i) => captions[i] || '')
   await sb.from('profiles').update({ photo_captions: arr }).eq('id', currentUser.id)
   currentProfile.photo_captions = arr
+}
+
+async function savePrivatePhotoCaptions() {
+  if (!currentUser || !currentProfile) return
+  const inputs = document.querySelectorAll('[data-private-caption-idx]')
+  const captions = []
+  inputs.forEach(inp => { captions[parseInt(inp.dataset.privateCaptionIdx)] = inp.value.trim() })
+  const len = currentProfile.private_photo_urls?.length || 0
+  const arr = Array.from({ length: len }, (_, i) => captions[i] || '')
+  await sb.from('profiles').update({ private_photo_captions: arr }).eq('id', currentUser.id)
+  currentProfile.private_photo_captions = arr
 }
 
 async function deletePhoto(idx) {
@@ -1685,6 +1709,7 @@ async function checkPremiumExpiry() {
 async function enterApp(user) {
   setTimeout(checkResearchBadge, 500)
   setTimeout(checkCommunityBadge, 600)
+  setTimeout(checkAnonQuestionsBadge, 700)
   setTimeout(checkEarlyMemberBadge, 1500)
   setTimeout(checkPopularBadge, 2000)
   currentUser = user
@@ -2286,6 +2311,13 @@ async function toggleAnonQuestions(val) {
   showToast(val ? 'Anonymous questions enabled' : 'Anonymous questions disabled')
 }
 
+async function saveVisibility(val) {
+  await sb.from('profiles').update({ visibility: val }).eq('id', currentUser.id)
+  if (currentProfile) currentProfile.visibility = val
+  const labels = { everyone: 'Visible to everyone', matches_only: 'Visible to matches only', nobody: 'Invisible — hidden from discovery' }
+  showToast(labels[val] || 'Visibility updated')
+}
+
 function renderBoostBtn() {
   const btn = document.getElementById('boost-btn')
   const sub = document.getElementById('boost-btn-sub')
@@ -2859,7 +2891,7 @@ function switchTab2(tab) {
   if (tab === 'messages') { loadMatches(); loadGroups(); setUnreadDot(false) }
   if (tab === 'research') loadResearch()
   if (tab === 'community') loadCommunity()
-  if (tab === 'profile') { renderProfileScreen(); loadMyQuestions(); clearAnonQuestionsBadge() }
+  if (tab === 'profile') { renderProfileScreen(); loadMyQuestions() }
 }
 
 
@@ -2914,12 +2946,7 @@ function renderProfileGrid(profiles, containerId, emptyMsg) {
   grid.innerHTML = profiles.map(p => {
     const photo = p.photo_urls?.[0]
     const firstName = escapeHtml((p.display_name || 'Member').split(' ')[0])
-    const _dotMs = p.last_seen ? Date.now() - new Date(p.last_seen).getTime() : null
-    const _dotColor = !_dotMs ? null
-      : _dotMs < 900000 ? '#2ecc71'
-      : _dotMs < 86400000 ? '#2ecc71'
-      : _dotMs < 604800000 ? '#f5c518'
-      : null
+    const _dotColor = isOnline(p) ? '#2ecc71' : null
     return `
     <div onclick="showProfilePreview('${p.id}')" style="cursor:pointer;position:relative;aspect-ratio:1;background:#1c1c1c;overflow:hidden">
       ${photo
@@ -2937,7 +2964,7 @@ async function loadOnlineNow() {
   const grid = el('online-grid')
   grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:40px 0"><p style="color:#6b6866;font-size:14px">Loading...</p></div>`
 
-  let query = sb.from('profiles').select('*').neq('id', currentUser.id).or('incognito.is.null,incognito.eq.false').limit(60)
+  let query = sb.from('profiles').select('*').neq('id', currentUser.id).or('incognito.is.null,incognito.eq.false').or('visibility.is.null,visibility.eq.everyone').limit(60)
 
   // Auto-filter by seeking
   if (currentProfile?.seeking && currentProfile.seeking !== 'Everyone') {
@@ -3287,6 +3314,7 @@ async function showProfilePreview(userId) {
   _previewPublicPhotos = p.photo_urls || []
   _previewPublicCaptions = p.photo_captions || []
   _previewPrivatePhotos = albumStatus === 'approved' ? (p.private_photo_urls || []) : []
+  _previewPrivateCaptions = albumStatus === 'approved' ? (p.private_photo_captions || []) : []
   _previewAlbumStatus = albumStatus
   _previewOwnerId = p.id
 
@@ -3347,7 +3375,7 @@ async function showProfilePreview(userId) {
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap">
           <h2 style="color:#f0ede8;font-size:22px;font-weight:700">${eName}${age ? `, ${age}` : ''}${p.verified ? ' <span style="color:#4fc3f7;font-weight:900">✓</span>' : ''}</h2>
           ${activityLabel ? `<span style="background:${activityLabel.bg};color:${activityLabel.color};font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">${activityLabel.text}</span>` : ''}
-          ${isMatched ? `<span style="background:#3a1a14;color:#e8503a;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">✓ Matched</span>${match.created_at ? `<span style="color:#6b6866;font-size:10px;margin-left:2px">Matched ${new Date(match.created_at).toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'})}</span>` : ''}` : ''}
+          ${isMatched ? `<span style="background:#3a1a14;color:#e8503a;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">✓ Matched${match.created_at ? ` • ${new Date(match.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}` : ''}</span>` : ''}
           ${isNewMember(p) ? `<span style="background:#0d2838;color:#4fc3f7;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">✦ NEW</span>` : ''}
         </div>
         ${p.badges?.length ? `<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px">${p.badges.map(b => `<span style="background:#1c1c1c;border:1px solid #252525;border-radius:20px;padding:3px 10px;font-size:12px;color:#f0ede8">${escapeHtml(b)}</span>`).join('')}</div>` : ''}
@@ -3464,15 +3492,20 @@ async function showProfilePreview(userId) {
       }
     }
 
-    // Block button — only shown when viewing someone else
+    // Block + Report buttons — only shown when viewing someone else
     if (userId !== currentUser.id) {
       const blockRow = document.createElement('div')
-      blockRow.style.cssText = 'margin-top:10px'
+      blockRow.style.cssText = 'margin-top:10px;display:flex;gap:8px'
       const blockB = document.createElement('button')
-      blockB.style.cssText = 'width:100%;padding:11px;border-radius:12px;border:1px solid #3a1a14;background:transparent;font-size:13px;font-weight:500;cursor:pointer;color:#e8503a;text-align:center'
+      blockB.style.cssText = 'flex:1;padding:11px;border-radius:12px;border:1px solid #3a1a14;background:transparent;font-size:13px;font-weight:500;cursor:pointer;color:#e8503a;text-align:center'
       blockB.textContent = '🚫 Block'
       blockB.onclick = () => blockFromPreview(p.id, name.split(' ')[0])
+      const reportB = document.createElement('button')
+      reportB.style.cssText = 'flex:1;padding:11px;border-radius:12px;border:1px solid #252525;background:transparent;font-size:13px;font-weight:500;cursor:pointer;color:#9e9b97;text-align:center'
+      reportB.textContent = '🚩 Report'
+      reportB.onclick = () => { document.getElementById('profile-preview-modal')?.remove(); reportFromPreview(p.id) }
       blockRow.appendChild(blockB)
+      blockRow.appendChild(reportB)
       btnsContainer.insertAdjacentElement('afterend', blockRow)
     }
   }
@@ -3599,9 +3632,9 @@ function switchPreviewTab(tab) {
   } else {
     if (_previewAlbumStatus === 'approved' && _previewPrivatePhotos.length > 0) {
       previewPhotos = _previewPrivatePhotos
-      previewCaptions = []
+      previewCaptions = _previewPrivateCaptions
       previewPhotoIdx = 0
-      photoSection.innerHTML = buildPreviewCarouselHtml(previewPhotos, [])
+      photoSection.innerHTML = buildPreviewCarouselHtml(previewPhotos, _previewPrivateCaptions)
       attachPreviewCarouselTouch()
     } else {
       previewPhotos = []
@@ -3678,6 +3711,14 @@ function clearAnonQuestionsBadge() {
   if (badge) badge.style.display = 'none'
 }
 
+async function checkAnonQuestionsBadge() {
+  if (!currentUser) return
+  const { count } = await sb.from('anonymous_questions')
+    .select('id', { count: 'exact', head: true }).eq('target_id', currentUser.id)
+  _anonQCount = count || 0
+  updateAnonQuestionsBadge()
+}
+
 async function loadMyQuestions() {
   const section = document.getElementById('my-questions-section')
   const list = document.getElementById('questions-list')
@@ -3686,7 +3727,7 @@ async function loadMyQuestions() {
   const { data: questions } = await sb.from('anonymous_questions')
     .select('*').eq('target_id', currentUser.id).order('created_at', { ascending: false })
   _anonQCount = questions?.length || 0
-  updateAnonQuestionsBadge()
+  clearAnonQuestionsBadge()
   if (!questions?.length) { section.style.display = 'none'; return }
   section.style.display = ''
   if (countEl) countEl.textContent = questions.length + (questions.length === 1 ? ' question' : ' questions')
@@ -3838,18 +3879,12 @@ async function updateLastSeen() {
 async function loadDiscover() {
   secondLookChecked = false
   el('card-stack').innerHTML = '<div class="empty-state"><p style="color:#6b6866;font-size:14px">Loading profiles...</p></div>'
-  const [{ data: swipes }, { data: hardNoSwipes }] = await Promise.all([
-    sb.from('swipes').select('swiped_id').eq('swiper_id', currentUser.id),
-    sb.from('swipes').select('swiped_id').eq('swiper_id', currentUser.id).eq('direction', 'hard_no').limit(5000)
-  ])
-  const swipedIds = [...new Set([
-    ...(swipes || []).map(s => s.swiped_id),
-    ...(hardNoSwipes || []).map(s => s.swiped_id)
-  ])]
+  const { data: swipes } = await sb.from('swipes').select('swiped_id').eq('swiper_id', currentUser.id)
+  const swipedIds = [...new Set((swipes || []).map(s => s.swiped_id))]
   swipedIds.push(currentUser.id)
 
   const fetchLimit = filterDistance !== null ? 200 : 20
-  let query = sb.from('profiles').select('*').or('incognito.is.null,incognito.eq.false').limit(fetchLimit)
+  let query = sb.from('profiles').select('*').or('incognito.is.null,incognito.eq.false').or('visibility.is.null,visibility.eq.everyone').limit(fetchLimit)
   if (swipedIds.length > 0) query = query.not('id', 'in', `(${swipedIds.join(',')})`)
   // Filter by gender: explicit filter takes priority over seeking preference
   if (filterGender !== 'all') {
@@ -3897,6 +3932,7 @@ function renderCard() {
     <div class="profile-card" id="current-card" style="background:${color}">
       ${p._secondLook ? `<div style="position:absolute;top:0;left:0;right:0;z-index:15;background:rgba(232,80,58,0.9);padding:9px 16px;text-align:center"><p style="color:#fff;font-size:13px;font-weight:600;letter-spacing:0.01em">We think you might like this person 👀</p></div>` : ''}
       ${isNewMember(p) ? `<div style="position:absolute;${p._secondLook ? 'top:50px' : 'top:12px'};left:12px;z-index:16;background:#0d2838;color:#4fc3f7;font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px">✦ NEW</div>` : ''}
+      ${isOnline(p) ? `<div style="position:absolute;top:14px;right:14px;z-index:16;display:flex;align-items:center;gap:5px;background:rgba(0,0,0,0.5);border-radius:20px;padding:3px 8px;backdrop-filter:blur(4px)"><span style="width:7px;height:7px;border-radius:50%;background:#2ecc71;display:inline-block;flex-shrink:0"></span><span style="color:#fff;font-size:11px;font-weight:600">Online</span></div>` : ''}
       <div class="card-header" style="${p._secondLook ? 'top:38px' : ''}">
         <div class="stamp stamp-like" id="stamp-like">LIKE</div>
         <div class="stamp stamp-pass" id="stamp-pass">PASS</div>
@@ -3929,7 +3965,7 @@ function renderCard() {
       </div>
     </div>
     <div class="card-actions">
-      <button class="action-btn pass" onclick="showPassSheet()">
+      <button class="action-btn pass" onclick="swipe('pass')">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6b6866" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
       <button class="action-btn like" onclick="swipe('like')">
@@ -4096,6 +4132,11 @@ function dismissBetaBanner() {
   })
 }
 
+function isOnline(profile) {
+  if (!profile?.last_seen) return false
+  return (Date.now() - new Date(profile.last_seen).getTime()) < 15 * 60 * 1000
+}
+
 function isNewMember(profile) {
   if (!profile?.created_at) return false
   return (Date.now() - new Date(profile.created_at).getTime()) < 7 * 24 * 3600 * 1000
@@ -4109,6 +4150,7 @@ let previewPhotos = []
 let _previewPublicPhotos = []
 let _previewPublicCaptions = []
 let _previewPrivatePhotos = []
+let _previewPrivateCaptions = []
 let _previewAlbumStatus = null
 let _previewOwnerId = null
 let previewPhotoIdx = 0
@@ -4129,9 +4171,10 @@ function setupSwipeGesture() {
 
   card.addEventListener('touchmove', e => {
     if (!isDragging) return
-    if (touchOnPhoto) return  // don't tilt card while browsing photos
     const dx = e.touches[0].clientX - startX
     const dy = e.touches[0].clientY - startY
+    // Suppress card tilt only for small photo-zone swipes; large swipes tilt regardless
+    if (touchOnPhoto && Math.abs(dx) < 60 && Math.abs(dy) < 60) return
     card.style.transform = `translateX(${dx}px) translateY(${dy * 0.3}px) rotate(${dx * 0.06}deg)`
     el('stamp-like').style.opacity = Math.max(0, Math.min(1, dx / 60))
     el('stamp-pass').style.opacity = Math.max(0, Math.min(1, -dx / 60))
@@ -4142,11 +4185,17 @@ function setupSwipeGesture() {
     isDragging = false
     const dx = e.changedTouches[0].clientX - startX
     const dy = e.changedTouches[0].clientY - startY
-    if (touchOnPhoto && Math.abs(dx) > 30 && Math.abs(dx) > Math.abs(dy) * 1.5) {
-      // Photo swipe — navigate between profile photos
+    const absX = Math.abs(dx), absY = Math.abs(dy)
+    if (absX > 100 && absX > absY * 1.2) {
+      // Large horizontal swipe anywhere = card action
+      if (dx > 0) swipe('like'); else swipe('pass')
+    } else if (absY > 80 && dy < 0 && absY > absX * 1.5) {
+      // Swipe up = super like
+      swipe('super')
+    } else if (touchOnPhoto && absX > 30 && absX > absY * 1.5) {
+      // Small swipe on photo = photo navigation
       if (dx < 0) nextCardPhoto(); else prevCardPhoto()
-    } else if (!touchOnPhoto && Math.abs(dx) > 80) {
-      if (dx > 0) swipe('like'); else showPassSheet()
+      card.style.transition = 'transform 0.3s ease-out'; card.style.transform = ''
     } else {
       card.style.transition = 'transform 0.3s ease-out'; card.style.transform = ''
     }
@@ -4186,43 +4235,6 @@ async function checkSuperLikeLimit() {
 let lastSwipedProfile = null
 let lastSwipedDirection = null
 
-function showPassSheet() {
-  document.getElementById('pass-sheet')?.remove()
-  const sheet = document.createElement('div')
-  sheet.id = 'pass-sheet'
-  sheet.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;justify-content:flex-end'
-
-  const backdrop = document.createElement('div')
-  backdrop.style.cssText = 'position:absolute;inset:0;background:rgba(0,0,0,0.5)'
-  backdrop.onclick = () => sheet.remove()
-  sheet.appendChild(backdrop)
-
-  const panel = document.createElement('div')
-  panel.style.cssText = 'position:relative;background:#1c1c1c;border-radius:20px 20px 0 0;padding:20px 16px 40px'
-
-  const title = document.createElement('p')
-  title.textContent = 'Why are you passing?'
-  title.style.cssText = 'color:#9e9b97;font-size:13px;font-weight:600;text-align:center;margin-bottom:16px'
-  panel.appendChild(title)
-
-  const opts = [
-    { label: 'Hard No 🚫', desc: 'Never show again', direction: 'hard_no', reason: 'hard_no' },
-    { label: 'Pass for Now ⏭️', desc: 'May show again later', direction: 'pass', reason: 'pass_for_now' },
-    { label: 'Not My Type 👋', desc: 'Standard pass', direction: 'pass', reason: 'not_my_type' },
-    { label: 'Incomplete Profile 📝', desc: 'Standard pass', direction: 'pass', reason: 'incomplete_profile' },
-  ]
-
-  opts.forEach(opt => {
-    const btn = document.createElement('button')
-    btn.style.cssText = 'display:flex;align-items:center;justify-content:space-between;width:100%;padding:14px 16px;margin-bottom:8px;border-radius:12px;border:1px solid #252525;background:#141414;cursor:pointer;text-align:left'
-    btn.innerHTML = `<div><p style="color:#f0ede8;font-size:15px;font-weight:600;margin:0">${opt.label}</p><p style="color:#6b6866;font-size:12px;margin:2px 0 0">${opt.desc}</p></div>`
-    btn.onclick = () => { sheet.remove(); swipe(opt.direction, opt.reason) }
-    panel.appendChild(btn)
-  })
-
-  sheet.appendChild(panel)
-  document.body.appendChild(sheet)
-}
 
 async function swipe(direction, reason = null) {
   const card = el('current-card')
@@ -4563,7 +4575,12 @@ function openChat(match) {
   chatAvEl.style.cursor = 'pointer'
   chatAvEl.onclick = () => { if (other?.id) showProfilePreview(other.id) }
   el('chat-name').textContent = other?.display_name || 'User'
-  el('chat-city').textContent = other?.city || ''
+  const chatCityEl = el('chat-city')
+  if (chatCityEl) {
+    const onlinePart = isOnline(other) ? '<span style="display:inline-flex;align-items:center;gap:3px;color:#2ecc71;font-size:12px;font-weight:600"><span style="width:6px;height:6px;border-radius:50%;background:#2ecc71;display:inline-block"></span>Online now</span>' : ''
+    const cityPart = other?.city ? `<span style="color:#6b6866">${escapeHtml(other.city)}</span>` : ''
+    chatCityEl.innerHTML = [onlinePart, cityPart].filter(Boolean).join('  ·  ')
+  }
   const emojiPicker = document.getElementById('emoji-picker')
   if (emojiPicker) emojiPicker.style.display = 'none'
   const pinBtn = document.getElementById('chat-pin-btn')
@@ -5588,7 +5605,7 @@ function renderEditPhotos() {
   const privPhotos = currentProfile?.private_photo_urls || []
   privPhotos.forEach((url, i) => {
     const cell = document.createElement('div')
-    cell.style.cssText = 'position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;background:#1a1208;border:1px solid #3a2a14;cursor:pointer'
+    cell.style.cssText = 'position:relative;aspect-ratio:1;background:#1a1208;border:1px solid #3a2a14;cursor:pointer;overflow:hidden;border-radius:0'
     const img = document.createElement('img')
     img.src = url; img.style.cssText = 'width:100%;height:100%;object-fit:cover'
     img.onclick = () => showLightbox(url)
@@ -5598,7 +5615,19 @@ function renderEditPhotos() {
     del.style.cssText = 'position:absolute;top:0;right:0;width:44px;height:44px;border-radius:50%;background:transparent;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;touch-action:manipulation'
     del.innerHTML = '<span style="width:26px;height:26px;border-radius:50%;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;color:#fff;font-size:16px;line-height:1;pointer-events:none">×</span>'
     cell.appendChild(del)
-    privGrid.appendChild(cell)
+    const captionInput = document.createElement('input')
+    captionInput.placeholder = 'Caption…'
+    captionInput.maxLength = 100
+    captionInput.value = (currentProfile?.private_photo_captions || [])[i] || ''
+    captionInput.dataset.privateCaptionIdx = String(i)
+    captionInput.style.cssText = 'width:100%;box-sizing:border-box;background:#1a1208;border:none;border-bottom:1px solid #3a2a14;border-radius:0 0 8px 8px;padding:5px 8px;color:#9e9b97;font-size:11px;outline:none'
+    captionInput.addEventListener('blur', savePrivatePhotoCaptions)
+    captionInput.addEventListener('keydown', e => { if (e.key === 'Enter') captionInput.blur() })
+    const cellGroup = document.createElement('div')
+    cellGroup.style.cssText = 'display:flex;flex-direction:column;border-radius:10px;overflow:hidden;border:1px solid #3a2a14'
+    cellGroup.appendChild(cell)
+    cellGroup.appendChild(captionInput)
+    privGrid.appendChild(cellGroup)
   })
   if (privPhotos.length < 20) {
     const add = document.createElement('div')
@@ -6120,8 +6149,19 @@ function selectReason(btn, reason) {
   btn.classList.add('selected')
 }
 
+let _reportTargetId = null
+
 function reportUser() {
   hideChatMenu()
+  _reportTargetId = null
+  selectedReportReason = ''
+  document.querySelectorAll('.report-reason-btn').forEach(b => b.classList.remove('selected'))
+  el('report-details').value = ''
+  show('report-modal')
+}
+
+function reportFromPreview(userId) {
+  _reportTargetId = userId
   selectedReportReason = ''
   document.querySelectorAll('.report-reason-btn').forEach(b => b.classList.remove('selected'))
   el('report-details').value = ''
@@ -6142,14 +6182,26 @@ async function reportPost(postId, postUserId) {
 
 async function submitReport() {
   if (!selectedReportReason) { alert('Please select a reason'); return }
-  const other = activeMatch.user_a === currentUser.id ? activeMatch.profiles_b : activeMatch.profiles_a
+  let reportedId, matchId
+  if (_reportTargetId) {
+    reportedId = _reportTargetId
+    matchId = null
+  } else if (activeMatch) {
+    const other = activeMatch.user_a === currentUser.id ? activeMatch.profiles_b : activeMatch.profiles_a
+    reportedId = other.id
+    matchId = activeMatch.id
+  } else {
+    showToast('Could not identify user to report.')
+    return
+  }
   await sb.from('reports').insert({
     reporter_id: currentUser.id,
-    reported_id: other.id,
+    reported_id: reportedId,
     reason: selectedReportReason,
     details: el('report-details').value.trim() || null,
-    match_id: activeMatch.id,
-  }).select()
+    match_id: matchId,
+  })
+  _reportTargetId = null
   hide('report-modal')
   showToast('Report submitted. Thank you.')
 }
@@ -6325,6 +6377,9 @@ function openSettings() {
   if (anonQToggle) anonQToggle.checked = anonQEnabled
   if (anonQSlider) anonQSlider.style.background = anonQEnabled ? '#e8503a' : '#2a2a2a'
   if (anonQThumb) anonQThumb.style.transform = anonQEnabled ? 'translateX(20px)' : 'translateX(0)'
+
+  const visSelect = el('visibility-select')
+  if (visSelect) visSelect.value = currentProfile?.visibility || 'everyone'
 
   loadBlockedMembers()
 }
