@@ -1987,13 +1987,14 @@ function renderPostCard(p, isTrending = false) {
       ${p.title ? `<p style="color:#f0ede8;font-size:15px;font-weight:600;margin-bottom:6px">${escapeHtml(p.title)}</p>` : ''}
       <p style="color:#9e9b97;font-size:14px;line-height:1.6;white-space:pre-wrap;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden">${escapeHtml(p.body)}</p>
     </div>
-    <div style="display:flex;gap:12px;margin-top:12px;padding-top:12px;border-top:1px solid #252525">
+    <div style="display:flex;gap:12px;margin-top:12px;padding-top:12px;border-top:1px solid #252525;align-items:center">
       <button onclick="togglePostLike('${p.id}', this)" data-post="${p.id}" style="background:none;border:none;color:#6b6866;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:5px">
         &#x2764;&#xFE0F; <span id="like-count-${p.id}" onclick="event.stopPropagation();showPostLikers('${p.id}')" style="cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px">0</span>
       </button>
       <button onclick="openPostThread('${p.id}')" style="background:none;border:none;color:#6b6866;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:5px">
         &#x1F4AC; <span id="comment-count-${p.id}">0</span>
       </button>
+      <button onclick="event.stopPropagation();sharePost('${p.id}')" style="background:none;border:none;color:#6b6866;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:4px;margin-left:auto">&#x2197;&#xFE0F; Share</button>
     </div>
   </div>`
 }
@@ -3669,8 +3670,14 @@ function askQuestion(userId, name) {
   box.style.cssText = 'background:#141414;border-radius:20px;padding:24px;width:100%;max-width:400px;border:1px solid #252525'
   const nameEsc = escapeHtml(name)
   box.innerHTML = `
-    <h3 style="color:#f0ede8;font-size:18px;font-weight:700;margin-bottom:6px">Ask ${nameEsc} anonymously</h3>
-    <p style="color:#6b6866;font-size:13px;margin-bottom:16px">They won't know who asked</p>
+    <h3 id="ask-modal-title" style="color:#f0ede8;font-size:18px;font-weight:700;margin-bottom:6px">Ask ${nameEsc} anonymously</h3>
+    <p id="ask-modal-sub" style="color:#6b6866;font-size:13px;margin-bottom:16px">They won't know who asked</p>
+    <div style="display:flex;align-items:center;gap:10px;background:#1c1c1c;border-radius:12px;padding:10px 14px;margin-bottom:16px">
+      <span id="ask-anon-label" style="color:#9e9b97;font-size:13px;flex:1">Ask anonymously</span>
+      <div id="ask-anon-toggle" onclick="window._toggleAskAnon('${nameEsc}')" style="width:40px;height:22px;border-radius:11px;background:#e8503a;cursor:pointer;position:relative;transition:background 0.2s;flex-shrink:0">
+        <div id="ask-anon-thumb" style="position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;transition:transform 0.2s;transform:translateX(18px)"></div>
+      </div>
+    </div>
     <textarea id="ask-q-input" class="input" placeholder="Type your question..." rows="3" style="resize:none;width:100%;margin-bottom:12px;box-sizing:border-box"></textarea>
     <div style="display:flex;gap:8px">
       <button onclick="document.getElementById('ask-question-modal').remove()" style="flex:1;padding:12px;border-radius:12px;border:1px solid #252525;background:transparent;color:#9e9b97;cursor:pointer">Cancel</button>
@@ -3679,16 +3686,36 @@ function askQuestion(userId, name) {
   modal.appendChild(box)
   document.body.appendChild(modal)
   setTimeout(() => document.getElementById('ask-q-input')?.focus(), 100)
-  document.getElementById('ask-submit-btn').onclick = async () => {
+
+  window._askIsAnon = true
+  window._toggleAskAnon = function(n) {
+    window._askIsAnon = !window._askIsAnon
+    const on = window._askIsAnon
+    const toggle = document.getElementById('ask-anon-toggle')
+    const thumb = document.getElementById('ask-anon-thumb')
+    const label = document.getElementById('ask-anon-label')
+    const title = document.getElementById('ask-modal-title')
+    const sub = document.getElementById('ask-modal-sub')
+    if (toggle) toggle.style.background = on ? '#e8503a' : '#2a2a2a'
+    if (thumb) thumb.style.transform = on ? 'translateX(18px)' : 'translateX(0)'
+    if (label) label.textContent = on ? 'Ask anonymously' : 'Ask as yourself'
+    if (title) title.textContent = on ? `Ask ${n} anonymously` : `Ask ${n} a question`
+    if (sub) sub.textContent = on ? "They won't know who asked" : "They'll see it's from you"
+  }
+
+  document.getElementById('ask-submit-btn').addEventListener('click', async () => {
     const q = (document.getElementById('ask-q-input')?.value || '').trim()
     if (!q) return
     const btn = document.getElementById('ask-submit-btn')
     btn.textContent = 'Sending...'; btn.disabled = true
-    const { error } = await sb.from('anonymous_questions').insert({ asker_id: currentUser.id, target_id: userId, question: q })
+    const { error } = await sb.from('anonymous_questions').insert({
+      asker_id: currentUser.id, target_id: userId, question: q,
+      show_asker: !window._askIsAnon
+    })
     if (error) { showToast('Failed to send.'); btn.textContent = 'Send Question'; btn.disabled = false; return }
     modal.remove()
-    showToast('Question sent anonymously! 🎉')
-  }
+    showToast(window._askIsAnon ? 'Question sent anonymously! 🎉' : 'Question sent!')
+  })
 }
 
 let _anonQCount = 0
@@ -3725,15 +3752,23 @@ async function loadMyQuestions() {
   const countEl = document.getElementById('questions-count')
   if (!section || !list) return
   const { data: questions } = await sb.from('anonymous_questions')
-    .select('*').eq('target_id', currentUser.id).order('created_at', { ascending: false })
+    .select('*, asker_profile:profiles!asker_id(display_name)')
+    .eq('target_id', currentUser.id).order('created_at', { ascending: false })
   _anonQCount = questions?.length || 0
   clearAnonQuestionsBadge()
   if (!questions?.length) { section.style.display = 'none'; return }
   section.style.display = ''
   if (countEl) countEl.textContent = questions.length + (questions.length === 1 ? ' question' : ' questions')
   list.innerHTML = questions.map(q => `
-    <div style="background:#1c1c1c;border-radius:14px;padding:16px;margin-bottom:10px;border:1px solid #252525">
-      <p style="color:#f0ede8;font-size:14px;font-weight:600;margin-bottom:10px">${escapeHtml(q.question)}</p>
+    <div style="background:#1c1c1c;border-radius:14px;padding:16px;margin-bottom:10px;border:1px solid ${q.is_hidden ? '#1e1e1e' : '#252525'};opacity:${q.is_hidden ? '0.55' : '1'}">
+      <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:10px">
+        <p style="color:#f0ede8;font-size:14px;font-weight:600;flex:1;margin:0">${escapeHtml(q.question)}</p>
+        <div style="display:flex;gap:6px;flex-shrink:0">
+          <button onclick="toggleQuestionVisibility('${q.id}', ${!!q.is_hidden})" style="font-size:11px;color:#9e9b97;background:#252525;border:none;cursor:pointer;padding:4px 10px;border-radius:20px;white-space:nowrap">${q.is_hidden ? 'Show' : 'Hide'}</button>
+          <button onclick="deleteQuestion('${q.id}')" style="font-size:13px;color:#e8503a;background:none;border:none;cursor:pointer;padding:2px 6px;line-height:1">✕</button>
+        </div>
+      </div>
+      ${q.show_asker && q.asker_profile ? `<p style="color:#9e9b97;font-size:12px;margin-bottom:8px">Asked by ${escapeHtml(q.asker_profile.display_name)}</p>` : ''}
       ${q.answer
         ? `<p style="color:#9e9b97;font-size:13px;line-height:1.5;margin-bottom:6px">${escapeHtml(q.answer)}</p>
            <button onclick="clearAnswer('${q.id}')" style="font-size:12px;color:#6b6866;background:none;border:none;cursor:pointer;padding:0">Edit answer</button>`
@@ -3743,6 +3778,16 @@ async function loadMyQuestions() {
            </div>`
       }
     </div>`).join('')
+}
+
+async function deleteQuestion(questionId) {
+  await sb.from('anonymous_questions').delete().eq('id', questionId).eq('target_id', currentUser.id)
+  loadMyQuestions()
+}
+
+async function toggleQuestionVisibility(questionId, currentlyHidden) {
+  await sb.from('anonymous_questions').update({ is_hidden: !currentlyHidden }).eq('id', questionId).eq('target_id', currentUser.id)
+  loadMyQuestions()
 }
 
 async function submitAnswer(questionId) {
@@ -5033,6 +5078,21 @@ function appendMessage(msg) {
   const div = document.createElement('div')
   div.className = 'bubble ' + (mine ? 'mine' : 'theirs')
   div.dataset.msgId = msg.id
+  div.dataset.content = msg.content || ''
+
+  // Deleted message placeholder
+  if (msg.is_deleted) {
+    const textSpan = document.createElement('span')
+    textSpan.className = 'bubble-text'
+    textSpan.style.cssText = 'font-style:italic;opacity:0.45'
+    textSpan.textContent = 'Message deleted'
+    div.appendChild(textSpan)
+    hideStarters()
+    msgs.appendChild(div)
+    msgs.scrollTop = msgs.scrollHeight
+    return
+  }
+
   const readMark = mine ? (msg.read_at ? ' ✓✓' : ' ✓') : ''
   const textSpan = document.createElement('span')
   textSpan.className = 'bubble-text'
@@ -5052,9 +5112,10 @@ function appendMessage(msg) {
       textSpan.appendChild(a)
     }
   })
+  const editedSuffix = msg.edited_at ? ' · edited' : ''
   const timeDiv = document.createElement('div')
   timeDiv.className = 'bubble-time'
-  timeDiv.textContent = timeStr + readMark
+  timeDiv.textContent = timeStr + readMark + editedSuffix
   div.appendChild(textSpan)
   div.appendChild(timeDiv)
 
@@ -5064,7 +5125,7 @@ function appendMessage(msg) {
   reactionsEl.style.cssText = `display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;justify-content:${mine ? 'flex-end' : 'flex-start'}`
   div.appendChild(reactionsEl)
 
-  // Long-press (500ms) on any bubble → emoji reactions + report/delete menu
+  // Long-press (500ms) on any bubble → emoji reactions + report/edit/delete menu
   let pressTimer = null
   div.addEventListener('touchstart', () => { pressTimer = setTimeout(() => showMessageMenu(msg, div), 500) }, { passive: true })
   div.addEventListener('touchend',   () => clearTimeout(pressTimer))
@@ -5109,6 +5170,14 @@ function showMessageMenu(msg, bubbleEl) {
     const sep = document.createElement('div')
     sep.style.cssText = 'height:1px;background:#252525;margin:0 4px'
     menu.appendChild(sep)
+    const editBtn = document.createElement('button')
+    editBtn.textContent = '✏️ Edit message'
+    editBtn.style.cssText = 'display:block;width:100%;padding:10px 20px;border:none;background:transparent;color:#f0ede8;font-size:14px;cursor:pointer;white-space:nowrap;text-align:left'
+    editBtn.onclick = () => { menu.remove(); editMessage(msg.id, bubbleEl) }
+    menu.appendChild(editBtn)
+    const sep2 = document.createElement('div')
+    sep2.style.cssText = 'height:1px;background:#252525;margin:0 4px'
+    menu.appendChild(sep2)
     const deleteBtn = document.createElement('button')
     deleteBtn.textContent = '🗑 Delete message'
     deleteBtn.style.cssText = 'display:block;width:100%;padding:10px 20px;border:none;background:transparent;color:#e8503a;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap;text-align:left'
@@ -5133,16 +5202,99 @@ async function reportMessage(msg) {
 
 async function deleteMessage(msgId) {
   document.getElementById('msg-action-menu')?.remove()
-  const { error } = await sb.from('messages').delete().eq('id', msgId).eq('sender_id', currentUser.id)
+  const { error } = await sb.from('messages').update({ is_deleted: true }).eq('id', msgId).eq('sender_id', currentUser.id)
   if (error) { showToast('Could not delete message.'); return }
 
-  // Remove bubble from UI
-  const bubble = document.querySelector(`.bubble[data-msg-id="${msgId}"]`)
+  const bubble = document.querySelector(`.bubble[data-msg-id="${CSS.escape(String(msgId))}"]`)
   if (bubble) {
-    bubble.style.opacity = '0'
-    bubble.style.transition = 'opacity 0.2s'
-    setTimeout(() => bubble.remove(), 200)
+    const textSpan = bubble.querySelector('.bubble-text')
+    if (textSpan) {
+      while (textSpan.firstChild) textSpan.removeChild(textSpan.firstChild)
+      textSpan.textContent = 'Message deleted'
+      textSpan.style.fontStyle = 'italic'
+      textSpan.style.opacity = '0.45'
+    }
+    const timeDiv = bubble.querySelector('.bubble-time')
+    if (timeDiv) timeDiv.textContent = ''
+    const reactWrap = bubble.querySelector('.msg-reactions-wrap')
+    if (reactWrap) reactWrap.innerHTML = ''
+    bubble.dataset.content = ''
   }
+}
+
+async function editMessage(msgId, bubbleEl) {
+  const currentContent = bubbleEl.dataset.content || ''
+  const textSpan = bubbleEl.querySelector('.bubble-text')
+  const timeDiv = bubbleEl.querySelector('.bubble-time')
+  if (!textSpan) return
+
+  const editWrap = document.createElement('div')
+  editWrap.className = 'msg-edit-wrap'
+  editWrap.style.cssText = 'display:flex;flex-direction:column;gap:6px'
+  const textarea = document.createElement('textarea')
+  textarea.value = currentContent
+  textarea.style.cssText = 'background:#252525;border:1px solid #e8503a;border-radius:8px;padding:8px 10px;color:#f0ede8;font-size:14px;resize:none;font-family:inherit;width:100%;box-sizing:border-box;min-width:180px'
+  textarea.rows = 3
+  const btnRow = document.createElement('div')
+  btnRow.style.cssText = 'display:flex;gap:6px'
+  const saveBtn = document.createElement('button')
+  saveBtn.textContent = 'Save'
+  saveBtn.style.cssText = 'flex:1;padding:6px;border-radius:8px;border:none;background:#e8503a;color:#fff;font-size:13px;font-weight:600;cursor:pointer'
+  const cancelBtn = document.createElement('button')
+  cancelBtn.textContent = 'Cancel'
+  cancelBtn.style.cssText = 'flex:1;padding:6px;border-radius:8px;border:1px solid #252525;background:transparent;color:#9e9b97;font-size:13px;cursor:pointer'
+
+  cancelBtn.addEventListener('click', () => {
+    editWrap.remove()
+    if (textSpan) textSpan.style.display = ''
+    if (timeDiv) timeDiv.style.display = ''
+  })
+
+  saveBtn.addEventListener('click', async () => {
+    const newContent = textarea.value.trim()
+    if (!newContent) return
+    if (newContent === currentContent) { cancelBtn.click(); return }
+    saveBtn.textContent = 'Saving…'; saveBtn.disabled = true
+    const { error } = await sb.from('messages')
+      .update({ content: newContent, edited_at: new Date().toISOString() })
+      .eq('id', msgId).eq('sender_id', currentUser.id)
+    if (error) { showToast('Could not edit message.'); saveBtn.textContent = 'Save'; saveBtn.disabled = false; return }
+    editWrap.remove()
+    bubbleEl.dataset.content = newContent
+    if (textSpan) {
+      textSpan.style.display = ''
+      while (textSpan.firstChild) textSpan.removeChild(textSpan.firstChild)
+      // Re-render with link detection
+      const urlRegex = /https?:\/\/[^\s]+/g
+      const urlMatches = newContent.match(urlRegex) || []
+      const textParts = newContent.split(urlRegex)
+      textParts.forEach((part, idx) => {
+        if (part) textSpan.appendChild(document.createTextNode(part))
+        if (urlMatches[idx]) {
+          const a = document.createElement('a')
+          a.href = urlMatches[idx]; a.textContent = urlMatches[idx]; a.target = '_blank'
+          a.rel = 'noopener noreferrer'; a.style.color = 'inherit'
+          a.style.textDecorationColor = 'rgba(255,255,255,0.5)'
+          textSpan.appendChild(a)
+        }
+      })
+    }
+    if (timeDiv) {
+      timeDiv.style.display = ''
+      if (!timeDiv.textContent.endsWith(' · edited')) timeDiv.textContent += ' · edited'
+    }
+  })
+
+  btnRow.appendChild(saveBtn)
+  btnRow.appendChild(cancelBtn)
+  editWrap.appendChild(textarea)
+  editWrap.appendChild(btnRow)
+
+  if (textSpan) textSpan.style.display = 'none'
+  if (timeDiv) timeDiv.style.display = 'none'
+  bubbleEl.insertBefore(editWrap, textSpan)
+  textarea.focus()
+  textarea.setSelectionRange(textarea.value.length, textarea.value.length)
 }
 
 // ── MESSAGE REACTIONS ────────────────────────────────
@@ -6026,7 +6178,10 @@ function loadResearch() {
       </div>
       <div id="rc-expanded-${i}" style="display:none;padding:0 18px 18px;border-top:1px solid #252525">
         <p style="color:#9e9b97;font-size:13px;line-height:1.6;margin-bottom:14px;padding-top:14px">${a.summary}</p>
-        <a href="${a.link}" target="_blank" style="display:inline-block;padding:10px 18px;background:#e8503a;color:#fff;border-radius:10px;font-size:13px;font-weight:600;text-decoration:none">Read Full Article →</a>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <a href="${a.link}" target="_blank" style="display:inline-block;padding:10px 18px;background:#e8503a;color:#fff;border-radius:10px;font-size:13px;font-weight:600;text-decoration:none">Read Full Article →</a>
+          <button onclick="shareResearchArticle(${i})" style="padding:10px 14px;border-radius:10px;border:1px solid #252525;background:transparent;color:#9e9b97;font-size:13px;cursor:pointer">&#x2197;&#xFE0F; Share</button>
+        </div>
       </div>
     </div>`
   }
@@ -6059,6 +6214,29 @@ function toggleResearchCard(i) {
   const isOpen = expanded.style.display !== 'none'
   expanded.style.display = isOpen ? 'none' : 'block'
   if (chevron) chevron.textContent = isOpen ? '▼' : '▲'
+}
+
+function shareResearchArticle(idx) {
+  const a = RESEARCH_ARTICLES[idx]
+  if (!a) return
+  if (navigator.share) {
+    navigator.share({ title: a.title, url: a.link }).catch(() => {})
+  } else {
+    navigator.clipboard?.writeText(a.link)
+      .then(() => showToast('Link copied!'))
+      .catch(() => showToast('Copy: ' + a.link))
+  }
+}
+
+function sharePost(postId) {
+  const url = window.location.origin + window.location.pathname + '?post=' + postId
+  if (navigator.share) {
+    navigator.share({ title: 'Simple-x post', url }).catch(() => {})
+  } else {
+    navigator.clipboard?.writeText(url)
+      .then(() => showToast('Link copied! (Requires app login to view)'))
+      .catch(() => showToast('Link: ' + url))
+  }
 }
 
 // ── FILTERS & LOCATION ───────────────────────────
