@@ -343,7 +343,7 @@
     <!-- Top Bar -->
     <div id="topbar">
       <div class="logo" style="--logo-size: 22px"><span>simple</span><span>x</span></div>
-      <button id="location-pill" onclick="show('filter-panel')" style="background:#141414;border-radius:20px;padding:6px 14px;border:1px solid #252525;display:flex;align-items:center;gap:6px;color:#9e9b97;font-size:13px;cursor:pointer">
+      <button id="location-pill" onclick="openFilterPanel()" style="background:#141414;border-radius:20px;padding:6px 14px;border:1px solid #252525;display:flex;align-items:center;gap:6px;color:#9e9b97;font-size:13px;cursor:pointer">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="#e8503a"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
         <span id="location-pill-label">Worldwide</span>
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#6b6866" stroke-width="2" stroke-linecap="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>
@@ -3268,7 +3268,7 @@ function viewMoment(moment, profile, isOwn) {
   nameWrap.style.cssText = 'flex:1;min-width:0'
   const nameEl = document.createElement('p')
   nameEl.style.cssText = 'color:#fff;font-size:14px;font-weight:600;margin-bottom:1px'
-  nameEl.textContent = isOwn ? 'Your moment' : escapeHtml(name)
+  nameEl.textContent = isOwn ? 'Your moment' : name
   const timeEl = document.createElement('p')
   timeEl.style.cssText = 'color:rgba(255,255,255,0.6);font-size:11px'
   timeEl.textContent = hoursLeft <= 1 ? 'Expires in < 1h' : `${hoursLeft}h left`
@@ -4521,7 +4521,9 @@ async function renderEmptyState() {
 
 async function resetPassedProfiles() {
   if (!confirm('This will let you see everyone you previously passed. Continue?')) return
-  await sb.from('swipes').delete().eq('swiper_id', currentUser.id).eq('direction', 'pass')
+  const { error } = await sb.from('swipes').delete().eq('swiper_id', currentUser.id).eq('direction', 'pass')
+  if (error) { showToast('Could not reset. Please try again.'); return }
+  localStorage.removeItem('sx_last_suggestion')
   showToast('Passed profiles reset!')
   loadDiscover()
 }
@@ -5006,14 +5008,14 @@ async function loadMatches() {
         </div>
         <p class="match-preview" style="${unread ? 'color:#f0ede8' : ''}">${preview}</p>
       </div>`
-    row.onclick = () => openChatById(m.id)
-
-    // Long-press to show conversation options
-    let _lpTimer = null, _lpX = 0, _lpY = 0
+    // Long-press to show conversation options; _lpFired suppresses the subsequent click
+    let _lpTimer = null, _lpX = 0, _lpY = 0, _lpFired = false
+    row.addEventListener('click', () => { if (_lpFired) { _lpFired = false; return } openChatById(m.id) })
     row.addEventListener('touchstart', e => {
+      _lpFired = false
       _lpX = e.touches[0].clientX; _lpY = e.touches[0].clientY
       clearTimeout(_lpTimer)
-      _lpTimer = setTimeout(() => { showConversationOptions(m, lastMsg) }, 600)
+      _lpTimer = setTimeout(() => { _lpFired = true; showConversationOptions(m, lastMsg) }, 600)
     }, { passive: true })
     row.addEventListener('touchend', () => clearTimeout(_lpTimer))
     row.addEventListener('touchcancel', () => clearTimeout(_lpTimer))
@@ -6859,8 +6861,8 @@ const DISTANCE_STEPS = [5, 25, 50, 100, 250, 500, 1000, null] // null = worldwid
 let userLat = null
 let userLng = null
 let filterDistance = null // miles, null = worldwide
-let filterAgeMin = 18
-let filterAgeMax = 65
+let filterAgeMin = parseInt(localStorage.getItem('sx_filter_age_min') || '18', 10)
+let filterAgeMax = parseInt(localStorage.getItem('sx_filter_age_max') || '65', 10)
 let filterHsv = 'all'
 let filterGender = 'all'
 
@@ -6896,11 +6898,22 @@ function toggleFilterGender(btn, val) {
   filterGender = val
 }
 
+function openFilterPanel() {
+  const minEl = el('filter-age-min')
+  const maxEl = el('filter-age-max')
+  if (minEl) minEl.value = filterAgeMin
+  if (maxEl) maxEl.value = filterAgeMax
+  updateAgeLabel()
+  show('filter-panel')
+}
+
 function applyFilters() {
   const distVal = parseInt(el('filter-distance').value)
   filterDistance = DISTANCE_STEPS[distVal]
   filterAgeMin = parseInt(el('filter-age-min')?.value ?? 18)
   filterAgeMax = parseInt(el('filter-age-max').value)
+  localStorage.setItem('sx_filter_age_min', filterAgeMin)
+  localStorage.setItem('sx_filter_age_max', filterAgeMax)
   hide('filter-panel')
   if (filterDistance !== null && !userLat) {
     requestLocation()
