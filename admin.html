@@ -25,6 +25,9 @@
     .table-wrap { background: #1c1c1c; border: 1px solid #252525; border-radius: 16px; overflow: hidden; margin-top: 12px }
     table { width: 100%; border-collapse: collapse }
     th { background: #141414; color: #6b6866; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; padding: 10px 16px; text-align: left }
+    th.sortable { cursor: pointer; user-select: none }
+    th.sortable:hover { color: #f0ede8 }
+    .sort-ind { color: #e8503a; margin-left: 4px; font-size: 10px }
     td { padding: 12px 16px; border-top: 1px solid #1e1e1e; color: #f0ede8; font-size: 13px }
     td.muted { color: #6b6866 }
     .badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 600 }
@@ -112,12 +115,13 @@
       <table>
         <thead>
           <tr>
-            <th>Name</th>
-            <th>Type</th>
-            <th>City</th>
-            <th>Joined</th>
-            <th>Last seen</th>
-            <th>Status</th>
+            <th class="sortable" onclick="sortUsers('display_name')">Name <span class="sort-ind" id="sort-display_name"></span></th>
+            <th class="sortable" onclick="sortUsers('email')">Email <span class="sort-ind" id="sort-email"></span></th>
+            <th class="sortable" onclick="sortUsers('hsv_type')">Type <span class="sort-ind" id="sort-hsv_type"></span></th>
+            <th class="sortable" onclick="sortUsers('city')">City <span class="sort-ind" id="sort-city"></span></th>
+            <th class="sortable" onclick="sortUsers('created_at')">Joined <span class="sort-ind" id="sort-created_at"></span></th>
+            <th class="sortable" onclick="sortUsers('last_seen')">Last seen <span class="sort-ind" id="sort-last_seen"></span></th>
+            <th class="sortable" onclick="sortUsers('status')">Status <span class="sort-ind" id="sort-status"></span></th>
           </tr>
         </thead>
         <tbody id="users-tbody"></tbody>
@@ -131,10 +135,10 @@
       <table>
         <thead>
           <tr>
-            <th>Reporter</th>
-            <th>Reason</th>
+            <th class="sortable" onclick="sortReports('reporter')">Reporter <span class="sort-ind" id="rsort-reporter"></span></th>
+            <th class="sortable" onclick="sortReports('reason')">Reason <span class="sort-ind" id="rsort-reason"></span></th>
             <th>Details</th>
-            <th>Date</th>
+            <th class="sortable" onclick="sortReports('created_at')">Date <span class="sort-ind" id="rsort-created_at"></span></th>
           </tr>
         </thead>
         <tbody id="reports-tbody"></tbody>
@@ -217,27 +221,68 @@
     document.getElementById('stat-reports').textContent = reports ?? '—'
   }
 
+  let _usersData = []
+  let _usersSortKey = 'created_at'
+  let _usersSortDir = 'desc'
+
   async function loadRecentUsers() {
     const loadEl = document.getElementById('loading')
     const wrap = document.getElementById('users-table-wrap')
-    const tbody = document.getElementById('users-tbody')
 
     const { data: users } = await sb
       .from('profiles')
-      .select('id, display_name, hsv_type, city, created_at, last_seen, is_premium, is_admin')
+      .select('id, display_name, email, hsv_type, city, created_at, last_seen, is_premium, is_admin')
       .order('created_at', { ascending: false })
-      .limit(30)
+      .limit(100)
 
     loadEl.style.display = 'none'
     wrap.style.display = 'block'
 
-    if (!users || users.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6" class="muted" style="text-align:center">No users found.</td></tr>'
+    _usersData = users || []
+    renderUsers()
+  }
+
+  function sortUsers(key) {
+    if (_usersSortKey === key) {
+      _usersSortDir = _usersSortDir === 'asc' ? 'desc' : 'asc'
+    } else {
+      _usersSortKey = key
+      _usersSortDir = 'asc'
+    }
+    renderUsers()
+  }
+
+  function renderUsers() {
+    const tbody = document.getElementById('users-tbody')
+    if (!_usersData.length) {
+      tbody.innerHTML = '<tr><td colspan="7" class="muted" style="text-align:center">No users found.</td></tr>'
       return
     }
 
     const now = Date.now()
-    tbody.innerHTML = users.map(u => {
+    const sorted = [..._usersData].sort((a, b) => {
+      let av, bv
+      if (_usersSortKey === 'status') {
+        av = a.is_admin ? 2 : (a.is_premium ? 1 : 0)
+        bv = b.is_admin ? 2 : (b.is_premium ? 1 : 0)
+      } else if (_usersSortKey === 'last_seen' || _usersSortKey === 'created_at') {
+        av = a[_usersSortKey] ? new Date(a[_usersSortKey]).getTime() : 0
+        bv = b[_usersSortKey] ? new Date(b[_usersSortKey]).getTime() : 0
+      } else {
+        av = (a[_usersSortKey] || '').toString().toLowerCase()
+        bv = (b[_usersSortKey] || '').toString().toLowerCase()
+      }
+      if (av < bv) return _usersSortDir === 'asc' ? -1 : 1
+      if (av > bv) return _usersSortDir === 'asc' ? 1 : -1
+      return 0
+    })
+
+    // Update sort indicators
+    document.querySelectorAll('.sort-ind').forEach(el => { if (el.id.startsWith('sort-')) el.textContent = '' })
+    const ind = document.getElementById('sort-' + _usersSortKey)
+    if (ind) ind.textContent = _usersSortDir === 'asc' ? '▲' : '▼'
+
+    tbody.innerHTML = sorted.map(u => {
       const lastSeenMs = u.last_seen ? now - new Date(u.last_seen).getTime() : null
       const activity = !lastSeenMs ? 'Never'
         : lastSeenMs < 900000 ? 'Online now'
@@ -253,6 +298,7 @@
 
       return `<tr>
         <td>${escHtml(u.display_name || '—')}</td>
+        <td class="muted" style="max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(u.email || '—')}</td>
         <td class="muted">${u.hsv_type || '—'}</td>
         <td class="muted">${escHtml(u.city || '—')}</td>
         <td class="muted">${u.created_at ? new Date(u.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' }) : '—'}</td>
@@ -262,16 +308,19 @@
     }).join('')
   }
 
+  let _reportsData = []
+  let _reportsSortKey = 'created_at'
+  let _reportsSortDir = 'desc'
+
   async function loadRecentReports() {
     const wrap = document.getElementById('reports-table-wrap')
-    const tbody = document.getElementById('reports-tbody')
     const noReports = document.getElementById('no-reports')
 
     const { data: reports } = await sb
       .from('reports')
       .select('reason, details, created_at, reporter:profiles!reports_reporter_id_fkey(display_name)')
       .order('created_at', { ascending: false })
-      .limit(20)
+      .limit(50)
 
     if (!reports || reports.length === 0) {
       wrap.style.display = 'none'
@@ -281,7 +330,44 @@
 
     wrap.style.display = 'block'
     noReports.style.display = 'none'
-    tbody.innerHTML = reports.map(r => `<tr>
+    _reportsData = reports
+    renderReports()
+  }
+
+  function sortReports(key) {
+    if (_reportsSortKey === key) {
+      _reportsSortDir = _reportsSortDir === 'asc' ? 'desc' : 'asc'
+    } else {
+      _reportsSortKey = key
+      _reportsSortDir = 'asc'
+    }
+    renderReports()
+  }
+
+  function renderReports() {
+    const tbody = document.getElementById('reports-tbody')
+    const sorted = [..._reportsData].sort((a, b) => {
+      let av, bv
+      if (_reportsSortKey === 'reporter') {
+        av = (a.reporter?.display_name || '').toLowerCase()
+        bv = (b.reporter?.display_name || '').toLowerCase()
+      } else if (_reportsSortKey === 'created_at') {
+        av = a.created_at ? new Date(a.created_at).getTime() : 0
+        bv = b.created_at ? new Date(b.created_at).getTime() : 0
+      } else {
+        av = (a[_reportsSortKey] || '').toString().toLowerCase()
+        bv = (b[_reportsSortKey] || '').toString().toLowerCase()
+      }
+      if (av < bv) return _reportsSortDir === 'asc' ? -1 : 1
+      if (av > bv) return _reportsSortDir === 'asc' ? 1 : -1
+      return 0
+    })
+
+    document.querySelectorAll('.sort-ind').forEach(el => { if (el.id.startsWith('rsort-')) el.textContent = '' })
+    const ind = document.getElementById('rsort-' + _reportsSortKey)
+    if (ind) ind.textContent = _reportsSortDir === 'asc' ? '▲' : '▼'
+
+    tbody.innerHTML = sorted.map(r => `<tr>
       <td>${escHtml(r.reporter?.display_name || 'Unknown')}</td>
       <td class="muted">${escHtml(r.reason || '—')}</td>
       <td class="muted" style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(r.details || '—')}</td>
