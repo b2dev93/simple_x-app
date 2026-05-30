@@ -5,395 +5,976 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Simple-x Admin</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0 }
-    body { background: #0a0a0a; color: #f0ede8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; min-height: 100vh }
-    #auth-screen { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px }
-    #dashboard { display: none; padding: 20px; max-width: 800px; margin: 0 auto }
-    h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px }
-    .subtitle { color: #6b6866; font-size: 13px; margin-bottom: 28px }
-    .section-title { color: #9e9b97; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 12px; margin-top: 28px }
-    .stat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px }
-    .stat-card { background: #1c1c1c; border: 1px solid #252525; border-radius: 16px; padding: 18px }
-    .stat-label { color: #6b6866; font-size: 12px; margin-bottom: 6px }
-    .stat-value { color: #f0ede8; font-size: 28px; font-weight: 700 }
-    .stat-sub { color: #9e9b97; font-size: 11px; margin-top: 4px }
-    .input { width: 100%; padding: 14px 16px; background: #1e1e1e; border: 1px solid #252525; border-radius: 12px; color: #f0ede8; font-size: 15px; outline: none; margin-bottom: 12px }
-    .btn { width: 100%; padding: 14px; border: none; border-radius: 12px; background: #e8503a; color: #fff; font-size: 16px; font-weight: 600; cursor: pointer; margin-top: 4px }
-    .btn-ghost { width: 100%; padding: 12px; border: 1px solid #252525; border-radius: 12px; background: transparent; color: #9e9b97; font-size: 14px; cursor: pointer; margin-top: 8px }
-    .error { color: #e8503a; font-size: 13px; text-align: center; margin-top: 8px }
-    .table-wrap { background: #1c1c1c; border: 1px solid #252525; border-radius: 16px; overflow: hidden; margin-top: 12px }
-    table { width: 100%; border-collapse: collapse }
-    th { background: #141414; color: #6b6866; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; padding: 10px 16px; text-align: left }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0 }
+    body {
+      background: #0a0a0a; color: #f0ede8;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      min-height: 100vh; font-size: 14px; line-height: 1.5;
+    }
+
+    /* ── Auth ── */
+    #auth-screen {
+      display: flex; align-items: center; justify-content: center;
+      min-height: 100vh; padding: 24px;
+    }
+    .auth-box { width: 100%; max-width: 360px }
+    .auth-logo { font-size: 30px; font-weight: 800; text-align: center; margin-bottom: 6px; letter-spacing: -1px }
+    .auth-logo span { color: #e8503a }
+    .auth-sub { color: #6b6866; font-size: 13px; text-align: center; margin-bottom: 32px }
+
+    /* ── Dashboard layout ── */
+    #dashboard { display: none; max-width: 1280px; margin: 0 auto; padding: 32px 24px 80px }
+
+    /* ── Typography ── */
+    .page-title { font-size: 26px; font-weight: 800; letter-spacing: -0.5px }
+    .page-title span { color: #e8503a }
+    .section-title {
+      color: #9e9b97; font-size: 11px; font-weight: 700;
+      letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 14px;
+    }
+
+    /* ── Form elements ── */
+    .input {
+      width: 100%; padding: 11px 14px;
+      background: #1a1a1a; border: 1px solid #252525;
+      border-radius: 10px; color: #f0ede8; font-size: 14px;
+      outline: none; margin-bottom: 10px; font-family: inherit;
+      transition: border-color 0.15s;
+    }
+    .input::placeholder { color: #4a4a4a }
+    .input:focus { border-color: #3a3a3a }
+    textarea.input { resize: vertical; min-height: 90px }
+    .btn {
+      padding: 11px 20px; border: none; border-radius: 10px;
+      background: #e8503a; color: #fff; font-size: 14px; font-weight: 600;
+      cursor: pointer; transition: opacity 0.15s; white-space: nowrap; font-family: inherit;
+    }
+    .btn:hover { opacity: 0.85 }
+    .btn:disabled { opacity: 0.4; cursor: default }
+    .btn-ghost {
+      padding: 9px 16px; border: 1px solid #252525; border-radius: 10px;
+      background: transparent; color: #9e9b97; font-size: 13px;
+      cursor: pointer; white-space: nowrap; font-family: inherit; transition: all 0.15s;
+    }
+    .btn-ghost:hover { border-color: #3a3a3a; color: #f0ede8 }
+    .btn-sm { padding: 4px 10px; font-size: 11px; border-radius: 6px }
+    .error { color: #e8503a; font-size: 13px; text-align: center; margin-top: 10px }
+    label.field-label {
+      display: block; font-size: 11px; font-weight: 700; color: #6b6866;
+      text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px;
+    }
+
+    /* ── Cards ── */
+    .card { background: #131313; border: 1px solid #1e1e1e; border-radius: 16px }
+    .card-pad { padding: 24px }
+
+    /* ── Stats grid ── */
+    .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px }
+    @media (max-width: 900px) { .stat-grid { grid-template-columns: repeat(2, 1fr) } }
+    @media (max-width: 480px) { .stat-grid { grid-template-columns: 1fr } }
+    .stat-card { padding: 20px 22px }
+    .stat-label { color: #6b6866; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px }
+    .stat-value { color: #f0ede8; font-size: 36px; font-weight: 800; line-height: 1; margin-bottom: 6px; letter-spacing: -1px }
+    .stat-sub { color: #4a4a4a; font-size: 11px }
+
+    /* ── Charts ── */
+    .charts-row { display: grid; grid-template-columns: 3fr 2fr; gap: 14px }
+    @media (max-width: 760px) { .charts-row { grid-template-columns: 1fr } }
+    .chart-card { padding: 22px }
+    .chart-title { font-size: 14px; font-weight: 700; margin-bottom: 2px }
+    .chart-sub { font-size: 11px; color: #6b6866; margin-bottom: 18px }
+    .chart-wrap { position: relative; height: 190px }
+
+    /* ── Tables ── */
+    .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch }
+    .table-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 20px; border-bottom: 1px solid #1a1a1a; gap: 10px; flex-wrap: wrap;
+    }
+    .search-input {
+      padding: 8px 13px; background: #0f0f0f; border: 1px solid #252525;
+      border-radius: 8px; color: #f0ede8; font-size: 13px; outline: none;
+      width: 240px; font-family: inherit;
+    }
+    .search-input::placeholder { color: #4a4a4a }
+    .search-input:focus { border-color: #333 }
+    table { width: 100%; border-collapse: collapse; min-width: 780px }
+    th {
+      background: #0d0d0d; color: #5a5a5a; font-size: 10px; font-weight: 700;
+      letter-spacing: 0.1em; text-transform: uppercase;
+      padding: 10px 16px; text-align: left; white-space: nowrap; border-bottom: 1px solid #1a1a1a;
+    }
     th.sortable { cursor: pointer; user-select: none }
     th.sortable:hover { color: #f0ede8 }
-    .sort-ind { color: #e8503a; margin-left: 4px; font-size: 10px }
-    td { padding: 12px 16px; border-top: 1px solid #1e1e1e; color: #f0ede8; font-size: 13px }
-    td.muted { color: #6b6866 }
-    .badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 600 }
-    .badge-green { background: #0d2e1a; color: #2ecc71 }
-    .badge-red { background: #2e1010; color: #e8503a }
-    .refresh-btn { background: none; border: 1px solid #252525; color: #9e9b97; padding: 6px 14px; border-radius: 8px; font-size: 12px; cursor: pointer; float: right }
-    .header-row { display: flex; align-items: center; justify-content: space-between }
-    #loading { color: #6b6866; font-size: 13px; text-align: center; padding: 20px }
+    .sort-ind { color: #e8503a; margin-left: 4px; font-size: 9px }
+    td {
+      padding: 10px 16px; border-top: 1px solid #0f0f0f;
+      color: #f0ede8; font-size: 13px; vertical-align: middle;
+    }
+    td.dim { color: #5a5a5a }
+    tr:hover td { background: rgba(255,255,255,0.015) }
+
+    /* ── Badges ── */
+    .badge {
+      display: inline-block; padding: 2px 8px; border-radius: 20px;
+      font-size: 10px; font-weight: 700; white-space: nowrap;
+    }
+    .bg-green { background: #0d2e1a; color: #2ecc71 }
+    .bg-red   { background: #2e1010; color: #e8503a }
+    .bg-blue  { background: #0d1b2e; color: #4fc3f7 }
+    .bg-yellow{ background: #2a2300; color: #f5c518 }
+
+    /* ── User action buttons ── */
+    .action-btns { display: flex; gap: 4px; flex-wrap: nowrap }
+    .toggle-btn {
+      padding: 3px 8px; border-radius: 6px; border: 1px solid #2a2a2a;
+      font-size: 10px; font-weight: 700; cursor: pointer; background: transparent;
+      color: #4a4a4a; transition: all 0.12s; white-space: nowrap; font-family: inherit;
+    }
+    .toggle-btn:hover { border-color: #444; color: #9e9b97 }
+    .toggle-btn.active-verified { border-color: #2ecc71; background: rgba(46,204,113,0.15); color: #2ecc71 }
+    .toggle-btn.active-tester   { border-color: #4fc3f7; background: rgba(79,195,247,0.12); color: #4fc3f7 }
+    .toggle-btn.active-admin    { border-color: #e8503a; background: rgba(232,80,58,0.15);  color: #e8503a }
+    .toggle-btn.active-premium  { border-color: #f5c518; background: rgba(245,197,24,0.12); color: #f5c518 }
+
+    /* ── Section spacing ── */
+    .section { margin-top: 36px }
+    .section-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 14px; flex-wrap: wrap; gap: 10px;
+    }
+    .section-header .section-title { margin: 0 }
+
+    /* ── Posts ── */
+    .post-row {
+      display: flex; align-items: center; gap: 14px;
+      padding: 13px 20px; border-top: 1px solid #1a1a1a;
+    }
+    .post-row:first-child { border-top: none }
+    .post-content { flex: 1; min-width: 0 }
+    .post-title { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
+    .post-meta { font-size: 11px; color: #5a5a5a; margin-top: 2px }
+    .pin-btn {
+      padding: 5px 12px; border-radius: 8px; border: 1px solid #252525;
+      background: transparent; color: #6b6866; font-size: 12px; font-weight: 600;
+      cursor: pointer; white-space: nowrap; font-family: inherit; transition: all 0.12s;
+    }
+    .pin-btn.pinned { border-color: #f5c518; color: #f5c518; background: rgba(245,197,24,0.1) }
+    .pin-btn:hover { border-color: #3a3a3a }
+
+    /* ── Broadcast ── */
+    .broadcast-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px }
+    @media (max-width: 600px) { .broadcast-row { grid-template-columns: 1fr } }
+
+    /* ── Toast ── */
+    #toast {
+      position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+      background: #1c1c1c; color: #f0ede8; padding: 10px 20px;
+      border-radius: 10px; font-size: 13px; z-index: 9999;
+      display: none; border: 1px solid #2a2a2a; white-space: nowrap; pointer-events: none;
+    }
+
+    /* ── Loading / empty ── */
+    .empty { color: #4a4a4a; font-size: 13px; text-align: center; padding: 32px }
+    .divider { height: 1px; background: #1a1a1a; margin: 36px 0 }
+
+    /* ── Spinner ── */
+    @keyframes spin { to { transform: rotate(360deg) } }
+    .spinner {
+      width: 14px; height: 14px; border: 2px solid #333; border-top-color: #e8503a;
+      border-radius: 50%; animation: spin 0.7s linear infinite; display: inline-block;
+    }
   </style>
 </head>
 <body>
 
-<!-- Auth screen -->
+<div id="toast"></div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     AUTH SCREEN
+════════════════════════════════════════════════════════════════ -->
 <div id="auth-screen">
-  <div style="width:100%;max-width:360px">
-    <p style="font-size:24px;font-weight:700;text-align:center;margin-bottom:6px">Simple-x Admin</p>
-    <p style="color:#6b6866;font-size:13px;text-align:center;margin-bottom:28px">Sign in with your admin account</p>
-    <input type="email" id="auth-email" class="input" placeholder="Email" autocomplete="email">
+  <div class="auth-box">
+    <p class="auth-logo">simple<span>x</span></p>
+    <p class="auth-sub">Admin dashboard — sign in with an admin account</p>
+    <input type="email"    id="auth-email"    class="input" placeholder="Email"    autocomplete="email">
     <input type="password" id="auth-password" class="input" placeholder="Password" autocomplete="current-password">
-    <button class="btn" onclick="signIn()">Sign in</button>
+    <button class="btn" style="width:100%;margin-top:4px" id="signin-btn" onclick="signIn()">Sign in</button>
     <p id="auth-error" class="error" style="display:none"></p>
   </div>
 </div>
 
-<!-- Dashboard -->
+<!-- ══════════════════════════════════════════════════════════════
+     DASHBOARD
+════════════════════════════════════════════════════════════════ -->
 <div id="dashboard">
-  <div style="padding-top:20px">
-    <div class="header-row">
-      <div>
-        <h1>Admin Dashboard</h1>
-        <p class="subtitle" id="admin-email-label"></p>
-      </div>
-      <button class="refresh-btn" onclick="loadAll()">↻ Refresh</button>
-    </div>
 
-    <p class="section-title">Overview</p>
-    <div class="stat-grid">
-      <div class="stat-card">
-        <p class="stat-label">Total users</p>
-        <p class="stat-value" id="stat-total">—</p>
-        <p class="stat-sub">All registered profiles</p>
-      </div>
-      <div class="stat-card">
-        <p class="stat-label">Active today</p>
-        <p class="stat-value" id="stat-today">—</p>
-        <p class="stat-sub">Seen in last 24 hrs</p>
-      </div>
-      <div class="stat-card">
-        <p class="stat-label">New this week</p>
-        <p class="stat-value" id="stat-week">—</p>
-        <p class="stat-sub">Joined in last 7 days</p>
-      </div>
-      <div class="stat-card">
-        <p class="stat-label">Total matches</p>
-        <p class="stat-value" id="stat-matches">—</p>
-        <p class="stat-sub">All time</p>
-      </div>
-      <div class="stat-card">
-        <p class="stat-label">Messages today</p>
-        <p class="stat-value" id="stat-msgs">—</p>
-        <p class="stat-sub">Sent in last 24 hrs</p>
-      </div>
-      <div class="stat-card">
-        <p class="stat-label">Posts today</p>
-        <p class="stat-value" id="stat-posts">—</p>
-        <p class="stat-sub">Community posts 24 hrs</p>
-      </div>
-      <div class="stat-card">
-        <p class="stat-label">Premium members</p>
-        <p class="stat-value" id="stat-premium">—</p>
-        <p class="stat-sub">Active subscriptions</p>
-      </div>
-      <div class="stat-card">
-        <p class="stat-label">Reports today</p>
-        <p class="stat-value" id="stat-reports">—</p>
-        <p class="stat-sub">User-submitted reports</p>
-      </div>
+  <!-- Header -->
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:32px;flex-wrap:wrap;gap:12px">
+    <div>
+      <p class="page-title">simple<span>x</span> <span style="color:#3a3a3a;font-weight:400;font-size:18px">/ admin</span></p>
+      <p style="color:#5a5a5a;font-size:12px;margin-top:3px" id="admin-email-label"></p>
     </div>
-
-    <div class="header-row" style="margin-top:28px;margin-bottom:12px">
-      <p class="section-title" style="margin:0">Recent users</p>
-    </div>
-    <div id="loading">Loading...</div>
-    <div class="table-wrap" id="users-table-wrap" style="display:none">
-      <table>
-        <thead>
-          <tr>
-            <th class="sortable" onclick="sortUsers('display_name')">Name <span class="sort-ind" id="sort-display_name"></span></th>
-            <th class="sortable" onclick="sortUsers('email')">Email <span class="sort-ind" id="sort-email"></span></th>
-            <th class="sortable" onclick="sortUsers('hsv_type')">Type <span class="sort-ind" id="sort-hsv_type"></span></th>
-            <th class="sortable" onclick="sortUsers('city')">City <span class="sort-ind" id="sort-city"></span></th>
-            <th class="sortable" onclick="sortUsers('created_at')">Joined <span class="sort-ind" id="sort-created_at"></span></th>
-            <th class="sortable" onclick="sortUsers('last_seen')">Last seen <span class="sort-ind" id="sort-last_seen"></span></th>
-            <th class="sortable" onclick="sortUsers('status')">Status <span class="sort-ind" id="sort-status"></span></th>
-          </tr>
-        </thead>
-        <tbody id="users-tbody"></tbody>
-      </table>
-    </div>
-
-    <div class="header-row" style="margin-top:24px;margin-bottom:12px">
-      <p class="section-title" style="margin:0">Recent reports</p>
-    </div>
-    <div class="table-wrap" id="reports-table-wrap" style="display:none">
-      <table>
-        <thead>
-          <tr>
-            <th class="sortable" onclick="sortReports('reporter')">Reporter <span class="sort-ind" id="rsort-reporter"></span></th>
-            <th class="sortable" onclick="sortReports('reason')">Reason <span class="sort-ind" id="rsort-reason"></span></th>
-            <th>Details</th>
-            <th class="sortable" onclick="sortReports('created_at')">Date <span class="sort-ind" id="rsort-created_at"></span></th>
-          </tr>
-        </thead>
-        <tbody id="reports-tbody"></tbody>
-      </table>
-    </div>
-    <p id="no-reports" style="color:#6b6866;font-size:13px;display:none">No recent reports.</p>
-
-    <div style="margin-top:28px;margin-bottom:40px">
+    <div style="display:flex;gap:8px">
+      <button class="btn-ghost" onclick="loadAll()">↻ Refresh all</button>
       <button class="btn-ghost" onclick="signOut()">Sign out</button>
     </div>
   </div>
-</div>
+
+  <!-- ── Stats ── -->
+  <p class="section-title">Overview</p>
+  <div class="stat-grid">
+    <div class="card stat-card">
+      <p class="stat-label">Total users</p>
+      <p class="stat-value" id="stat-total">—</p>
+      <p class="stat-sub">All registered profiles</p>
+    </div>
+    <div class="card stat-card">
+      <p class="stat-label">Active today</p>
+      <p class="stat-value" id="stat-today">—</p>
+      <p class="stat-sub">Seen in last 24 hrs</p>
+    </div>
+    <div class="card stat-card">
+      <p class="stat-label">New this week</p>
+      <p class="stat-value" id="stat-week">—</p>
+      <p class="stat-sub">Joined last 7 days</p>
+    </div>
+    <div class="card stat-card">
+      <p class="stat-label">Total matches</p>
+      <p class="stat-value" id="stat-matches">—</p>
+      <p class="stat-sub">All time</p>
+    </div>
+    <div class="card stat-card">
+      <p class="stat-label">Messages (24 h)</p>
+      <p class="stat-value" id="stat-msgs">—</p>
+      <p class="stat-sub">Sent in last 24 hrs</p>
+    </div>
+    <div class="card stat-card">
+      <p class="stat-label">Posts (24 h)</p>
+      <p class="stat-value" id="stat-posts">—</p>
+      <p class="stat-sub">Community posts</p>
+    </div>
+    <div class="card stat-card">
+      <p class="stat-label">Plus members</p>
+      <p class="stat-value" id="stat-premium">—</p>
+      <p class="stat-sub">Active subscriptions</p>
+    </div>
+    <div class="card stat-card">
+      <p class="stat-label">Open reports</p>
+      <p class="stat-value" id="stat-reports">—</p>
+      <p class="stat-sub">Pending review</p>
+    </div>
+  </div>
+
+  <!-- ── Charts ── -->
+  <div class="section">
+    <p class="section-title">Growth &amp; Activity</p>
+    <div class="charts-row">
+      <div class="card chart-card">
+        <p class="chart-title">User signups</p>
+        <p class="chart-sub">New profiles — last 30 days</p>
+        <div class="chart-wrap"><canvas id="chart-signups"></canvas></div>
+      </div>
+      <div class="card chart-card">
+        <p class="chart-title">Daily active users</p>
+        <p class="chart-sub">Last 7 days</p>
+        <div class="chart-wrap"><canvas id="chart-dau"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Users table ── -->
+  <div class="section">
+    <div class="section-header">
+      <div style="display:flex;align-items:center;gap:10px">
+        <p class="section-title">Users</p>
+        <span id="users-count" style="color:#4a4a4a;font-size:12px"></span>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <input class="search-input" id="users-search" placeholder="Search name, email, city…" oninput="filterUsers(this.value)">
+        <button class="btn-ghost btn-sm" onclick="exportUsersCsv()">⬇ CSV</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th class="sortable" onclick="sortUsers('display_name')">Name <span class="sort-ind" id="sort-display_name"></span></th>
+              <th class="sortable" onclick="sortUsers('email')">Email <span class="sort-ind" id="sort-email"></span></th>
+              <th class="sortable" onclick="sortUsers('hsv_type')">Type <span class="sort-ind" id="sort-hsv_type"></span></th>
+              <th class="sortable" onclick="sortUsers('city')">City <span class="sort-ind" id="sort-city"></span></th>
+              <th class="sortable" onclick="sortUsers('created_at')">Joined <span class="sort-ind" id="sort-created_at"></span></th>
+              <th class="sortable" onclick="sortUsers('last_seen')">Last seen <span class="sort-ind" id="sort-last_seen"></span></th>
+              <th class="sortable" onclick="sortUsers('status')">Status <span class="sort-ind" id="sort-status"></span></th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="users-tbody">
+            <tr><td colspan="8" class="empty">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Reports table ── -->
+  <div class="section">
+    <div class="section-header">
+      <p class="section-title">Reports</p>
+      <button class="btn-ghost btn-sm" onclick="loadRecentReports()">↻ Refresh</button>
+    </div>
+    <div class="card">
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th class="sortable" onclick="sortReports('reporter')">Reporter <span class="sort-ind" id="rsort-reporter"></span></th>
+              <th class="sortable" onclick="sortReports('reported')">Reported <span class="sort-ind" id="rsort-reported"></span></th>
+              <th class="sortable" onclick="sortReports('reason')">Reason <span class="sort-ind" id="rsort-reason"></span></th>
+              <th>Details</th>
+              <th class="sortable" onclick="sortReports('created_at')">Date <span class="sort-ind" id="rsort-created_at"></span></th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="reports-tbody">
+            <tr><td colspan="6" class="empty">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Pin community posts ── -->
+  <div class="section">
+    <div class="section-header">
+      <p class="section-title">Pin community posts</p>
+      <button class="btn-ghost btn-sm" onclick="loadPinnablePosts()">↻ Refresh</button>
+    </div>
+    <div class="card" id="posts-card">
+      <div id="posts-list"><div class="empty">Loading…</div></div>
+    </div>
+  </div>
+
+  <!-- ── Email broadcast ── -->
+  <div class="section">
+    <p class="section-title">Email broadcast</p>
+    <div class="card card-pad">
+      <p style="font-size:13px;color:#6b6866;margin-bottom:20px">
+        Send an email to all users via EmailJS. Enter your Service ID and Template ID below.
+        Your template must include <code style="background:#1a1a1a;padding:1px 6px;border-radius:4px;font-size:12px">to_email</code>,
+        <code style="background:#1a1a1a;padding:1px 6px;border-radius:4px;font-size:12px">to_name</code>,
+        <code style="background:#1a1a1a;padding:1px 6px;border-radius:4px;font-size:12px">subject</code>, and
+        <code style="background:#1a1a1a;padding:1px 6px;border-radius:4px;font-size:12px">message</code> variables.
+      </p>
+      <div class="broadcast-row">
+        <div>
+          <label class="field-label">EmailJS Service ID</label>
+          <input class="input" id="ejs-service" placeholder="service_xxxxxxx" style="margin-bottom:0">
+        </div>
+        <div>
+          <label class="field-label">EmailJS Template ID</label>
+          <input class="input" id="ejs-template" placeholder="template_xxxxxxx" style="margin-bottom:0">
+        </div>
+      </div>
+      <div style="margin:14px 0 10px">
+        <label class="field-label">Subject</label>
+        <input class="input" id="broadcast-subject" placeholder="e.g. Simple-x update" style="margin-bottom:0">
+      </div>
+      <div style="margin-bottom:18px">
+        <label class="field-label">Message body</label>
+        <textarea class="input" id="broadcast-body" placeholder="Write your message here…" rows="5" style="margin-bottom:0"></textarea>
+      </div>
+      <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+        <button class="btn" id="broadcast-btn" onclick="sendBroadcast()">✉ Send to all users</button>
+        <p id="broadcast-status" style="font-size:13px;color:#6b6866"></p>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /dashboard -->
 
 <script>
-  const SUPABASE_URL = 'https://ocwgwfnrstzrapsblkxm.supabase.co'
-  const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9jd2d3Zm5yc3R6cmFwc2Jsa3htIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY1NjAxNzksImV4cCI6MjA5MjEzNjE3OX0.Tr_l0wJjUDHdklj1AG9MW9FIlNC3lNgGbklpzz4AAfo'
-  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
+// ── Supabase + EmailJS ──────────────────────────────────────────────────────
+const SUPABASE_URL = 'https://ocwgwfnrstzrapsblkxm.supabase.co'
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9jd2d3Zm5yc3R6cmFwc2Jsa3htIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY1NjAxNzksImV4cCI6MjA5MjEzNjE3OX0.Tr_l0wJjUDHdklj1AG9MW9FIlNC3lNgGbklpzz4AAfo'
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
+emailjs.init('6hhTlpLKzeQ4Q2eRv')
 
-  async function signIn() {
-    const email = document.getElementById('auth-email').value.trim()
-    const password = document.getElementById('auth-password').value
-    const errEl = document.getElementById('auth-error')
-    errEl.style.display = 'none'
-    const { data, error } = await sb.auth.signInWithPassword({ email, password })
-    if (error) { errEl.textContent = error.message; errEl.style.display = 'block'; return }
-    const { data: profile } = await sb.from('profiles').select('is_admin, display_name').eq('id', data.user.id).single()
-    if (!profile?.is_admin) {
-      await sb.auth.signOut()
-      errEl.textContent = 'Access denied — admin accounts only.'
-      errEl.style.display = 'block'
-      return
-    }
-    document.getElementById('auth-screen').style.display = 'none'
-    document.getElementById('dashboard').style.display = 'block'
-    document.getElementById('admin-email-label').textContent = email
-    loadAll()
-  }
-
-  async function signOut() {
+// ── Auth ────────────────────────────────────────────────────────────────────
+async function signIn() {
+  const email    = document.getElementById('auth-email').value.trim()
+  const password = document.getElementById('auth-password').value
+  const errEl    = document.getElementById('auth-error')
+  const btn      = document.getElementById('signin-btn')
+  errEl.style.display = 'none'
+  btn.disabled = true; btn.textContent = 'Signing in…'
+  const { data, error } = await sb.auth.signInWithPassword({ email, password })
+  btn.disabled = false; btn.textContent = 'Sign in'
+  if (error) { errEl.textContent = error.message; errEl.style.display = 'block'; return }
+  const { data: profile } = await sb.from('profiles').select('is_admin').eq('id', data.user.id).single()
+  if (!profile?.is_admin) {
     await sb.auth.signOut()
-    location.reload()
+    errEl.textContent = 'Access denied — admin accounts only.'
+    errEl.style.display = 'block'
+    return
+  }
+  showDashboard(email)
+}
+
+async function signOut() { await sb.auth.signOut(); location.reload() }
+
+function showDashboard(email) {
+  document.getElementById('auth-screen').style.display = 'none'
+  document.getElementById('dashboard').style.display = 'block'
+  document.getElementById('admin-email-label').textContent = 'Signed in as ' + email
+  loadAll()
+}
+
+// Auto-restore session
+sb.auth.getSession().then(async ({ data: { session } }) => {
+  if (!session) return
+  const { data: p } = await sb.from('profiles').select('is_admin').eq('id', session.user.id).single()
+  if (p?.is_admin) showDashboard(session.user.email)
+})
+
+document.getElementById('auth-password').addEventListener('keydown', e => {
+  if (e.key === 'Enter') signIn()
+})
+
+// ── Master load ─────────────────────────────────────────────────────────────
+async function loadAll() {
+  await Promise.all([
+    loadStats(),
+    loadSignupsChart(),
+    loadDauChart(),
+    loadRecentUsers(),
+    loadRecentReports(),
+    loadPinnablePosts()
+  ])
+}
+
+// ── Stats ───────────────────────────────────────────────────────────────────
+async function loadStats() {
+  const yesterday = new Date(Date.now() - 86400000).toISOString()
+  const weekAgo   = new Date(Date.now() - 7 * 86400000).toISOString()
+
+  const [
+    { count: total },
+    { count: activeToday },
+    { count: newWeek },
+    { count: matches },
+    { count: msgsToday },
+    { count: postsToday },
+    { count: premium },
+    { count: reports }
+  ] = await Promise.all([
+    sb.from('profiles').select('*', { count: 'exact', head: true }),
+    sb.from('profiles').select('*', { count: 'exact', head: true }).gte('last_seen', yesterday),
+    sb.from('profiles').select('*', { count: 'exact', head: true }).gte('created_at', weekAgo),
+    sb.from('matches').select('*', { count: 'exact', head: true }),
+    sb.from('messages').select('*', { count: 'exact', head: true }).gte('created_at', yesterday),
+    sb.from('community_posts').select('*', { count: 'exact', head: true }).gte('created_at', yesterday),
+    sb.from('profiles').select('*', { count: 'exact', head: true }).eq('is_premium', true),
+    sb.from('reports').select('*', { count: 'exact', head: true })
+  ])
+
+  document.getElementById('stat-total').textContent    = fmtNum(total)
+  document.getElementById('stat-today').textContent    = fmtNum(activeToday)
+  document.getElementById('stat-week').textContent     = fmtNum(newWeek)
+  document.getElementById('stat-matches').textContent  = fmtNum(matches)
+  document.getElementById('stat-msgs').textContent     = fmtNum(msgsToday)
+  document.getElementById('stat-posts').textContent    = fmtNum(postsToday)
+  document.getElementById('stat-premium').textContent  = fmtNum(premium)
+  document.getElementById('stat-reports').textContent  = fmtNum(reports)
+}
+
+// ── Charts ──────────────────────────────────────────────────────────────────
+let _signupsChart = null, _dauChart = null
+
+const CHART_DEFAULTS = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: { legend: { display: false } },
+}
+const SCALE_STYLE = {
+  grid: { color: 'rgba(255,255,255,0.04)' },
+  ticks: { color: '#5a5a5a', font: { size: 10 } },
+  border: { display: false }
+}
+
+async function loadSignupsChart() {
+  const since = new Date(Date.now() - 30 * 86400000).toISOString()
+  const { data } = await sb.from('profiles').select('created_at').gte('created_at', since)
+
+  // Build 30-day buckets
+  const buckets = {}
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date(Date.now() - i * 86400000)
+    buckets[d.toISOString().slice(0, 10)] = 0
+  }
+  ;(data || []).forEach(p => {
+    const day = p.created_at.slice(0, 10)
+    if (day in buckets) buckets[day]++
+  })
+
+  const labels = Object.keys(buckets).map(d =>
+    new Date(d + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  )
+  const values = Object.values(buckets)
+
+  const ctx = document.getElementById('chart-signups').getContext('2d')
+  const grad = ctx.createLinearGradient(0, 0, 0, 190)
+  grad.addColorStop(0, 'rgba(232,80,58,0.28)')
+  grad.addColorStop(1, 'rgba(232,80,58,0)')
+
+  if (_signupsChart) _signupsChart.destroy()
+  _signupsChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        data: values,
+        borderColor: '#e8503a',
+        backgroundColor: grad,
+        borderWidth: 2,
+        pointRadius: 0,
+        pointHoverRadius: 4,
+        pointBackgroundColor: '#e8503a',
+        fill: true,
+        tension: 0.4
+      }]
+    },
+    options: {
+      ...CHART_DEFAULTS,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        ...CHART_DEFAULTS.plugins,
+        tooltip: { callbacks: { label: c => c.parsed.y + ' new users' } }
+      },
+      scales: {
+        x: { ...SCALE_STYLE, ticks: { ...SCALE_STYLE.ticks, maxTicksLimit: 8 } },
+        y: { ...SCALE_STYLE, beginAtZero: true, ticks: { ...SCALE_STYLE.ticks, precision: 0 } }
+      }
+    }
+  })
+}
+
+async function loadDauChart() {
+  const since = new Date(Date.now() - 7 * 86400000).toISOString()
+  const { data } = await sb.from('profiles').select('last_seen').gte('last_seen', since)
+
+  const buckets = {}
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(Date.now() - i * 86400000)
+    buckets[d.toISOString().slice(0, 10)] = 0
+  }
+  ;(data || []).forEach(p => {
+    if (!p.last_seen) return
+    const day = p.last_seen.slice(0, 10)
+    if (day in buckets) buckets[day]++
+  })
+
+  const labels = Object.keys(buckets).map(d =>
+    new Date(d + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+  )
+  const values = Object.values(buckets)
+
+  const ctx = document.getElementById('chart-dau').getContext('2d')
+  if (_dauChart) _dauChart.destroy()
+  _dauChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        data: values,
+        backgroundColor: values.map((_, i) => i === values.length - 1 ? '#e8503a' : 'rgba(232,80,58,0.45)'),
+        borderRadius: 6,
+        borderSkipped: false
+      }]
+    },
+    options: {
+      ...CHART_DEFAULTS,
+      plugins: {
+        ...CHART_DEFAULTS.plugins,
+        tooltip: { callbacks: { label: c => c.parsed.y + ' active users' } }
+      },
+      scales: {
+        x: { ...SCALE_STYLE, grid: { display: false } },
+        y: { ...SCALE_STYLE, beginAtZero: true, ticks: { ...SCALE_STYLE.ticks, precision: 0 } }
+      }
+    }
+  })
+}
+
+// ── Users ───────────────────────────────────────────────────────────────────
+let _usersData = [], _usersFilter = ''
+let _usersSortKey = 'created_at', _usersSortDir = 'desc'
+
+async function loadRecentUsers() {
+  document.getElementById('users-tbody').innerHTML =
+    '<tr><td colspan="8" class="empty"><span class="spinner"></span></td></tr>'
+
+  const { data, error } = await sb
+    .from('profiles')
+    .select('id, display_name, email, hsv_type, city, created_at, last_seen, is_premium, is_admin, verified, is_tester')
+    .order('created_at', { ascending: false })
+    .limit(300)
+
+  if (error) {
+    document.getElementById('users-tbody').innerHTML =
+      `<tr><td colspan="8" class="empty" style="color:#e8503a">Error: ${escHtml(error.message)}</td></tr>`
+    return
   }
 
-  async function loadAll() {
-    await Promise.all([loadStats(), loadRecentUsers(), loadRecentReports()])
+  _usersData = data || []
+  document.getElementById('users-count').textContent = `(${_usersData.length})`
+  renderUsers()
+}
+
+function filterUsers(q) {
+  _usersFilter = q.toLowerCase().trim()
+  renderUsers()
+}
+
+function sortUsers(key) {
+  _usersSortDir = (_usersSortKey === key) ? (_usersSortDir === 'asc' ? 'desc' : 'asc') : 'asc'
+  _usersSortKey = key
+  renderUsers()
+}
+
+function renderUsers() {
+  const tbody = document.getElementById('users-tbody')
+  const now   = Date.now()
+
+  let rows = _usersData
+  if (_usersFilter) {
+    rows = rows.filter(u =>
+      (u.display_name || '').toLowerCase().includes(_usersFilter) ||
+      (u.email        || '').toLowerCase().includes(_usersFilter) ||
+      (u.city         || '').toLowerCase().includes(_usersFilter) ||
+      (u.hsv_type     || '').toLowerCase().includes(_usersFilter)
+    )
   }
 
-  async function loadStats() {
-    const now = new Date()
-    const yesterday = new Date(now - 86400000).toISOString()
-    const weekAgo = new Date(now - 7 * 86400000).toISOString()
+  const sorted = [...rows].sort((a, b) => {
+    let av, bv
+    if (_usersSortKey === 'status') {
+      av = (a.is_admin?8:0)+(a.is_premium?4:0)+(a.verified?2:0)+(a.is_tester?1:0)
+      bv = (b.is_admin?8:0)+(b.is_premium?4:0)+(b.verified?2:0)+(b.is_tester?1:0)
+    } else if (_usersSortKey === 'last_seen' || _usersSortKey === 'created_at') {
+      av = a[_usersSortKey] ? new Date(a[_usersSortKey]).getTime() : 0
+      bv = b[_usersSortKey] ? new Date(b[_usersSortKey]).getTime() : 0
+    } else {
+      av = (a[_usersSortKey] || '').toString().toLowerCase()
+      bv = (b[_usersSortKey] || '').toString().toLowerCase()
+    }
+    if (av < bv) return _usersSortDir === 'asc' ? -1 : 1
+    if (av > bv) return _usersSortDir === 'asc' ? 1 : -1
+    return 0
+  })
 
-    const [
-      { count: total },
-      { count: activeToday },
-      { count: newWeek },
-      { count: matches },
-      { count: msgsToday },
-      { count: postsToday },
-      { count: premium },
-      { count: reports }
-    ] = await Promise.all([
-      sb.from('profiles').select('*', { count: 'exact', head: true }),
-      sb.from('profiles').select('*', { count: 'exact', head: true }).gte('last_seen', yesterday),
-      sb.from('profiles').select('*', { count: 'exact', head: true }).gte('created_at', weekAgo),
-      sb.from('matches').select('*', { count: 'exact', head: true }),
-      sb.from('messages').select('*', { count: 'exact', head: true }).gte('created_at', yesterday),
-      sb.from('community_posts').select('*', { count: 'exact', head: true }).gte('created_at', yesterday),
-      sb.from('profiles').select('*', { count: 'exact', head: true }).eq('is_premium', true),
-      sb.from('reports').select('*', { count: 'exact', head: true }).gte('created_at', yesterday)
-    ])
+  // Sort indicators
+  document.querySelectorAll('[id^="sort-"]').forEach(el => { el.textContent = '' })
+  const ind = document.getElementById('sort-' + _usersSortKey)
+  if (ind) ind.textContent = _usersSortDir === 'asc' ? '▲' : '▼'
 
-    document.getElementById('stat-total').textContent = total ?? '—'
-    document.getElementById('stat-today').textContent = activeToday ?? '—'
-    document.getElementById('stat-week').textContent = newWeek ?? '—'
-    document.getElementById('stat-matches').textContent = matches ?? '—'
-    document.getElementById('stat-msgs').textContent = msgsToday ?? '—'
-    document.getElementById('stat-posts').textContent = postsToday ?? '—'
-    document.getElementById('stat-premium').textContent = premium ?? '—'
-    document.getElementById('stat-reports').textContent = reports ?? '—'
+  if (!sorted.length) {
+    tbody.innerHTML = '<tr><td colspan="8" class="empty">No users found.</td></tr>'
+    return
   }
 
-  let _usersData = []
-  let _usersSortKey = 'created_at'
-  let _usersSortDir = 'desc'
+  tbody.innerHTML = sorted.map(u => {
+    const ms = u.last_seen ? now - new Date(u.last_seen).getTime() : null
+    const actHtml = !ms
+      ? '<span style="color:#333">Never</span>'
+      : ms < 300000    ? '<span style="color:#2ecc71;font-weight:600">● Online</span>'
+      : ms < 3600000   ? '<span style="color:#2ecc71">Active now</span>'
+      : ms < 86400000  ? '<span style="color:#9e9b97">Today</span>'
+      : ms < 604800000 ? '<span style="color:#6b6866">This week</span>'
+      : '<span style="color:#333">Inactive</span>'
 
-  async function loadRecentUsers() {
-    const loadEl = document.getElementById('loading')
-    const wrap = document.getElementById('users-table-wrap')
+    const flags = [
+      u.is_admin   ? '<span class="badge bg-red">Admin</span>'   : '',
+      u.is_premium ? '<span class="badge bg-yellow">Plus</span>' : '',
+      u.verified   ? '<span class="badge bg-green">✓</span>'    : '',
+      u.is_tester  ? '<span class="badge bg-blue">Beta</span>'  : '',
+    ].filter(Boolean).join(' ') || '<span style="color:#333;font-size:11px">Free</span>'
 
-    const { data: users } = await sb
-      .from('profiles')
-      .select('id, display_name, email, hsv_type, city, created_at, last_seen, is_premium, is_admin')
+    const uid = u.id
+    return `<tr>
+      <td><span style="font-weight:600">${escHtml(u.display_name || '—')}</span></td>
+      <td class="dim" style="max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escHtml(u.email||'')}">${escHtml(u.email || '—')}</td>
+      <td class="dim">${u.hsv_type ? `<span class="badge bg-red">${escHtml(u.hsv_type)}</span>` : '—'}</td>
+      <td class="dim">${escHtml(u.city || '—')}</td>
+      <td class="dim" style="white-space:nowrap">${u.created_at ? fmtDate(u.created_at) : '—'}</td>
+      <td style="white-space:nowrap">${actHtml}</td>
+      <td style="white-space:nowrap">${flags}</td>
+      <td>
+        <div class="action-btns">
+          <button class="toggle-btn ${u.verified   ? 'active-verified' : ''}" onclick="toggleFlag('${uid}','verified',${!!u.verified})"   title="Toggle Verified">✓</button>
+          <button class="toggle-btn ${u.is_tester  ? 'active-tester'   : ''}" onclick="toggleFlag('${uid}','is_tester',${!!u.is_tester})" title="Toggle Beta Tester">🧪</button>
+          <button class="toggle-btn ${u.is_admin   ? 'active-admin'    : ''}" onclick="toggleFlag('${uid}','is_admin',${!!u.is_admin})"   title="Toggle Admin">👑</button>
+          <button class="toggle-btn ${u.is_premium ? 'active-premium'  : ''}" onclick="toggleFlag('${uid}','is_premium',${!!u.is_premium})" title="Toggle Plus">⭐</button>
+        </div>
+      </td>
+    </tr>`
+  }).join('')
+}
+
+async function toggleFlag(userId, field, currentValue) {
+  const newValue = !currentValue
+  const { error } = await sb.from('profiles').update({ [field]: newValue }).eq('id', userId)
+  if (error) { showToast('Error: ' + error.message); return }
+  const user = _usersData.find(u => u.id === userId)
+  if (user) user[field] = newValue
+  renderUsers()
+  const label = { verified: 'Verified', is_tester: 'Tester', is_admin: 'Admin', is_premium: 'Plus' }[field] || field
+  showToast(`${label} ${newValue ? 'enabled' : 'disabled'}`)
+}
+
+function exportUsersCsv() {
+  const headers = ['Name','Email','HSV Type','City','Joined','Last Seen','Admin','Plus','Verified','Tester']
+  const rows = _usersData.map(u => [
+    u.display_name || '', u.email || '', u.hsv_type || '', u.city || '',
+    u.created_at ? new Date(u.created_at).toLocaleDateString() : '',
+    u.last_seen  ? new Date(u.last_seen).toLocaleDateString()  : '',
+    u.is_admin   ? 'Yes' : 'No',
+    u.is_premium ? 'Yes' : 'No',
+    u.verified   ? 'Yes' : 'No',
+    u.is_tester  ? 'Yes' : 'No',
+  ].map(v => `"${String(v).replace(/"/g, '""')}"`))
+  const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n')
+  const a = document.createElement('a')
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv)
+  a.download = `simplex_users_${new Date().toISOString().slice(0,10)}.csv`
+  a.click()
+  showToast('CSV downloaded')
+}
+
+// ── Reports ─────────────────────────────────────────────────────────────────
+let _reportsData = []
+let _reportsSortKey = 'created_at', _reportsSortDir = 'desc'
+
+async function loadRecentReports() {
+  document.getElementById('reports-tbody').innerHTML =
+    '<tr><td colspan="6" class="empty"><span class="spinner"></span></td></tr>'
+
+  const { data, error } = await sb
+    .from('reports')
+    .select(`
+      id, reason, details, created_at,
+      reporter:profiles!reports_reporter_id_fkey(id, display_name),
+      reported:profiles!reports_reported_id_fkey(id, display_name)
+    `)
+    .order('created_at', { ascending: false })
+    .limit(100)
+
+  if (error) {
+    // Fallback without joins if FK names differ
+    const { data: simple } = await sb
+      .from('reports')
+      .select('id, reason, details, created_at, reporter_id, reported_id')
       .order('created_at', { ascending: false })
       .limit(100)
+    _reportsData = (simple || []).map(r => ({
+      ...r,
+      reporter: { display_name: r.reporter_id?.slice(0,8) || 'Unknown' },
+      reported: { display_name: r.reported_id?.slice(0,8) || 'Unknown' }
+    }))
+  } else {
+    _reportsData = data || []
+  }
+  renderReports()
+}
 
-    loadEl.style.display = 'none'
-    wrap.style.display = 'block'
+function sortReports(key) {
+  _reportsSortDir = (_reportsSortKey === key) ? (_reportsSortDir === 'asc' ? 'desc' : 'asc') : 'asc'
+  _reportsSortKey = key
+  renderReports()
+}
 
-    _usersData = users || []
-    renderUsers()
+function renderReports() {
+  const tbody = document.getElementById('reports-tbody')
+  if (!_reportsData.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="empty">No reports. 🎉</td></tr>'
+    return
   }
 
-  function sortUsers(key) {
-    if (_usersSortKey === key) {
-      _usersSortDir = _usersSortDir === 'asc' ? 'desc' : 'asc'
+  const sorted = [..._reportsData].sort((a, b) => {
+    let av, bv
+    if (_reportsSortKey === 'reporter') {
+      av = (a.reporter?.display_name || '').toLowerCase()
+      bv = (b.reporter?.display_name || '').toLowerCase()
+    } else if (_reportsSortKey === 'reported') {
+      av = (a.reported?.display_name || '').toLowerCase()
+      bv = (b.reported?.display_name || '').toLowerCase()
+    } else if (_reportsSortKey === 'created_at') {
+      av = a.created_at ? new Date(a.created_at).getTime() : 0
+      bv = b.created_at ? new Date(b.created_at).getTime() : 0
     } else {
-      _usersSortKey = key
-      _usersSortDir = 'asc'
+      av = (a[_reportsSortKey] || '').toLowerCase()
+      bv = (b[_reportsSortKey] || '').toLowerCase()
     }
-    renderUsers()
-  }
-
-  function renderUsers() {
-    const tbody = document.getElementById('users-tbody')
-    if (!_usersData.length) {
-      tbody.innerHTML = '<tr><td colspan="7" class="muted" style="text-align:center">No users found.</td></tr>'
-      return
-    }
-
-    const now = Date.now()
-    const sorted = [..._usersData].sort((a, b) => {
-      let av, bv
-      if (_usersSortKey === 'status') {
-        av = a.is_admin ? 2 : (a.is_premium ? 1 : 0)
-        bv = b.is_admin ? 2 : (b.is_premium ? 1 : 0)
-      } else if (_usersSortKey === 'last_seen' || _usersSortKey === 'created_at') {
-        av = a[_usersSortKey] ? new Date(a[_usersSortKey]).getTime() : 0
-        bv = b[_usersSortKey] ? new Date(b[_usersSortKey]).getTime() : 0
-      } else {
-        av = (a[_usersSortKey] || '').toString().toLowerCase()
-        bv = (b[_usersSortKey] || '').toString().toLowerCase()
-      }
-      if (av < bv) return _usersSortDir === 'asc' ? -1 : 1
-      if (av > bv) return _usersSortDir === 'asc' ? 1 : -1
-      return 0
-    })
-
-    // Update sort indicators
-    document.querySelectorAll('.sort-ind').forEach(el => { if (el.id.startsWith('sort-')) el.textContent = '' })
-    const ind = document.getElementById('sort-' + _usersSortKey)
-    if (ind) ind.textContent = _usersSortDir === 'asc' ? '▲' : '▼'
-
-    tbody.innerHTML = sorted.map(u => {
-      const lastSeenMs = u.last_seen ? now - new Date(u.last_seen).getTime() : null
-      const activity = !lastSeenMs ? 'Never'
-        : lastSeenMs < 900000 ? 'Online now'
-        : lastSeenMs < 86400000 ? 'Today'
-        : lastSeenMs < 604800000 ? 'This week'
-        : 'Inactive'
-
-      const badge = u.is_admin
-        ? `<span class="badge badge-red">Admin</span>`
-        : u.is_premium
-        ? `<span class="badge badge-green">Plus</span>`
-        : `<span style="color:#6b6866;font-size:11px">Free</span>`
-
-      return `<tr>
-        <td>${escHtml(u.display_name || '—')}</td>
-        <td class="muted" style="max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(u.email || '—')}</td>
-        <td class="muted">${u.hsv_type || '—'}</td>
-        <td class="muted">${escHtml(u.city || '—')}</td>
-        <td class="muted">${u.created_at ? new Date(u.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' }) : '—'}</td>
-        <td class="muted">${activity}</td>
-        <td>${badge}</td>
-      </tr>`
-    }).join('')
-  }
-
-  let _reportsData = []
-  let _reportsSortKey = 'created_at'
-  let _reportsSortDir = 'desc'
-
-  async function loadRecentReports() {
-    const wrap = document.getElementById('reports-table-wrap')
-    const noReports = document.getElementById('no-reports')
-
-    const { data: reports } = await sb
-      .from('reports')
-      .select('reason, details, created_at, reporter:profiles!reports_reporter_id_fkey(display_name)')
-      .order('created_at', { ascending: false })
-      .limit(50)
-
-    if (!reports || reports.length === 0) {
-      wrap.style.display = 'none'
-      noReports.style.display = 'block'
-      return
-    }
-
-    wrap.style.display = 'block'
-    noReports.style.display = 'none'
-    _reportsData = reports
-    renderReports()
-  }
-
-  function sortReports(key) {
-    if (_reportsSortKey === key) {
-      _reportsSortDir = _reportsSortDir === 'asc' ? 'desc' : 'asc'
-    } else {
-      _reportsSortKey = key
-      _reportsSortDir = 'asc'
-    }
-    renderReports()
-  }
-
-  function renderReports() {
-    const tbody = document.getElementById('reports-tbody')
-    const sorted = [..._reportsData].sort((a, b) => {
-      let av, bv
-      if (_reportsSortKey === 'reporter') {
-        av = (a.reporter?.display_name || '').toLowerCase()
-        bv = (b.reporter?.display_name || '').toLowerCase()
-      } else if (_reportsSortKey === 'created_at') {
-        av = a.created_at ? new Date(a.created_at).getTime() : 0
-        bv = b.created_at ? new Date(b.created_at).getTime() : 0
-      } else {
-        av = (a[_reportsSortKey] || '').toString().toLowerCase()
-        bv = (b[_reportsSortKey] || '').toString().toLowerCase()
-      }
-      if (av < bv) return _reportsSortDir === 'asc' ? -1 : 1
-      if (av > bv) return _reportsSortDir === 'asc' ? 1 : -1
-      return 0
-    })
-
-    document.querySelectorAll('.sort-ind').forEach(el => { if (el.id.startsWith('rsort-')) el.textContent = '' })
-    const ind = document.getElementById('rsort-' + _reportsSortKey)
-    if (ind) ind.textContent = _reportsSortDir === 'asc' ? '▲' : '▼'
-
-    tbody.innerHTML = sorted.map(r => `<tr>
-      <td>${escHtml(r.reporter?.display_name || 'Unknown')}</td>
-      <td class="muted">${escHtml(r.reason || '—')}</td>
-      <td class="muted" style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(r.details || '—')}</td>
-      <td class="muted">${r.created_at ? new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'}</td>
-    </tr>`).join('')
-  }
-
-  function escHtml(s) {
-    if (!s) return ''
-    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')
-  }
-
-  // Auto-restore session on load
-  sb.auth.getSession().then(async ({ data: { session } }) => {
-    if (!session) return
-    const { data: profile } = await sb.from('profiles').select('is_admin').eq('id', session.user.id).single()
-    if (!profile?.is_admin) return
-    document.getElementById('auth-screen').style.display = 'none'
-    document.getElementById('dashboard').style.display = 'block'
-    document.getElementById('admin-email-label').textContent = session.user.email
-    loadAll()
+    if (av < bv) return _reportsSortDir === 'asc' ? -1 : 1
+    if (av > bv) return _reportsSortDir === 'asc' ? 1 : -1
+    return 0
   })
 
-  document.getElementById('auth-password').addEventListener('keydown', e => {
-    if (e.key === 'Enter') signIn()
-  })
+  document.querySelectorAll('[id^="rsort-"]').forEach(el => { el.textContent = '' })
+  const ind = document.getElementById('rsort-' + _reportsSortKey)
+  if (ind) ind.textContent = _reportsSortDir === 'asc' ? '▲' : '▼'
+
+  tbody.innerHTML = sorted.map(r => `<tr>
+    <td style="font-weight:600;white-space:nowrap">${escHtml(r.reporter?.display_name || 'Unknown')}</td>
+    <td style="white-space:nowrap">${escHtml(r.reported?.display_name || 'Unknown')}</td>
+    <td><span class="badge bg-red">${escHtml(r.reason || '—')}</span></td>
+    <td class="dim" style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escHtml(r.details||'')}">${escHtml(r.details || '—')}</td>
+    <td class="dim" style="white-space:nowrap">${r.created_at ? fmtDate(r.created_at) : '—'}</td>
+    <td><button class="btn-ghost btn-sm" onclick="dismissReport('${r.id}')">Dismiss</button></td>
+  </tr>`).join('')
+}
+
+async function dismissReport(reportId) {
+  if (!confirm('Dismiss this report?')) return
+  const { error } = await sb.from('reports').delete().eq('id', reportId)
+  if (error) { showToast('Error: ' + error.message); return }
+  _reportsData = _reportsData.filter(r => r.id !== reportId)
+  renderReports()
+  showToast('Report dismissed')
+}
+
+// ── Pin community posts ──────────────────────────────────────────────────────
+async function loadPinnablePosts() {
+  const listEl = document.getElementById('posts-list')
+  listEl.innerHTML = '<div class="empty"><span class="spinner"></span></div>'
+
+  const { data, error } = await sb
+    .from('community_posts')
+    .select('id, title, body, is_pinned, created_at, user_id')
+    .order('is_pinned', { ascending: false })
+    .order('created_at',  { ascending: false })
+    .limit(40)
+
+  if (error || !data?.length) {
+    listEl.innerHTML = '<div class="empty">' + (error ? escHtml(error.message) : 'No posts yet.') + '</div>'
+    return
+  }
+
+  // Fetch author names separately (avoids FK name guessing)
+  const userIds = [...new Set(data.map(p => p.user_id).filter(Boolean))]
+  let nameMap = {}
+  if (userIds.length) {
+    const { data: profiles } = await sb.from('profiles').select('id, display_name').in('id', userIds)
+    ;(profiles || []).forEach(p => { nameMap[p.id] = p.display_name })
+  }
+
+  listEl.innerHTML = data.map(p => {
+    const title  = p.title || (p.body || '').slice(0, 70) || 'Untitled'
+    const author = nameMap[p.user_id] || 'Unknown'
+    const date   = p.created_at ? fmtDate(p.created_at) : ''
+    const pinned = !!p.is_pinned
+    return `<div class="post-row">
+      <div class="post-content">
+        <p class="post-title">${escHtml(title)}</p>
+        <p class="post-meta">by ${escHtml(author)} · ${date}${pinned ? ' · <span style="color:#f5c518">📌 Pinned</span>' : ''}</p>
+      </div>
+      <button class="pin-btn ${pinned ? 'pinned' : ''}" onclick="togglePin('${p.id}', ${pinned})">
+        ${pinned ? '📌 Unpin' : 'Pin'}
+      </button>
+    </div>`
+  }).join('')
+}
+
+async function togglePin(postId, isPinned) {
+  const { error } = await sb.from('community_posts').update({ is_pinned: !isPinned }).eq('id', postId)
+  if (error) { showToast('Error: ' + error.message); return }
+  showToast(isPinned ? 'Post unpinned' : 'Post pinned 📌')
+  loadPinnablePosts()
+}
+
+// ── Email broadcast ──────────────────────────────────────────────────────────
+async function sendBroadcast() {
+  const serviceId  = document.getElementById('ejs-service').value.trim()
+  const templateId = document.getElementById('ejs-template').value.trim()
+  const subject    = document.getElementById('broadcast-subject').value.trim()
+  const body       = document.getElementById('broadcast-body').value.trim()
+  const statusEl   = document.getElementById('broadcast-status')
+  const btn        = document.getElementById('broadcast-btn')
+
+  if (!serviceId || !templateId) { showToast('Enter EmailJS Service ID and Template ID'); return }
+  if (!subject)  { showToast('Enter a subject line'); return }
+  if (!body)     { showToast('Enter a message body'); return }
+
+  // Fetch recipients
+  statusEl.textContent = 'Fetching user list…'
+  const { data: profiles } = await sb
+    .from('profiles')
+    .select('email, display_name')
+    .not('email', 'is', null)
+
+  const recipients = (profiles || []).filter(p => p.email && p.email.includes('@'))
+
+  if (!recipients.length) { showToast('No emails found'); statusEl.textContent = ''; return }
+
+  if (!confirm(`Send "${subject}" to ${recipients.length} users?`)) {
+    statusEl.textContent = ''
+    return
+  }
+
+  btn.disabled = true
+  let sent = 0, failed = 0
+
+  for (const p of recipients) {
+    try {
+      await emailjs.send(serviceId, templateId, {
+        to_email:  p.email,
+        to_name:   p.display_name || 'Member',
+        subject,
+        message:   body,
+        from_name: 'Simple-x Team'
+      })
+      sent++
+    } catch { failed++ }
+
+    statusEl.textContent = `Sending… ${sent + failed} / ${recipients.length}`
+    // 120 ms delay between sends to stay within EmailJS rate limits
+    await new Promise(r => setTimeout(r, 120))
+  }
+
+  btn.disabled = false
+  statusEl.textContent = `✓ Done — ${sent} sent, ${failed} failed.`
+  showToast(`Broadcast complete: ${sent} sent`)
+}
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+function escHtml(s) {
+  if (s == null) return ''
+  return String(s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;')
+}
+
+function fmtDate(ts) {
+  return new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })
+}
+
+function fmtNum(n) {
+  if (n == null) return '—'
+  return Number(n).toLocaleString()
+}
+
+let _toastTimer = null
+function showToast(msg) {
+  const t = document.getElementById('toast')
+  t.textContent = msg
+  t.style.display = 'block'
+  clearTimeout(_toastTimer)
+  _toastTimer = setTimeout(() => { t.style.display = 'none' }, 3200)
+}
 </script>
 </body>
 </html>
