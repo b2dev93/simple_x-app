@@ -394,6 +394,7 @@
           <button onclick="setOnlineSort('newest')" id="sort-newest" style="flex-shrink:0;padding:6px 14px;border-radius:20px;border:1px solid #252525;background:transparent;color:#6b6866;font-size:13px;cursor:pointer">Newest Profiles</button>
           <button onclick="setOnlineSort('closest')" id="sort-closest" style="flex-shrink:0;padding:6px 14px;border-radius:20px;border:1px solid #252525;background:transparent;color:#6b6866;font-size:13px;cursor:pointer">Nearest</button>
           <button onclick="setOnlineSort('today')" id="sort-today" style="flex-shrink:0;padding:6px 14px;border-radius:20px;border:1px solid #252525;background:transparent;color:#6b6866;font-size:13px;cursor:pointer">Active Today</button>
+          <button onclick="setOnlineSort('joined24h')" id="sort-joined24h" style="flex-shrink:0;padding:6px 14px;border-radius:20px;border:1px solid #252525;background:transparent;color:#6b6866;font-size:13px;cursor:pointer">Last 24h Joined</button>
         </div>
         <div id="online-grid">
           <div style="grid-column:1/-1;text-align:center;padding:40px 0"><p style="color:#6b6866;font-size:14px">Loading...</p></div>
@@ -728,6 +729,15 @@
       </div>
 
       <button onclick="applyFilters()" class="btn-primary">Apply filters</button>
+
+      <!-- Admin-only debug panel -->
+      <div id="discover-debug-panel" style="display:none;margin-top:24px;padding:16px;background:#0d1117;border-radius:12px;border:1px solid #2a2a2a">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <span style="color:#f5c518;font-size:13px;font-weight:700">🔍 Why am I not seeing X?</span>
+          <button onclick="runDiscoverAudit()" style="border:none;background:#e8503a;color:#fff;font-size:12px;font-weight:600;padding:5px 12px;border-radius:8px;cursor:pointer">Run Audit</button>
+        </div>
+        <div id="discover-debug-output" style="font-size:12px;color:#9e9b97;line-height:1.9"></div>
+      </div>
     </div>
   </div>
 
@@ -2957,7 +2967,7 @@ function switchDiscoverTab(tab) {
 
 function setOnlineSort(sort) {
   currentOnlineSort = sort
-  const sorts = ['recent', 'youngest', 'oldest', 'newest', 'closest', 'today']
+  const sorts = ['recent', 'youngest', 'oldest', 'newest', 'closest', 'today', 'joined24h']
   sorts.forEach(s => {
     const btn = el(`sort-${s}`)
     if (!btn) return
@@ -2998,10 +3008,14 @@ async function loadOnlineNow() {
   const grid = el('online-grid')
   grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:40px 0"><p style="color:#6b6866;font-size:14px">Loading...</p></div>`
 
-  let query = sb.from('profiles').select('*').neq('id', currentUser.id).or('incognito.is.null,incognito.eq.false').or('visibility.is.null,visibility.eq.everyone').limit(60)
+  // 'newest' and 'joined24h' must show ALL profiles — no gender/seeking filter applied
+  const showAllProfiles = currentOnlineSort === 'newest' || currentOnlineSort === 'joined24h'
+  const fetchLimit = showAllProfiles ? 200 : 60
 
-  // Auto-filter by seeking
-  if (currentProfile?.seeking && currentProfile.seeking !== 'Everyone') {
+  let query = sb.from('profiles').select('*').neq('id', currentUser.id).or('incognito.is.null,incognito.eq.false').or('visibility.is.null,visibility.eq.everyone').limit(fetchLimit)
+
+  // Auto-filter by seeking preference — skipped for newest/joined24h to show ALL new profiles
+  if (!showAllProfiles && currentProfile?.seeking && currentProfile.seeking !== 'Everyone') {
     const genderWanted = currentProfile.seeking === 'Women' ? 'Woman' : 'Man'
     query = query.eq('gender', genderWanted)
   }
@@ -3009,7 +3023,7 @@ async function loadOnlineNow() {
   // Sort
   if (currentOnlineSort === 'recent') {
     query = query.order('last_seen', { ascending: false, nullsFirst: false })
-  } else if (currentOnlineSort === 'newest') {
+  } else if (currentOnlineSort === 'newest' || currentOnlineSort === 'joined24h') {
     query = query.order('created_at', { ascending: false })
   } else if (currentOnlineSort === 'youngest') {
     query = query.order('birthdate', { ascending: false })
@@ -3024,6 +3038,7 @@ async function loadOnlineNow() {
   let filtered = (data || []).filter(p => {
     if (currentOnlineSort === 'recent') return p.last_seen != null
     if (currentOnlineSort === 'today') return p.last_seen != null && (Date.now() - new Date(p.last_seen).getTime()) < 86400000
+    if (currentOnlineSort === 'joined24h') return p.created_at != null && (Date.now() - new Date(p.created_at).getTime()) < 86400000
     return true
   })
 
@@ -4488,39 +4503,45 @@ async function loadDiscover() {
   const swipedIds = [...new Set((swipes || []).map(s => s.swiped_id))]
   swipedIds.push(currentUser.id)
 
-  const fetchLimit = filterDistance !== null ? 200 : 20
-  let query = sb.from('profiles').select('*').or('incognito.is.null,incognito.eq.false').or('visibility.is.null,visibility.eq.everyone').limit(fetchLimit)
+  // Always fetch 200 so new members are never suppressed by a tiny batch limit
+  let query = sb.from('profiles').select('*').or('incognito.is.null,incognito.eq.false').or('visibility.is.null,visibility.eq.everyone').limit(200)
+  // Exclude already-swiped profiles (pass, like, super) and own profile
   if (swipedIds.length > 0) query = query.not('id', 'in', `(${swipedIds.join(',')})`)
-  // Filter by gender: explicit filter takes priority over seeking preference
+  // Gender filter: explicit selection beats seeking preference
   if (filterGender !== 'all') {
     query = query.eq('gender', filterGender)
   } else if (currentProfile?.seeking && currentProfile.seeking !== 'Everyone') {
     const genderWanted = currentProfile.seeking === 'Women' ? 'Woman' : 'Man'
     query = query.eq('gender', genderWanted)
   }
-
-  // Filter by HSV type
+  // HSV type filter (only when explicitly selected — 'all' passes everything through)
   if (filterHsv !== 'all') query = query.eq('hsv_type', filterHsv)
 
   const { data: rawProfiles } = await query
 
-  // Filter by age and distance client-side
+  // Age and distance filtered client-side (profiles without birthdate pass through age check)
   const now = new Date()
-  const data = (rawProfiles || []).filter(p => {
-    // Age filter
+  let data = (rawProfiles || []).filter(p => {
     if (p.birthdate) {
       const age = Math.floor((now - new Date(p.birthdate)) / (365.25 * 24 * 3600 * 1000))
       if (age < filterAgeMin) return false
       if (filterAgeMax < 65 && age > filterAgeMax) return false
     }
-    // Distance filter
+    // Distance filter only applies when a limit is set and both locations are known
     if (filterDistance !== null && userLat && userLng && p.lat && p.lng) {
       const dist = haversineDistance(userLat, userLng, p.lat, p.lng)
       if (dist > filterDistance) return false
     }
     return true
   })
-  discoverProfiles = data || []
+
+  // Boost new members (joined last 7 days) into the first 20% of the deck
+  const newMembers = data.filter(p => isNewMember(p))
+  const veterans = data.filter(p => !isNewMember(p))
+  const newSlotCount = Math.ceil(data.length * 0.2)
+  data = [...newMembers.slice(0, newSlotCount), ...veterans, ...newMembers.slice(newSlotCount)]
+
+  discoverProfiles = data
   discoverIdx = 0
   renderCard()
 }
@@ -7078,6 +7099,8 @@ function openFilterPanel() {
   if (minEl) minEl.value = filterAgeMin
   if (maxEl) maxEl.value = filterAgeMax
   updateAgeLabel()
+  const debugPanel = el('discover-debug-panel')
+  if (debugPanel) debugPanel.style.display = currentProfile?.is_admin ? '' : 'none'
   show('filter-panel')
 }
 
@@ -7106,6 +7129,92 @@ function requestLocation() {
     currentProfile.lat = userLat
     currentProfile.lng = userLng
   }, () => {}) // silently fail if denied
+}
+
+async function runDiscoverAudit() {
+  const out = el('discover-debug-output')
+  if (!out) return
+  out.innerHTML = '<div style="color:#6b6866">Running audit…</div>'
+  const lines = []
+  const row = (label, val, color) => `<div style="display:flex;justify-content:space-between"><span>${label}</span><b style="color:${color || '#4fc3f7'}">${val}</b></div>`
+
+  lines.push(`<div style="color:#f0ede8;font-weight:700;margin-bottom:4px">Active filter values</div>`)
+  lines.push(row('Gender filter', filterGender))
+  lines.push(row('HSV type filter', filterHsv))
+  lines.push(row('Age range', `${filterAgeMin}–${filterAgeMax >= 65 ? '65+' : filterAgeMax}`))
+  lines.push(row('Distance', filterDistance === null ? 'Worldwide' : filterDistance + ' mi'))
+  lines.push(row('Seeking preference', currentProfile?.seeking || 'Everyone'))
+  lines.push(`<div style="height:1px;background:#252525;margin:8px 0"></div>`)
+  lines.push(`<div style="color:#f0ede8;font-weight:700;margin-bottom:4px">Profile counts per filter step</div>`)
+
+  try {
+    const { count: total } = await sb.from('profiles').select('*', { count: 'exact', head: true }).neq('id', currentUser.id)
+    lines.push(row('All profiles (excl. self)', total))
+
+    const { count: visible } = await sb.from('profiles').select('*', { count: 'exact', head: true })
+      .neq('id', currentUser.id)
+      .or('incognito.is.null,incognito.eq.false')
+      .or('visibility.is.null,visibility.eq.everyone')
+    lines.push(row('After visibility / incognito filter', visible))
+
+    const { data: swipes } = await sb.from('swipes').select('swiped_id').eq('swiper_id', currentUser.id)
+    const swipedIds = [...new Set((swipes || []).map(s => s.swiped_id))]
+    swipedIds.push(currentUser.id)
+    let q2 = sb.from('profiles').select('*', { count: 'exact', head: true })
+      .or('incognito.is.null,incognito.eq.false').or('visibility.is.null,visibility.eq.everyone')
+    if (swipedIds.length > 0) q2 = q2.not('id', 'in', `(${swipedIds.join(',')})`)
+    const { count: afterSwipes } = await q2
+    lines.push(row(`After removing ${swipedIds.length - 1} swiped profiles`, afterSwipes))
+
+    let qBase = sb.from('profiles').select('*', { count: 'exact', head: true })
+      .or('incognito.is.null,incognito.eq.false').or('visibility.is.null,visibility.eq.everyone')
+    if (swipedIds.length > 0) qBase = qBase.not('id', 'in', `(${swipedIds.join(',')})`)
+
+    if (filterGender !== 'all') {
+      const { count: c } = await qBase.eq('gender', filterGender)
+      lines.push(row(`After gender filter (${filterGender})`, c))
+    } else if (currentProfile?.seeking && currentProfile.seeking !== 'Everyone') {
+      const gw = currentProfile.seeking === 'Women' ? 'Woman' : 'Man'
+      const { count: c } = await qBase.eq('gender', gw)
+      lines.push(row(`After seeking preference (${gw})`, c))
+    } else {
+      lines.push(row('Gender filter', 'none applied', '#9e9b97'))
+    }
+
+    if (filterHsv !== 'all') {
+      let qHsv = sb.from('profiles').select('*', { count: 'exact', head: true })
+        .or('incognito.is.null,incognito.eq.false').or('visibility.is.null,visibility.eq.everyone')
+      if (swipedIds.length > 0) qHsv = qHsv.not('id', 'in', `(${swipedIds.join(',')})`)
+      if (filterGender !== 'all') qHsv = qHsv.eq('gender', filterGender)
+      else if (currentProfile?.seeking && currentProfile.seeking !== 'Everyone')
+        qHsv = qHsv.eq('gender', currentProfile.seeking === 'Women' ? 'Woman' : 'Man')
+      qHsv = qHsv.eq('hsv_type', filterHsv)
+      const { count: c } = await qHsv
+      lines.push(row(`After HSV filter (${filterHsv})`, c))
+    } else {
+      lines.push(row('HSV filter', 'none applied', '#9e9b97'))
+    }
+
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString()
+    const { count: newCount } = await sb.from('profiles').select('*', { count: 'exact', head: true })
+      .neq('id', currentUser.id)
+      .or('incognito.is.null,incognito.eq.false').or('visibility.is.null,visibility.eq.everyone')
+      .gte('created_at', sevenDaysAgo)
+    lines.push(row('New members (last 7 days, pre-filters)', newCount, '#2ecc71'))
+
+    const oneDayAgo = new Date(Date.now() - 86400000).toISOString()
+    const { count: joined24hCount } = await sb.from('profiles').select('*', { count: 'exact', head: true })
+      .neq('id', currentUser.id)
+      .or('incognito.is.null,incognito.eq.false').or('visibility.is.null,visibility.eq.everyone')
+      .gte('created_at', oneDayAgo)
+    lines.push(row('Joined last 24 hours (pre-filters)', joined24hCount, '#2ecc71'))
+
+    lines.push(`<div style="color:#f5c518;margin-top:6px;font-size:11px">⚠ Age &amp; distance filters are applied client-side after fetch and are not counted above.</div>`)
+  } catch (e) {
+    lines.push(`<div style="color:#e8503a">Error: ${e.message}</div>`)
+  }
+
+  out.innerHTML = lines.join('')
 }
 
 
