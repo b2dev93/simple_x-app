@@ -74,6 +74,20 @@
     /* SPLASH */
     #splash { background: #0a0a0a; align-items: center; justify-content: center; gap: 14px; }
     #splash .tagline { color: #6b6866; font-size: 13px; letter-spacing: 0.14em; text-transform: uppercase; }
+    @keyframes logoPulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.7; transform: scale(0.96); }
+    }
+    @keyframes splashProgress {
+      0%   { width: 0%; }
+      20%  { width: 18%; }
+      55%  { width: 52%; }
+      85%  { width: 82%; }
+      100% { width: 100%; }
+    }
+    #splash .logo-pulse { animation: logoPulse 2s ease-in-out infinite; }
+    #splash-progress-bar { position: absolute; bottom: 48px; left: 50%; transform: translateX(-50%); width: 100px; height: 2px; background: #1e1e1e; border-radius: 2px; overflow: hidden; }
+    #splash-progress-fill { height: 100%; width: 0; background: #e8503a; border-radius: 2px; animation: splashProgress 1.75s ease-in-out forwards; }
 
     /* AUTH */
     #auth { background: #0a0a0a; padding: 60px 28px 40px; overflow-y: auto; }
@@ -230,8 +244,11 @@
 
   <!-- SPLASH -->
   <div id="splash" class="screen">
-    <div class="logo" style="--logo-size: 44px"><span>simple</span><span>x</span></div>
+    <div class="logo-pulse">
+      <div class="logo" style="--logo-size: 44px"><span>simple</span><span>x</span></div>
+    </div>
     <p class="tagline">no complications</p>
+    <div id="splash-progress-bar"><div id="splash-progress-fill"></div></div>
   </div>
 
   <!-- TERMS OF SERVICE -->
@@ -1852,6 +1869,43 @@ async function handleLogout() {
   window.location.reload()
 }
 
+function showLaunchHelpModal() {
+  if (localStorage.getItem('sx_launch_help_shown')) return
+  const existing = document.getElementById('launch-help-modal')
+  if (existing) { existing.style.display = 'flex'; return }
+  const div = document.createElement('div')
+  div.id = 'launch-help-modal'
+  div.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:700;display:flex;align-items:flex-end;justify-content:center'
+  div.innerHTML = `
+    <div style="background:#141414;border-radius:24px 24px 0 0;width:100%;max-width:480px;padding:32px 24px 48px;border-top:1px solid #252525;text-align:center">
+      <p style="font-size:36px;margin-bottom:14px">🚀</p>
+      <h2 style="color:#f0ede8;font-size:20px;font-weight:700;margin-bottom:10px">Help us launch on Google Play!</h2>
+      <p style="color:#9e9b97;font-size:14px;line-height:1.65;margin-bottom:24px">We're 4 testers away from launching publicly on Google Play. If you have an Android friend, please share Simple-x with them!</p>
+      <button onclick="shareLaunchHelp()" style="width:100%;padding:16px;border-radius:14px;border:none;background:#e8503a;color:#fff;font-size:16px;font-weight:700;cursor:pointer;margin-bottom:12px">Share now</button>
+      <button onclick="dismissLaunchHelp()" style="width:100%;padding:14px;border-radius:12px;border:1px solid #252525;background:transparent;color:#9e9b97;font-size:15px;cursor:pointer">Maybe later</button>
+    </div>`
+  document.body.appendChild(div)
+}
+
+function shareLaunchHelp() {
+  const url = 'https://play.google.com/apps/testing/com.simplexlabs.simplex'
+  const text = "We're 4 testers away from launching Simple-x on Google Play! Please sign up as a beta tester 🚀"
+  dismissLaunchHelp()
+  if (navigator.share) {
+    navigator.share({ title: 'Help Simple-x launch!', text, url }).catch(() => {})
+  } else {
+    navigator.clipboard.writeText(text + ' ' + url)
+      .then(() => showToast('Message copied! Share it with an Android friend 🚀'))
+      .catch(() => {})
+  }
+}
+
+function dismissLaunchHelp() {
+  localStorage.setItem('sx_launch_help_shown', '1')
+  const modal = document.getElementById('launch-help-modal')
+  if (modal) modal.style.display = 'none'
+}
+
 function enterGuestMode() {
   isGuestMode = true
   hide('auth')
@@ -1968,6 +2022,7 @@ async function enterApp(user) {
   checkPremiumExpiry()
   checkProfileComplete()
   setTimeout(checkNewReferrals, 3000)
+  setTimeout(showLaunchHelpModal, 5000)
   registerPushNotifications()
   updateLastSeen()
   // Refresh last_seen every 5 minutes; clear any previous interval first
@@ -4815,6 +4870,7 @@ function renderCard() {
 }
 
 async function renderEmptyState() {
+  if (isGuestMode || !currentUser) { maybeShowSecondLook(el('card-stack')); return }
   const { count: matchCount } = await sb.from('matches')
     .select('*', { count: 'exact', head: true })
     .or(`user_a.eq.${currentUser.id},user_b.eq.${currentUser.id}`)
@@ -4838,6 +4894,10 @@ async function resetPassedProfiles() {
 }
 
 async function maybeShowSecondLook(stack) {
+  if (isGuestMode || !currentUser) {
+    if (stack) stack.innerHTML = `<div class="empty-state"><p class="empty-icon">💜</p><p class="empty-title">Like what you see?</p><p class="empty-sub">Sign up free to like, message, and connect with the community.</p><button class="btn-primary" style="margin-top:16px;width:auto;padding:12px 28px" onclick="promptGuestSignup()">Join Simple-x</button></div>`
+    return
+  }
   const today = new Date().toISOString().slice(0, 10)
   if (secondLookChecked || localStorage.getItem('sx_last_suggestion') === today) {
     renderEmptyState()
