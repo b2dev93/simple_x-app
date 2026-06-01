@@ -334,6 +334,7 @@
       No account? <a onclick="switchTab('up')">Sign up free</a>
     </p>
     <p style="text-align:center;margin-top:12px"><a id="forgot-link" onclick="handleForgotPassword()" style="color:#6b6866;font-size:13px;cursor:pointer">Forgot password?</a></p>
+    <button onclick="enterGuestMode()" style="width:100%;margin-top:16px;padding:14px;border-radius:12px;border:1px solid #252525;background:transparent;color:#9e9b97;font-size:15px;cursor:pointer">Browse as guest →</button>
     <p class="auth-footer" style="margin-top:32px">Your data is private and never sold.<br>Health info is never displayed publicly.</p>
   </div>
 
@@ -501,6 +502,8 @@
       </div>
       <div id="profile-fields"></div>
       <div id="profile-featured" style="margin-bottom:4px"></div>
+
+      <div id="referral-leaderboard" style="display:none;margin-bottom:16px"></div>
 
       <div id="my-questions-section" style="margin-bottom:16px;display:none">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
@@ -1144,6 +1147,7 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
 const AVATAR_COLORS = ['#3a4a8a','#6a3a5a','#2a5a4a','#5a3a2a','#3a5a6a','#4a3a6a']
 let currentUser = null
 let currentProfile = null
+let isGuestMode = false
 let discoverProfiles = []
 let discoverIdx = 0
 let secondLookChecked = false
@@ -1606,6 +1610,7 @@ async function acceptTos() {
     if (error) throw error
     if (data.user) {
       const referredBy = new URLSearchParams(window.location.search).get('ref') || null
+      const sevenDaysOut = new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString()
       await sb.from('profiles').upsert({
         id: data.user.id,
         display_name: name,
@@ -1616,13 +1621,22 @@ async function acceptTos() {
         seeking: selectedSeeking,
         birthdate: el('auth-birthdate').value || null,
         referred_by: referredBy,
+        ...(referredBy ? { is_premium: true, premium_expires_at: sevenDaysOut } : {}),
       })
       sendWelcomeEmail(email, name)
-      // Notify the referrer so they know their invite worked
-      if (referredBy) notifyReferrer(referredBy)
+      if (referredBy) {
+        notifyReferrer(referredBy, sevenDaysOut)
+        sessionStorage.setItem('sx_referral_bonus', '1')
+      }
     }
     const { data: { session } } = await sb.auth.getSession()
-    if (session) await enterApp(session.user)
+    if (session) {
+      await enterApp(session.user)
+      if (sessionStorage.getItem('sx_referral_bonus')) {
+        sessionStorage.removeItem('sx_referral_bonus')
+        setTimeout(() => showToast('You got 7 days of Plus free for joining via a friend! 🎉'), 1200)
+      }
+    }
   } catch (e) {
     el('auth-error').textContent = e.message
     el('auth-error').classList.remove('hidden')
@@ -1766,6 +1780,46 @@ async function loadReferralCount() {
   }
 }
 
+async function loadReferralLeaderboard() {
+  const container = document.getElementById('referral-leaderboard')
+  if (!container) return
+  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString()
+  const { data: referred } = await sb.from('profiles')
+    .select('referred_by')
+    .not('referred_by', 'is', null)
+    .gte('created_at', monthStart)
+  if (!referred || referred.length === 0) { container.style.display = 'none'; return }
+
+  // Count referrals per referrer client-side
+  const counts = {}
+  referred.forEach(r => { counts[r.referred_by] = (counts[r.referred_by] || 0) + 1 })
+  const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 5)
+  if (sorted.length === 0) { container.style.display = 'none'; return }
+
+  // Fetch display names
+  const ids = sorted.map(([id]) => id)
+  const { data: profiles } = await sb.from('profiles').select('id, display_name, photo_urls').in('id', ids)
+  const nameMap = {}
+  ;(profiles || []).forEach(p => { nameMap[p.id] = p })
+
+  const medals = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣']
+  container.style.display = ''
+  container.innerHTML = `
+    <div style="background:#1c1c1c;border-radius:16px;border:1px solid #252525;padding:16px">
+      <p style="color:#9e9b97;font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:12px">🏆 Top Inviters This Month</p>
+      ${sorted.map(([id, count], i) => {
+        const p = nameMap[id]
+        const n = p?.display_name || 'Member'
+        const isMe = id === currentUser?.id
+        return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;${i < sorted.length - 1 ? 'border-bottom:1px solid #1a1a1a' : ''}">
+          <span style="font-size:18px;width:24px;text-align:center;flex-shrink:0">${medals[i]}</span>
+          <span style="flex:1;color:${isMe ? '#e8503a' : '#f0ede8'};font-size:14px;font-weight:${isMe ? '700' : '500'}">${escapeHtml(n)}${isMe ? ' (you)' : ''}</span>
+          <span style="color:#f5c518;font-size:13px;font-weight:700">${count} invite${count === 1 ? '' : 's'}</span>
+        </div>`
+      }).join('')}
+    </div>`
+}
+
 async function checkNewReferrals() {
   if (!currentUser?.id) return
   const { count } = await sb.from('profiles')
@@ -1781,15 +1835,95 @@ async function checkNewReferrals() {
   }
 }
 
-async function notifyReferrer(referrerId) {
-  // Fire-and-forget: update the referrer's seen count key so next time they open
-  // the app the delta triggers the "you invited someone" toast
-  // No server-side push needed — handled in checkNewReferrals() on next login
+async function notifyReferrer(referrerId, expiresAt) {
+  // Grant the referrer a 7-day Plus trial (extend if they already have one)
+  const { data: referrer } = await sb.from('profiles').select('is_premium, premium_expires_at').eq('id', referrerId).maybeSingle()
+  if (!referrer) return
+  const currentExpiry = referrer.premium_expires_at ? new Date(referrer.premium_expires_at) : new Date(0)
+  const newExpiry = new Date(expiresAt)
+  const grantExpiry = newExpiry > currentExpiry ? expiresAt : referrer.premium_expires_at
+  await sb.from('profiles').update({ is_premium: true, premium_expires_at: grantExpiry }).eq('id', referrerId)
+  // Push notification to the referrer (fire-and-forget)
+  sendPush(referrerId, 'You invited someone new to Simple-x! 🎉', 'You both got 7 days of Plus free as a thank-you 💜', 'referral')
 }
 
 async function handleLogout() {
   await sb.auth.signOut()
   window.location.reload()
+}
+
+function enterGuestMode() {
+  isGuestMode = true
+  hide('auth')
+  show('app-shell')
+  // Hide tabs that need auth
+  ;['nav-messages', 'nav-research', 'nav-community', 'nav-profile'].forEach(id => {
+    const btn = document.getElementById(id)
+    if (btn) btn.style.opacity = '0.35'
+  })
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    switchTab2('discover')
+    loadDiscoverGuest()
+  }))
+}
+
+async function loadDiscoverGuest() {
+  secondLookChecked = false
+  const stack = el('card-stack')
+  if (!stack) return
+  stack.innerHTML = '<div class="empty-state"><p style="color:#6b6866;font-size:14px">Loading profiles...</p></div>'
+  const { data: raw } = await sb.from('profiles').select('*')
+    .or('incognito.is.null,incognito.eq.false')
+    .or('visibility.is.null,visibility.eq.everyone')
+    .limit(20)
+  const newM = (raw || []).filter(p => isNewMember(p))
+  const vets = (raw || []).filter(p => !isNewMember(p))
+  const slot = Math.ceil((raw || []).length * 0.2)
+  discoverProfiles = [...newM.slice(0, slot), ...vets, ...newM.slice(slot)]
+  discoverIdx = 0
+  renderCard()
+  // Persistent signup nudge strip
+  const existing = document.getElementById('guest-nudge-strip')
+  if (!existing) {
+    const strip = document.createElement('div')
+    strip.id = 'guest-nudge-strip'
+    strip.style.cssText = 'position:absolute;bottom:0;left:0;right:0;z-index:30;background:rgba(232,80,58,0.95);padding:12px 16px;display:flex;align-items:center;gap:10px;backdrop-filter:blur(4px)'
+    strip.innerHTML = `<span style="flex:1;color:#fff;font-size:13px;font-weight:600">Sign up free to like &amp; message people 💜</span><button onclick="exitGuestMode()" style="border:none;background:#fff;color:#e8503a;font-size:13px;font-weight:700;padding:7px 14px;border-radius:20px;cursor:pointer;flex-shrink:0">Join</button>`
+    const swipeView = document.getElementById('discover-swipe-view')
+    if (swipeView) swipeView.appendChild(strip)
+  }
+}
+
+function promptGuestSignup() {
+  const existing = document.getElementById('guest-signup-modal')
+  if (existing) { existing.style.display = ''; return }
+  const div = document.createElement('div')
+  div.id = 'guest-signup-modal'
+  div.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:600;display:flex;align-items:flex-end'
+  div.innerHTML = `
+    <div style="background:#141414;border-radius:24px 24px 0 0;width:100%;padding:32px 24px 48px;border-top:1px solid #252525;text-align:center">
+      <p style="font-size:28px;margin-bottom:12px">💜</p>
+      <h2 style="color:#f0ede8;font-size:20px;font-weight:700;margin-bottom:8px">Join Simple-x free</h2>
+      <p style="color:#9e9b97;font-size:14px;line-height:1.6;margin-bottom:24px">Sign up to like, wink, and message people in the HSV community.</p>
+      <button onclick="exitGuestMode()" style="width:100%;padding:16px;border-radius:14px;border:none;background:#e8503a;color:#fff;font-size:16px;font-weight:700;cursor:pointer;margin-bottom:12px">Create free account</button>
+      <button onclick="document.getElementById('guest-signup-modal').style.display='none'" style="width:100%;padding:14px;border-radius:12px;border:1px solid #252525;background:transparent;color:#9e9b97;font-size:15px;cursor:pointer">Keep browsing</button>
+    </div>`
+  document.body.appendChild(div)
+}
+
+function exitGuestMode() {
+  isGuestMode = false
+  const modal = document.getElementById('guest-signup-modal')
+  if (modal) modal.remove()
+  const strip = document.getElementById('guest-nudge-strip')
+  if (strip) strip.remove()
+  ;['nav-messages', 'nav-research', 'nav-community', 'nav-profile'].forEach(id => {
+    const btn = document.getElementById(id)
+    if (btn) btn.style.opacity = ''
+  })
+  hide('app-shell')
+  show('auth')
+  switchTab('up')
 }
 
 async function checkPremiumExpiry() {
@@ -2956,7 +3090,7 @@ function startRealtimeListeners() {
           if (data) {
             showMatchModal(data)
             // Notify the OTHER user they got a match
-            sendPush(otherId, `You matched with ${currentProfile?.display_name || 'someone'}! 🎉`, `Send them a message — don't keep them waiting!`, 'match', m.id)
+            sendPush(otherId, `You matched with ${currentProfile?.display_name || 'someone'}! 🎉`, `Send the first message`, 'match', m.id)
           }
         })
       }
@@ -2986,6 +3120,7 @@ function setUnreadDot(show) {
 
 // ── NAV ───────────────────────────────────────────
 function switchTab2(tab) {
+  if (isGuestMode && tab !== 'discover') { promptGuestSignup(); return }
   const tabs = ['discover', 'messages', 'research', 'community', 'profile']
   tabs.forEach(t => {
     const content = el(t === 'discover' ? 'discover-content' : t + '-content')
@@ -4471,6 +4606,7 @@ async function openDirectMessage(userId) {
 }
 
 async function sendWink(userId, name, btn) {
+  if (isGuestMode) { promptGuestSignup(); return }
   if (btn) { btn.textContent = '✓'; btn.disabled = true }
 
   // Check if already winked recently (last 24hrs)
@@ -4496,10 +4632,10 @@ async function sendWink(userId, name, btn) {
   }
   if (winkMatch) {
     await sb.from('messages').insert({ match_id: winkMatch.id, sender_id: currentUser.id, content: '[wink]' })
-    sendPush(userId, '😉 ' + (currentProfile?.display_name || 'Someone') + ' winked at you!',
-      `Tap to open the conversation on Simple-x`, 'wink', winkMatch.id)
+    sendPush(userId, `${currentProfile?.display_name || 'Someone'} sent you a wink 😉`,
+      `Tap to reply`, 'wink', winkMatch.id)
   } else {
-    sendPush(userId, '😉 Someone winked at you!', `${currentProfile?.display_name || 'Someone'} winked at you on Simple-x`, 'wink')
+    sendPush(userId, `${currentProfile?.display_name || 'Someone'} sent you a wink 😉`, `Tap to reply`, 'wink')
   }
   showToast(`Wink sent to ${name}! 😉`)
 }
@@ -4511,8 +4647,8 @@ async function winkBackFromChat(btn) {
   if (btn) { btn.disabled = true; btn.textContent = 'Sent! 😉' }
   await sb.from('winks').insert({ sender_id: currentUser.id, receiver_id: other.id }).catch(() => {})
   await sb.from('messages').insert({ match_id: activeMatch.id, sender_id: currentUser.id, content: '[wink]' })
-  sendPush(other.id, '😉 ' + (currentProfile?.display_name || 'Someone') + ' winked back!',
-    `Tap to open the conversation on Simple-x`, 'wink', activeMatch.id)
+  sendPush(other.id, `${currentProfile?.display_name || 'Someone'} sent you a wink 😉`,
+    `Tap to reply`, 'wink', activeMatch.id)
 }
 
 async function likeFromPreview(userId) {
@@ -4534,6 +4670,7 @@ async function likeFromPreview(userId) {
 }
 
 async function feedLike(userId, btn) {
+  if (isGuestMode) { promptGuestSignup(); return }
   if (btn) { btn.textContent = '❤️ Liked'; btn.disabled = true; btn.style.opacity = '0.6' }
   if (!(await checkLikeLimit())) {
     if (btn) { btn.textContent = '❤️ Like'; btn.disabled = false; btn.style.opacity = '1' }
@@ -4930,6 +5067,7 @@ let lastSwipedDirection = null
 
 
 async function swipe(direction, reason = null) {
+  if (isGuestMode) { promptGuestSignup(); return }
   const card = el('current-card')
   const profile = discoverProfiles[discoverIdx]
   if (!profile || !card) return
@@ -6315,6 +6453,7 @@ function renderProfileScreen() {
   loadProfileViewCount()
   renderBoostBtn()
   loadReferralCount()
+  loadReferralLeaderboard()
 }
 
 function renderFeaturedSection() {
