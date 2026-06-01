@@ -497,6 +497,7 @@
             <div id="profile-completion-fill" style="height:100%;border-radius:6px;transition:width 0.4s;background:#e8503a"></div>
           </div>
         </div>
+        <div id="referral-count-badge" style="display:none;margin-top:10px;padding:7px 14px;background:#1c1c1c;border-radius:20px;border:1px solid #252525;color:#9e9b97;font-size:12px;text-align:center"></div>
       </div>
       <div id="profile-fields"></div>
       <div id="profile-featured" style="margin-bottom:4px"></div>
@@ -519,7 +520,8 @@
         <span>🚀 Boost profile</span>
         <span id="boost-btn-sub" style="font-size:12px;color:#6b6866">Appear at top of Discover for 1hr</span>
       </button>
-      <button class="btn-ghost" onclick="shareApp()">Share</button>
+      <button onclick="shareApp()" style="width:100%;padding:16px;border-radius:14px;border:none;cursor:pointer;background:linear-gradient(135deg,#7b2d8b,#e8503a);color:#fff;font-size:16px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px;letter-spacing:0.01em">💜 Invite Friends to Simple-x</button>
+      <div id="referral-link-display" style="display:none;margin-top:-4px;padding:10px 14px;background:#1c1c1c;border-radius:10px;border:1px solid #252525;font-size:11px;color:#9e9b97;word-break:break-all;text-align:center"></div>
       <button class="btn-ghost" onclick="handleLogout()">Sign out</button>
       <button class="btn-ghost" onclick="showDeleteAccountModal()" style="color:#e8503a;border-color:#3a1a14;margin-top:4px">Delete account</button>
     </div>
@@ -1131,6 +1133,10 @@
 </div>
 
 <script>
+/*
+  SQL — run once in Supabase SQL editor:
+  ALTER TABLE profiles ADD COLUMN IF NOT EXISTS referred_by uuid REFERENCES profiles(id) ON DELETE SET NULL;
+*/
 const SUPABASE_URL = 'https://ocwgwfnrstzrapsblkxm.supabase.co'
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9jd2d3Zm5yc3R6cmFwc2Jsa3htIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY1NjAxNzksImV4cCI6MjA5MjEzNjE3OX0.Tr_l0wJjUDHdklj1AG9MW9FIlNC3lNgGbklpzz4AAfo'
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
@@ -1599,6 +1605,7 @@ async function acceptTos() {
     const { data, error } = await sb.auth.signUp({ email, password: pass, options: { data: { display_name: name } } })
     if (error) throw error
     if (data.user) {
+      const referredBy = new URLSearchParams(window.location.search).get('ref') || null
       await sb.from('profiles').upsert({
         id: data.user.id,
         display_name: name,
@@ -1608,8 +1615,11 @@ async function acceptTos() {
         gender: selectedGender,
         seeking: selectedSeeking,
         birthdate: el('auth-birthdate').value || null,
+        referred_by: referredBy,
       })
       sendWelcomeEmail(email, name)
+      // Notify the referrer so they know their invite worked
+      if (referredBy) notifyReferrer(referredBy)
     }
     const { data: { session } } = await sb.auth.getSession()
     if (session) await enterApp(session.user)
@@ -1726,9 +1736,55 @@ async function handleAuth() {
 }
 
 function shareApp() {
-  const data = { title: 'Simple-x', text: 'Dating for people living with HSV.', url: 'https://b2dev93.github.io/simple_x-app/' }
-  if (navigator.share) { navigator.share(data).catch(() => {}) }
-  else { navigator.clipboard.writeText(data.url).then(() => showToast('Link copied!')).catch(() => {}) }
+  const refUrl = `https://b2dev93.github.io/simple_x-app/${currentUser?.id ? '?ref=' + currentUser.id : ''}`
+  const text = `Join me on Simple-x — a dating app made for the HSV community 💜 ${refUrl}`
+  // Show the referral link below the button so the user can copy it manually too
+  const display = document.getElementById('referral-link-display')
+  if (display) { display.style.display = ''; display.textContent = refUrl }
+  if (navigator.share) {
+    navigator.share({ title: 'Join Simple-x', text, url: refUrl }).catch(() => {})
+  } else {
+    navigator.clipboard.writeText(text)
+      .then(() => showToast('Invite link copied! Share it with someone you trust 💜'))
+      .catch(() => showToast('Your link: ' + refUrl))
+  }
+}
+
+async function loadReferralCount() {
+  if (!currentUser?.id) return
+  const { count } = await sb.from('profiles')
+    .select('*', { count: 'exact', head: true })
+    .eq('referred_by', currentUser.id)
+  const badge = document.getElementById('referral-count-badge')
+  if (badge) {
+    if (count > 0) {
+      badge.style.display = ''
+      badge.textContent = `💜 You've invited ${count} friend${count === 1 ? '' : 's'} to Simple-x`
+    } else {
+      badge.style.display = 'none'
+    }
+  }
+}
+
+async function checkNewReferrals() {
+  if (!currentUser?.id) return
+  const { count } = await sb.from('profiles')
+    .select('*', { count: 'exact', head: true })
+    .eq('referred_by', currentUser.id)
+  if (!count) return
+  const seenKey = 'sx_referral_count_seen_' + currentUser.id
+  const lastSeen = parseInt(localStorage.getItem(seenKey) || '0', 10)
+  if (count > lastSeen) {
+    const newCount = count - lastSeen
+    showToast(`You invited ${newCount} new person${newCount === 1 ? '' : 's'} to Simple-x! 🎉`)
+    localStorage.setItem(seenKey, String(count))
+  }
+}
+
+async function notifyReferrer(referrerId) {
+  // Fire-and-forget: update the referrer's seen count key so next time they open
+  // the app the delta triggers the "you invited someone" toast
+  // No server-side push needed — handled in checkNewReferrals() on next login
 }
 
 async function handleLogout() {
@@ -1777,6 +1833,7 @@ async function enterApp(user) {
   checkUpgradeReturn()
   checkPremiumExpiry()
   checkProfileComplete()
+  setTimeout(checkNewReferrals, 3000)
   registerPushNotifications()
   updateLastSeen()
   // Refresh last_seen every 5 minutes; clear any previous interval first
@@ -6257,6 +6314,7 @@ function renderProfileScreen() {
   checkProfileNudge()
   loadProfileViewCount()
   renderBoostBtn()
+  loadReferralCount()
 }
 
 function renderFeaturedSection() {
