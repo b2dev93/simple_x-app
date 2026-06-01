@@ -2497,21 +2497,29 @@ async function openPostThread(postId) {
   // Update stored counts so dot clears correctly
   localStorage.setItem('sx_post_seen_counts_' + postId, JSON.stringify({ likes: likeCount, comments: allComments?.length || 0 }))
 
+  // Pre-compute pin button strings to avoid nested backticks in the template
+  const _threadPinned = !!post.is_pinned
+  const _threadPinLabel = _threadPinned ? 'Unpin' : '&#x1F4CC; Pin'
+  const _threadPinOnclick = _threadPinned
+    ? `unpinPost('${post.id}');document.getElementById('post-thread-page')?.remove()`
+    : `pinPost('${post.id}');document.getElementById('post-thread-page')?.remove()`
+
   // Render post header
   let html = `
-    <div style="background:#1c1c1c;border-radius:16px;border:1px solid #252525;padding:16px;margin-bottom:20px">
+    <div style="background:#1c1c1c;border-radius:16px;border:1px solid ${_threadPinned ? '#2e2a0a' : '#252525'};padding:16px;margin-bottom:20px">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
         <div class="avatar" style="width:36px;height:36px;font-size:13px;flex-shrink:0;background:${avatar ? 'none' : AVATAR_COLORS[Math.abs(name.charCodeAt(0)) % AVATAR_COLORS.length]}">
           ${avatar ? `<img src="${avatar}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">` : name.charAt(0).toUpperCase()}
         </div>
         <div style="flex:1">
-          <p style="color:#f0ede8;font-size:14px;font-weight:600">${name}</p>
+          <p style="color:#f0ede8;font-size:14px;font-weight:600">${name}${_threadPinned ? ' <span style="color:#f5c518;font-size:11px;font-weight:500">Pinned</span>' : ''}</p>
           <p style="color:#6b6866;font-size:12px">${new Date(post.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
         </div>
         ${isOwn || isAdminUser ? `<div style="display:flex;gap:6px">
-          ${isOwn ? `<button onclick="editPost('${post.id}');document.getElementById('post-thread-page')?.remove()" style="background:none;border:none;color:#9e9b97;font-size:12px;cursor:pointer;padding:4px 8px;border-radius:8px;border:1px solid #252525">✏️ Edit</button>` : ''}
+          ${isAdminUser ? `<button onclick="${_threadPinOnclick}" style="background:none;border:none;color:#f5c518;font-size:12px;cursor:pointer;padding:4px 8px;border-radius:8px;border:1px solid #2e2a0a">${_threadPinLabel}</button>` : ''}
+          ${isOwn ? `<button onclick="editPost('${post.id}');document.getElementById('post-thread-page')?.remove()" style="background:none;border:none;color:#9e9b97;font-size:12px;cursor:pointer;padding:4px 8px;border-radius:8px;border:1px solid #252525">&#x270F;&#xFE0F; Edit</button>` : ''}
           <button onclick="deletePost('${post.id}');document.getElementById('post-thread-page')?.remove()" style="background:none;border:none;color:#6b6866;font-size:12px;cursor:pointer;padding:4px 8px;border-radius:8px;border:1px solid #252525">${isAdminUser && !isOwn ? 'Remove' : 'Delete'}</button>
-        </div>` : `<button onclick="reportPost('${post.id}','${post.user_id}')" style="background:none;border:none;color:#6b6866;font-size:12px;cursor:pointer;padding:4px 8px;border-radius:8px;border:1px solid #252525">🚩 Report</button>`}
+        </div>` : `<button onclick="reportPost('${post.id}','${post.user_id}')" style="background:none;border:none;color:#6b6866;font-size:12px;cursor:pointer;padding:4px 8px;border-radius:8px;border:1px solid #252525">&#x1F6A9; Report</button>`}
       </div>
       ${post.title ? `<p style="color:#f0ede8;font-size:16px;font-weight:700;margin-bottom:8px">${escapeHtml(post.title)}</p>` : ''}
       <p style="color:#9e9b97;font-size:14px;line-height:1.7;white-space:pre-wrap">${escapeHtml(post.body)}</p>
