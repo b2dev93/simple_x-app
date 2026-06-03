@@ -2286,7 +2286,7 @@ async function loadCommunity() {
   let query = sb
     .from('community_posts')
     .select('*, profiles(display_name, photo_urls)')
-    .order('is_pinned', { ascending: false })
+    .order('is_pinned', { ascending: false, nullsFirst: false })
     .order('created_at', { ascending: false })
     .limit(50)
   if (communityFilter === 'mine') query = query.eq('user_id', currentUser.id)
@@ -3101,6 +3101,7 @@ async function togglePostPin(postId, btn) {
   if (badge) badge.style.display = newPinned ? 'block' : 'none'
 
   showToast(newPinned ? 'Pinned ✓' : 'Unpinned')
+  loadCommunity()
 }
 
 async function deletePost(postId) {
