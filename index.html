@@ -1295,7 +1295,8 @@ async function uploadPhoto(input) {
   if (newUrls.length === 0) { input.value = ''; return }
 
   const updatedUrls = [...existing, ...newUrls]
-  await sb.from('profiles').update({ photo_urls: updatedUrls }).eq('id', currentUser.id)
+  const { error: profileUpdateErr } = await sb.from('profiles').update({ photo_urls: updatedUrls }).eq('id', currentUser.id)
+  if (profileUpdateErr) { showToast('Upload saved locally but could not update profile.'); console.error('uploadPhoto profile update failed:', profileUpdateErr.message) }
   currentProfile.photo_urls = updatedUrls
   renderProfileScreen()
   if (el('edit-profile-page')?.style.display === 'flex') renderEditPhotos()
@@ -1311,7 +1312,8 @@ async function savePhotoCaptions() {
   inputs.forEach(inp => { captions[parseInt(inp.dataset.captionIdx)] = inp.value.trim() })
   const len = currentProfile.photo_urls?.length || 0
   const arr = Array.from({ length: len }, (_, i) => captions[i] || '')
-  await sb.from('profiles').update({ photo_captions: arr }).eq('id', currentUser.id)
+  const { error: capErr } = await sb.from('profiles').update({ photo_captions: arr }).eq('id', currentUser.id)
+  if (capErr) { console.error('savePhotoCaptions failed:', capErr.message); return }
   currentProfile.photo_captions = arr
 }
 
@@ -1322,7 +1324,8 @@ async function savePrivatePhotoCaptions() {
   inputs.forEach(inp => { captions[parseInt(inp.dataset.privateCaptionIdx)] = inp.value.trim() })
   const len = currentProfile.private_photo_urls?.length || 0
   const arr = Array.from({ length: len }, (_, i) => captions[i] || '')
-  await sb.from('profiles').update({ private_photo_captions: arr }).eq('id', currentUser.id)
+  const { error: privCapErr } = await sb.from('profiles').update({ private_photo_captions: arr }).eq('id', currentUser.id)
+  if (privCapErr) { console.error('savePrivatePhotoCaptions failed:', privCapErr.message); return }
   currentProfile.private_photo_captions = arr
 }
 
@@ -1330,7 +1333,8 @@ async function deletePhoto(idx) {
   if (!confirm('Remove this photo?')) return
   const urls = [...(currentProfile.photo_urls || [])]
   urls.splice(idx, 1)
-  await sb.from('profiles').update({ photo_urls: urls }).eq('id', currentUser.id)
+  const { error: delPhotoErr } = await sb.from('profiles').update({ photo_urls: urls }).eq('id', currentUser.id)
+  if (delPhotoErr) { showToast('Could not remove photo.'); return }
   currentProfile.photo_urls = urls
   renderProfileScreen()
   if (el('edit-profile-page')?.style.display === 'flex') renderEditPhotos()
@@ -1459,7 +1463,8 @@ function showPrivateAlbumModal(photos, personName) {
 
 async function approvePrivateAlbumRequest(viewerId) {
   const name = _albumViewerNames[viewerId] || 'User'
-  await sb.from('private_album_access').update({ status: 'approved' }).eq('owner_id', currentUser.id).eq('viewer_id', viewerId)
+  const { error: approveErr } = await sb.from('private_album_access').update({ status: 'approved' }).eq('owner_id', currentUser.id).eq('viewer_id', viewerId)
+  if (approveErr) { showToast('Could not approve request.'); return }
   sendPush(viewerId, '🔒 Private album approved!', `${currentProfile?.display_name || 'Someone'} approved your private album request on Simple-x`, 'view')
   showToast(`${name} can now see your private album.`)
   loadPrivateAlbumRequests()
@@ -1467,14 +1472,16 @@ async function approvePrivateAlbumRequest(viewerId) {
 
 async function denyPrivateAlbumRequest(viewerId) {
   const name = _albumViewerNames[viewerId] || 'User'
-  await sb.from('private_album_access').delete().eq('owner_id', currentUser.id).eq('viewer_id', viewerId)
+  const { error: denyErr } = await sb.from('private_album_access').delete().eq('owner_id', currentUser.id).eq('viewer_id', viewerId)
+  if (denyErr) { showToast('Could not deny request.'); return }
   showToast(`Request from ${name} denied.`)
   loadPrivateAlbumRequests()
 }
 
 async function revokePrivateAlbumAccess(viewerId) {
   const name = _albumViewerNames[viewerId] || 'User'
-  await sb.from('private_album_access').delete().eq('owner_id', currentUser.id).eq('viewer_id', viewerId)
+  const { error: revokeErr } = await sb.from('private_album_access').delete().eq('owner_id', currentUser.id).eq('viewer_id', viewerId)
+  if (revokeErr) { showToast('Could not revoke access.'); return }
   showToast(`Access revoked for ${name}.`)
   loadPrivateAlbumRequests()
 }
@@ -2110,6 +2117,12 @@ async function enterApp(user) {
   }
   hide('auth')
   show('app-shell')
+  initPullToRefresh('community-content',    () => loadCommunity())
+  initPullToRefresh('research-content',     () => loadResearch())
+  initPullToRefresh('messages-content',     () => { loadMatches(); loadGroups(); loadFavoritesSection() })
+  initPullToRefresh('profile-content',      () => { renderProfileScreen(); loadMyQuestions() })
+  initPullToRefresh('discover-online-view', () => { loadOnlineNow(); loadMoments() })
+  initPullToRefresh('discover-liked-view',  () => loadContacts())
   updateStreak()
   showOnboarding()
   requestAnimationFrame(() => requestAnimationFrame(() => { switchTab2('discover'); showBetaBanner() }))
@@ -2318,33 +2331,38 @@ async function loadCommunity() {
     return
   }
 
-  // Compute trending: top 3 most-liked posts from last 7 days (skip for 'mine' view)
+  // Pinned posts always render first — separated before trending logic runs
+  const pinnedPosts = posts.filter(p => p.is_pinned === true)
+  const nonPinnedPosts = posts.filter(p => p.is_pinned !== true)
+
+  // Compute trending: top 3 most-liked non-pinned posts from last 7 days (skip for 'mine' view)
   let trendingPostIds = []
-  if (communityFilter !== 'mine' && posts.length > 0) {
+  if (communityFilter !== 'mine' && nonPinnedPosts.length > 0) {
     const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
     const { data: recentLikes } = await sb.from('post_likes')
       .select('post_id')
-      .in('post_id', posts.map(p => p.id))
+      .in('post_id', nonPinnedPosts.map(p => p.id))
       .gte('created_at', weekAgo)
     if (recentLikes && recentLikes.length > 0) {
       const likeCounts = {}
       recentLikes.forEach(l => { likeCounts[l.post_id] = (likeCounts[l.post_id] || 0) + 1 })
       trendingPostIds = Object.entries(likeCounts)
         .sort((a, b) => b[1] - a[1])
-        .filter(([id]) => !posts.find(p => p.id === id)?.is_pinned)
         .slice(0, 3)
         .map(([id]) => id)
     }
   }
-  const trendingPosts = trendingPostIds.map(id => posts.find(p => p.id === id)).filter(Boolean)
-  const mainPosts = posts.filter(p => !trendingPostIds.includes(p.id))
+  const trendingPosts = trendingPostIds.map(id => nonPinnedPosts.find(p => p.id === id)).filter(Boolean)
+  const mainPosts = nonPinnedPosts.filter(p => !trendingPostIds.includes(p.id))
 
+  const pinnedHtml = pinnedPosts.map(p => renderPostCard(p, false)).join('')
   let trendingHtml = ''
   if (trendingPosts.length > 0) {
     trendingHtml = `<div style="margin-bottom:4px"><p style="color:#f0ede8;font-size:13px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;margin-bottom:12px">&#x1F525; Trending this week</p>${trendingPosts.map(p => renderPostCard(p, true)).join('')}</div><div style="border-top:1px solid #252525;margin-bottom:18px"></div>`
   }
 
-  list.innerHTML = trendingHtml + mainPosts.map(p => renderPostCard(p, false)).join('')
+  list.innerHTML = pinnedHtml + trendingHtml + mainPosts.map(p => renderPostCard(p, false)).join('')
+  console.log('[loadCommunity] DOM render order:', [...document.querySelectorAll('[id^="post-card-"]')].map(el => el.id))
 
   posts.forEach(p => loadPostStats(p.id))
   loadCommunityNotifs()
@@ -2742,7 +2760,8 @@ async function boostProfile() {
     return
   }
   const boostUntil = new Date(Date.now() + 60 * 60 * 1000).toISOString()
-  await sb.from('profiles').update({ boost_until: boostUntil }).eq('id', currentUser.id)
+  const { error: boostErr } = await sb.from('profiles').update({ boost_until: boostUntil }).eq('id', currentUser.id)
+  if (boostErr) { showToast('Could not activate boost.'); return }
   if (currentProfile) currentProfile.boost_until = boostUntil
   showToast('Profile boosted for 1 hour!')
   renderBoostBtn()
@@ -2751,10 +2770,12 @@ async function boostProfile() {
 async function togglePostLike(postId, btn) {
   const { data: existing } = await sb.from('post_likes').select('id').eq('post_id', postId).eq('user_id', currentUser.id).maybeSingle()
   if (existing) {
-    await sb.from('post_likes').delete().eq('post_id', postId).eq('user_id', currentUser.id)
+    const { error: unlikeErr } = await sb.from('post_likes').delete().eq('post_id', postId).eq('user_id', currentUser.id)
+    if (unlikeErr) { showToast('Could not update like.'); return }
     btn.style.color = '#6b6866'
   } else {
-    await sb.from('post_likes').insert({ post_id: postId, user_id: currentUser.id })
+    const { error: likeErr } = await sb.from('post_likes').insert({ post_id: postId, user_id: currentUser.id })
+    if (likeErr) { showToast('Could not update like.'); return }
     btn.style.color = '#e8503a'
   }
   loadPostStats(postId)
@@ -2960,8 +2981,9 @@ async function submitThreadComment(postId) {
   const body = input?.value.trim()
   if (!body) return
   input.disabled = true
-  await sb.from('post_comments').insert({ post_id: postId, user_id: currentUser.id, body })
+  const { error: threadCommentErr } = await sb.from('post_comments').insert({ post_id: postId, user_id: currentUser.id, body })
   input.disabled = false
+  if (threadCommentErr) { showToast('Could not post comment.'); return }
   input.value = ''
   sendCommentNotifications(postId, body)
   // Reload thread
@@ -2973,7 +2995,8 @@ async function submitComment(postId) {
   const input = document.getElementById('comment-input-' + postId)
   const body = input?.value.trim()
   if (!body) return
-  await sb.from('post_comments').insert({ post_id: postId, user_id: currentUser.id, body })
+  const { error: commentErr } = await sb.from('post_comments').insert({ post_id: postId, user_id: currentUser.id, body })
+  if (commentErr) { showToast('Could not post comment.'); return }
   input.value = ''
   loadPostStats(postId)
   sendCommentNotifications(postId, body)
@@ -3326,6 +3349,51 @@ function switchTab2(tab) {
   if (tab === 'profile') { renderProfileScreen(); loadMyQuestions(); clearAnonQuestionsBadge() }
 }
 
+
+// ── PULL-TO-REFRESH ───────────────────────────────
+function initPullToRefresh(containerId, reloadFn) {
+  const container = document.getElementById(containerId)
+  if (!container) return
+
+  let startY = 0
+  let isDragging = false
+  let indicator = null
+
+  container.addEventListener('touchstart', e => {
+    if (container.scrollTop <= 0) {
+      startY = e.touches[0].clientY
+      isDragging = true
+    }
+  }, { passive: true })
+
+  container.addEventListener('touchmove', e => {
+    if (!isDragging) return
+    const dy = e.touches[0].clientY - startY
+    if (dy > 10) {
+      if (!indicator) {
+        indicator = document.createElement('div')
+        indicator.style.cssText = 'display:flex;justify-content:center;align-items:center;overflow:hidden;background:transparent;transition:height 0.1s'
+        indicator.innerHTML = '<div style="width:22px;height:22px;border-radius:50%;border:2px solid #333;border-top-color:#e8503a;animation:spin 0.8s linear infinite;flex-shrink:0"></div>'
+        container.prepend(indicator)
+      }
+      indicator.style.height = Math.min(dy * 0.5, 44) + 'px'
+      indicator.style.opacity = Math.min(dy / 80, 1).toString()
+    }
+  }, { passive: true })
+
+  container.addEventListener('touchend', e => {
+    if (!isDragging) return
+    const dy = e.changedTouches[0].clientY - startY
+    isDragging = false
+    if (indicator) { indicator.remove(); indicator = null }
+    if (dy >= 80) reloadFn()
+  }, { passive: true })
+
+  container.addEventListener('touchcancel', () => {
+    isDragging = false
+    if (indicator) { indicator.remove(); indicator = null }
+  }, { passive: true })
+}
 
 // ── DISCOVER ──────────────────────────────────────
 // ── DISCOVER SUB-TABS ─────────────────────────────
@@ -4628,12 +4696,13 @@ function askQuestion(userId, name) {
   const box = document.createElement('div')
   box.style.cssText = 'background:#141414;border-radius:20px;padding:24px;width:100%;max-width:400px;border:1px solid #252525'
   const nameEsc = escapeHtml(name)
+  const nameEscJs = (name || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'")
   box.innerHTML = `
     <h3 id="ask-modal-title" style="color:#f0ede8;font-size:18px;font-weight:700;margin-bottom:6px">Ask ${nameEsc} anonymously</h3>
     <p id="ask-modal-sub" style="color:#6b6866;font-size:13px;margin-bottom:16px">They won't know who asked</p>
     <div style="display:flex;align-items:center;gap:10px;background:#1c1c1c;border-radius:12px;padding:10px 14px;margin-bottom:16px">
       <span id="ask-anon-label" style="color:#9e9b97;font-size:13px;flex:1">Ask anonymously</span>
-      <div id="ask-anon-toggle" onclick="window._toggleAskAnon('${nameEsc}')" style="width:40px;height:22px;border-radius:11px;background:#e8503a;cursor:pointer;position:relative;transition:background 0.2s;flex-shrink:0">
+      <div id="ask-anon-toggle" onclick="window._toggleAskAnon('${nameEscJs}')" style="width:40px;height:22px;border-radius:11px;background:#e8503a;cursor:pointer;position:relative;transition:background 0.2s;flex-shrink:0">
         <div id="ask-anon-thumb" style="position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;transition:transform 0.2s;transform:translateX(18px)"></div>
       </div>
     </div>
