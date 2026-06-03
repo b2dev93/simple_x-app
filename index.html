@@ -2358,7 +2358,7 @@ function renderPostCard(p, isTrending = false) {
   return `
   <div id="post-card-${p.id}" style="background:#1c1c1c;border-radius:16px;border:1px solid ${isTrending ? '#3a1f00' : pinned ? '#2e2a0a' : '#252525'};padding:16px;margin-bottom:14px;position:relative">
     <div id="post-dot-${p.id}" style="display:none;position:absolute;top:14px;right:14px;width:8px;height:8px;border-radius:50%;background:#e8503a"></div>
-    ${isTrending ? '<div style="position:absolute;top:12px;right:12px;background:#3a1f00;color:#ff8c42;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">&#x1F525; Trending</div>' : `<div id="post-pin-badge-${p.id}" style="position:absolute;top:12px;right:12px;font-size:14px;display:${pinned ? 'block' : 'none'}">&#x1F4CC;</div>`}
+    ${isTrending ? '<div style="position:absolute;top:12px;right:12px;background:#3a1f00;color:#ff8c42;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">&#x1F525; Trending</div>' : `<div id="post-pin-badge-${p.id}" style="position:absolute;top:12px;right:12px;font-size:14px;display:${pinned ? 'block' : 'none'};pointer-events:none">&#x1F4CC;</div>`}
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
       <div onclick="showProfilePreview('${p.user_id}')" class="avatar" style="width:36px;height:36px;font-size:13px;flex-shrink:0;background:${avatarBg};cursor:pointer">
         ${avatar ? `<img src="${avatar}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">` : name.charAt(0).toUpperCase()}
@@ -2368,7 +2368,7 @@ function renderPostCard(p, isTrending = false) {
         <p style="color:#6b6866;font-size:12px">${new Date(p.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
       </div>
       ${isOwn || isAdminUser ? `
-      <div style="display:flex;gap:6px" onclick="event.stopPropagation()">
+      <div style="display:flex;gap:6px;position:relative;z-index:2" onclick="event.stopPropagation()">
         ${isAdminUser ? `<button id="pin-btn-${p.id}" onclick="togglePostPin('${p.id}',this)" style="background:none;border:none;cursor:pointer;padding:4px;font-size:16px;line-height:1;color:${pinned ? '#e8503a' : '#6b6866'}">📌</button>` : ''}
         ${isOwn ? `<button onclick="editPost('${p.id}')" style="background:none;border:none;color:#9e9b97;font-size:12px;cursor:pointer;padding:4px 8px;border-radius:8px;border:1px solid #252525">&#x270F;&#xFE0F; Edit</button>` : ''}
         <button onclick="deletePost('${p.id}')" style="background:none;border:none;color:#6b6866;font-size:12px;cursor:pointer;padding:4px 8px;border-radius:8px;border:1px solid #252525">${isAdminUser && !isOwn ? 'Remove' : 'Delete'}</button>
@@ -3061,16 +3061,13 @@ async function submitPost() {
 }
 
 async function togglePostPin(postId, btn) {
-  console.log('[togglePostPin] called — postId:', postId, 'is_admin:', currentProfile?.is_admin)
-  if (!currentProfile?.is_admin) { console.warn('[togglePostPin] blocked — not admin'); return }
+  if (!currentProfile?.is_admin) return
   if (btn) btn.disabled = true
 
   const { data, error: fetchErr } = await sb.from('community_posts').select('is_pinned').eq('id', postId).maybeSingle()
-  console.log('[togglePostPin] fetch result — data:', data, 'fetchErr:', fetchErr)
 
   if (fetchErr || !data) {
     if (btn) btn.disabled = false
-    console.error('[togglePostPin] fetch failed:', fetchErr)
     showToast('Could not fetch post.')
     return
   }
@@ -3078,17 +3075,11 @@ async function togglePostPin(postId, btn) {
   // Treat null as false — column may be null before it's ever set
   const currentPinned = data.is_pinned === true
   const newPinned = !currentPinned
-  console.log('[togglePostPin] currentPinned:', currentPinned, '→ newPinned:', newPinned)
 
-  const { data: updateData, error } = await sb.from('community_posts').update({ is_pinned: newPinned }).eq('id', postId).select('is_pinned').maybeSingle()
+  const { error } = await sb.from('community_posts').update({ is_pinned: newPinned }).eq('id', postId)
   if (btn) btn.disabled = false
-  console.log('[togglePostPin] update result — updateData:', updateData, 'error:', error)
 
   if (error) { showToast('Could not update pin.'); return }
-
-  // Confirm what the DB actually stored
-  const confirmed = updateData?.is_pinned === true
-  console.log('[togglePostPin] DB confirmed is_pinned:', confirmed, '(expected', newPinned, ')')
 
   // Update every pin button for this post (feed + thread may both exist)
   const color = newPinned ? '#e8503a' : '#6b6866'
