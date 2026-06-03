@@ -848,6 +848,14 @@
               <span id="notif-views-thumb" style="position:absolute;left:2px;top:2px;width:16px;height:16px;background:#fff;border-radius:50%;transition:0.2s"></span>
             </label>
           </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0">
+            <p style="color:#9e9b97;font-size:14px">Message reminders</p>
+            <label style="position:relative;display:inline-block;width:36px;height:20px;cursor:pointer;flex-shrink:0">
+              <input type="checkbox" id="notif-reminders-toggle" onchange="toggleNotifPref('notif_reminders',this.checked)" style="opacity:0;width:0;height:0">
+              <span id="notif-reminders-slider" style="position:absolute;inset:0;background:#2a2a2a;border-radius:20px;transition:0.2s"></span>
+              <span id="notif-reminders-thumb" style="position:absolute;left:2px;top:2px;width:16px;height:16px;background:#fff;border-radius:50%;transition:0.2s"></span>
+            </label>
+          </div>
         </div>
         <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0">
           <div>
@@ -2153,7 +2161,7 @@ async function checkUnrepliedMessages() {
       const lastNudge = localStorage.getItem(nudgeKey)
       if (lastNudge && Date.now() - parseInt(lastNudge) < 24 * 60 * 60 * 1000) return
 
-      sendPush(otherId, `${myName} is waiting for your reply 💬`, 'Open Simple-x to continue your conversation', 'message', match.id)
+      sendPush(otherId, `${myName} is waiting for your reply 💬`, 'Open Simple-x to continue your conversation', 'reminder', match.id)
       localStorage.setItem(nudgeKey, String(Date.now()))
     })
   } catch (e) {
@@ -3112,7 +3120,7 @@ async function sendPush(userId, title, body, tag, matchId) {
     // Suppress push if the current user has muted this conversation
     if (matchId && getMutedChats().includes(matchId)) return
     // Check recipient's per-type notification preference before sending
-    const prefKey = { match: 'notif_matches', message: 'notif_messages', wink: 'notif_winks', view: 'notif_views' }[tag]
+    const prefKey = { match: 'notif_matches', message: 'notif_messages', wink: 'notif_winks', view: 'notif_views', reminder: 'notif_reminders' }[tag]
     if (prefKey) {
       const { data: prefs } = await sb.from('profiles').select('notifications_enabled,' + prefKey).eq('id', userId).maybeSingle()
       if (prefs && (prefs.notifications_enabled === false || prefs[prefKey] === false)) return
@@ -7787,7 +7795,7 @@ function openSettings() {
   if (sth) sth.style.transform = soundsEnabled ? 'translateX(20px)' : 'translateX(0)'
 
   // Sync notification type preference toggles
-  ;['notif_matches','notif_messages','notif_winks','notif_views'].forEach(key => {
+  ;['notif_matches','notif_messages','notif_winks','notif_views','notif_reminders'].forEach(key => {
     const val = currentProfile?.[key] !== false
     const base = key.replaceAll('_', '-')
     const tog = el(base + '-toggle'), sl = el(base + '-slider'), th = el(base + '-thumb')
