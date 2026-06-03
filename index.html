@@ -3101,7 +3101,7 @@ async function togglePostPin(postId, btn) {
   if (badge) badge.style.display = newPinned ? 'block' : 'none'
 
   showToast(newPinned ? 'Pinned ✓' : 'Unpinned')
-  loadCommunity()
+  await loadCommunity()
 }
 
 async function deletePost(postId) {
