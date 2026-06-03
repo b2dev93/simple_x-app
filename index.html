@@ -76,18 +76,23 @@
     #splash .tagline { color: #6b6866; font-size: 13px; letter-spacing: 0.14em; text-transform: uppercase; }
     @keyframes logoPulse {
       0%, 100% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.7; transform: scale(0.96); }
+      50% { opacity: 0.75; transform: scale(0.97); }
+    }
+    @keyframes splashFadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
     }
     @keyframes splashProgress {
       0%   { width: 0%; }
-      20%  { width: 18%; }
-      55%  { width: 52%; }
-      85%  { width: 82%; }
+      15%  { width: 12%; }
+      50%  { width: 55%; }
+      80%  { width: 84%; }
       100% { width: 100%; }
     }
-    #splash .logo-pulse { animation: logoPulse 2s ease-in-out infinite; }
-    #splash-progress-bar { position: absolute; bottom: 48px; left: 50%; transform: translateX(-50%); width: 100px; height: 2px; background: #1e1e1e; border-radius: 2px; overflow: hidden; }
-    #splash-progress-fill { height: 100%; width: 0; background: #e8503a; border-radius: 2px; animation: splashProgress 1.75s ease-in-out forwards; }
+    #splash .splash-content { animation: splashFadeIn 0.7s cubic-bezier(0.16,1,0.3,1) forwards; }
+    #splash .logo-pulse { animation: logoPulse 3s ease-in-out infinite; }
+    #splash-progress-bar { position: absolute; bottom: 0; left: 0; right: 0; height: 3px; background: #141414; overflow: hidden; }
+    #splash-progress-fill { height: 100%; width: 0; background: linear-gradient(90deg,#c93d2a,#e8503a); animation: splashProgress 1.5s cubic-bezier(0.4,0,0.2,1) forwards; }
 
     /* AUTH */
     #auth { background: #0a0a0a; padding: 60px 28px 40px; overflow-y: auto; }
@@ -244,10 +249,12 @@
 
   <!-- SPLASH -->
   <div id="splash" class="screen">
-    <div class="logo-pulse">
-      <div class="logo" style="--logo-size: 44px"><span>simple</span><span>x</span></div>
+    <div class="splash-content" style="display:flex;flex-direction:column;align-items:center;gap:14px">
+      <div class="logo-pulse">
+        <div class="logo" style="--logo-size: 44px"><span>simple</span><span>x</span></div>
+      </div>
+      <p class="tagline">no complications</p>
     </div>
-    <p class="tagline">no complications</p>
     <div id="splash-progress-bar"><div id="splash-progress-fill"></div></div>
   </div>
 
@@ -951,6 +958,11 @@
         <button class="btn-ghost" onclick="closeSettings();showDeleteAccountModal()" style="color:#e8503a;border-color:#3a1a14">Delete account</button>
       </div>
 
+      <!-- App version -->
+      <div style="padding:16px 24px 32px;text-align:center">
+        <p style="color:#2e2e2c;font-size:12px">Simple-x v1.0.3</p>
+      </div>
+
     </div>
   </div>
 
@@ -1165,6 +1177,7 @@
   SQL — run once in Supabase SQL editor:
   ALTER TABLE profiles ADD COLUMN IF NOT EXISTS referred_by uuid REFERENCES profiles(id) ON DELETE SET NULL;
 */
+const APP_VERSION = '1.0.3'
 const SUPABASE_URL = 'https://ocwgwfnrstzrapsblkxm.supabase.co'
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9jd2d3Zm5yc3R6cmFwc2Jsa3htIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY1NjAxNzksImV4cCI6MjA5MjEzNjE3OX0.Tr_l0wJjUDHdklj1AG9MW9FIlNC3lNgGbklpzz4AAfo'
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
@@ -1914,6 +1927,76 @@ function dismissLaunchHelp() {
   if (modal) modal.style.display = 'none'
 }
 
+// ── RATE THE APP ───────────────────────────────────
+async function checkRateAppPrompt() {
+  if (localStorage.getItem('sx_rate_dismissed')) return
+  const firstSeen = localStorage.getItem('sx_first_seen')
+  if (!firstSeen) { localStorage.setItem('sx_first_seen', String(Date.now())); return }
+  if (Date.now() - parseInt(firstSeen) < 7 * 24 * 60 * 60 * 1000) return
+  const { count } = await sb.from('matches').select('id', { count: 'exact', head: true })
+    .or(`user_a.eq.${currentUser.id},user_b.eq.${currentUser.id}`)
+  if (!count || count < 1) return
+  showRateAppModal()
+}
+
+function showRateAppModal() {
+  if (document.getElementById('rate-app-modal')) return
+  const div = document.createElement('div')
+  div.id = 'rate-app-modal'
+  div.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:700;display:flex;align-items:flex-end;justify-content:center'
+  div.innerHTML = `
+    <div style="background:#141414;border-radius:24px 24px 0 0;width:100%;max-width:480px;padding:32px 24px 48px;border-top:1px solid #252525;text-align:center">
+      <p style="font-size:36px;margin-bottom:14px">⭐</p>
+      <h2 style="color:#f0ede8;font-size:20px;font-weight:700;margin-bottom:10px">Enjoying Simple-x?</h2>
+      <p style="color:#9e9b97;font-size:14px;line-height:1.65;margin-bottom:24px">Tap to rate us on Google Play — it helps us reach more people like you 💜</p>
+      <a href="https://play.google.com/store/apps/details?id=com.simplexlabs.simplex" target="_blank" rel="noopener" style="text-decoration:none;display:block;margin-bottom:12px">
+        <button onclick="dismissRateApp()" style="width:100%;padding:16px;border-radius:14px;border:none;background:#e8503a;color:#fff;font-size:16px;font-weight:700;cursor:pointer">Rate now</button>
+      </a>
+      <button onclick="dismissRateApp()" style="width:100%;padding:14px;border-radius:12px;border:1px solid #252525;background:transparent;color:#9e9b97;font-size:15px;cursor:pointer">Maybe later</button>
+    </div>`
+  document.body.appendChild(div)
+}
+
+function dismissRateApp() {
+  localStorage.setItem('sx_rate_dismissed', '1')
+  const modal = document.getElementById('rate-app-modal')
+  if (modal) modal.remove()
+}
+
+// ── WHAT'S NEW ─────────────────────────────────────
+function checkWhatsNew() {
+  const stored = localStorage.getItem('sx_app_version')
+  if (stored === APP_VERSION) return
+  localStorage.setItem('sx_app_version', APP_VERSION)
+  if (!stored) return // first install — no modal, just record version
+  showWhatsNewModal()
+}
+
+function showWhatsNewModal() {
+  if (document.getElementById('whats-new-modal')) return
+  const div = document.createElement('div')
+  div.id = 'whats-new-modal'
+  div.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:700;display:flex;align-items:flex-end;justify-content:center'
+  div.innerHTML = `
+    <div style="background:#141414;border-radius:24px 24px 0 0;width:100%;max-width:480px;padding:32px 24px 48px;border-top:1px solid #252525">
+      <p style="font-size:32px;margin-bottom:14px;text-align:center">🎉</p>
+      <h2 style="color:#f0ede8;font-size:20px;font-weight:700;margin-bottom:6px;text-align:center">What's new in v${APP_VERSION}</h2>
+      <p style="color:#6b6866;font-size:12px;text-align:center;margin-bottom:20px">Here's what we've been working on</p>
+      <ul style="list-style:none;padding:0;margin:0 0 24px;display:flex;flex-direction:column;gap:12px">
+        <li style="display:flex;gap:12px;align-items:flex-start"><span style="font-size:18px">🔔</span><div><p style="color:#f0ede8;font-size:14px;font-weight:600;margin-bottom:2px">Message reminders</p><p style="color:#6b6866;font-size:13px;line-height:1.5">Toggle reply nudges on or off in Settings → Notifications.</p></div></li>
+        <li style="display:flex;gap:12px;align-items:flex-start"><span style="font-size:18px">✨</span><div><p style="color:#f0ede8;font-size:14px;font-weight:600;margin-bottom:2px">Polished splash screen</p><p style="color:#6b6866;font-size:13px;line-height:1.5">Smoother loading animation when you open the app.</p></div></li>
+        <li style="display:flex;gap:12px;align-items:flex-start"><span style="font-size:18px">🐛</span><div><p style="color:#f0ede8;font-size:14px;font-weight:600;margin-bottom:2px">Bug fixes &amp; performance</p><p style="color:#6b6866;font-size:13px;line-height:1.5">Various stability improvements under the hood.</p></div></li>
+      </ul>
+      <button onclick="closeWhatsNew()" style="width:100%;padding:16px;border-radius:14px;border:none;background:#e8503a;color:#fff;font-size:16px;font-weight:700;cursor:pointer">Got it</button>
+    </div>`
+  document.body.appendChild(div)
+}
+
+function closeWhatsNew() {
+  const modal = document.getElementById('whats-new-modal')
+  if (modal) modal.remove()
+}
+
 function enterGuestMode() {
   isGuestMode = true
   hide('auth')
@@ -2031,6 +2114,8 @@ async function enterApp(user) {
   checkProfileComplete()
   setTimeout(checkNewReferrals, 3000)
   setTimeout(showLaunchHelpModal, 5000)
+  checkWhatsNew()
+  setTimeout(checkRateAppPrompt, 8000)
   registerPushNotifications()
   updateLastSeen()
   // Refresh last_seen every 5 minutes; clear any previous interval first
