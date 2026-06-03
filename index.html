@@ -2840,8 +2840,8 @@ async function openPostThread(postId) {
   const _threadPinned = !!post.is_pinned
   const _threadPinLabel = _threadPinned ? 'Unpin' : '&#x1F4CC; Pin'
   const _threadPinOnclick = _threadPinned
-    ? `unpinPost('${post.id}');document.getElementById('post-thread-page')?.remove()`
-    : `pinPost('${post.id}');document.getElementById('post-thread-page')?.remove()`
+    ? `unpinPostFromThread('${post.id}')`
+    : `pinPostFromThread('${post.id}')`
 
   // Render post header
   let html = `
@@ -3058,15 +3058,23 @@ async function pinPost(postId) {
   if (!currentProfile?.is_admin) return
   const { error } = await sb.from('community_posts').update({ is_pinned: true }).eq('id', postId)
   if (error) { showToast('Could not pin post.'); return }
-  showToast('Post pinned.')
-  loadCommunity()
+  showToast('Post pinned')
+  await loadCommunity()
 }
 async function unpinPost(postId) {
   if (!currentProfile?.is_admin) return
   const { error } = await sb.from('community_posts').update({ is_pinned: false }).eq('id', postId)
   if (error) { showToast('Could not unpin post.'); return }
-  showToast('Post unpinned.')
-  loadCommunity()
+  showToast('Post unpinned')
+  await loadCommunity()
+}
+async function pinPostFromThread(postId) {
+  await pinPost(postId)
+  document.getElementById('post-thread-page')?.remove()
+}
+async function unpinPostFromThread(postId) {
+  await unpinPost(postId)
+  document.getElementById('post-thread-page')?.remove()
 }
 
 async function deletePost(postId) {
