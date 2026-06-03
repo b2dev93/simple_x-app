@@ -2292,6 +2292,7 @@ async function loadCommunity() {
   if (communityFilter === 'mine') query = query.eq('user_id', currentUser.id)
 
   const { data: posts, error } = await query
+  console.log('[loadCommunity] post order from Supabase:', posts?.map(p => ({ id: p.id, is_pinned: p.is_pinned, created_at: p.created_at })))
 
   if (error) {
     list.innerHTML = '<div style="text-align:center;padding:40px 0"><p style="color:#6b6866;font-size:14px">Could not load posts.</p></div>'
@@ -3065,6 +3066,7 @@ async function togglePostPin(postId, btn) {
   if (btn) btn.disabled = true
 
   const { data, error: fetchErr } = await sb.from('community_posts').select('is_pinned').eq('id', postId).maybeSingle()
+  console.log('[togglePostPin] fetch result:', { postId, data, fetchErr })
 
   if (fetchErr || !data) {
     if (btn) btn.disabled = false
@@ -3075,8 +3077,10 @@ async function togglePostPin(postId, btn) {
   // Treat null as false — column may be null before it's ever set
   const currentPinned = data.is_pinned === true
   const newPinned = !currentPinned
+  console.log('[togglePostPin] updating postId', postId, 'from is_pinned:', currentPinned, '→', newPinned)
 
-  const { error } = await sb.from('community_posts').update({ is_pinned: newPinned }).eq('id', postId)
+  const { error, data: updateData } = await sb.from('community_posts').update({ is_pinned: newPinned }).eq('id', postId).select('id, is_pinned')
+  console.log('[togglePostPin] update result:', { updateData, error })
   if (btn) btn.disabled = false
 
   if (error) { showToast('Could not update pin.'); return }
