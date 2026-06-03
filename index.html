@@ -2123,6 +2123,8 @@ async function enterApp(user) {
   initPullToRefresh('profile-content',      () => { renderProfileScreen(); loadMyQuestions() })
   initPullToRefresh('discover-online-view', () => { loadOnlineNow(); loadMoments() })
   initPullToRefresh('discover-liked-view',  () => loadContacts())
+  // Discover swipe — ignores touches on the card itself to avoid gesture conflict
+  initPullToRefresh('discover-swipe-view',  () => loadDiscover(), { ignoreTarget: 'current-card' })
   updateStreak()
   showOnboarding()
   requestAnimationFrame(() => requestAnimationFrame(() => { switchTab2('discover'); showBetaBanner() }))
@@ -3351,16 +3353,23 @@ function switchTab2(tab) {
 
 
 // ── PULL-TO-REFRESH ───────────────────────────────
-function initPullToRefresh(containerId, reloadFn) {
+// opts.ignoreTarget: element id — if touch starts on that element, skip PTR
+function initPullToRefresh(containerId, reloadFn, opts = {}) {
   const container = document.getElementById(containerId)
   if (!container) return
 
-  let startY = 0
+  let startX = 0, startY = 0
   let isDragging = false
   let indicator = null
 
   container.addEventListener('touchstart', e => {
+    // Skip PTR when the touch lands on an excluded child (e.g. swipe card)
+    if (opts.ignoreTarget) {
+      const skipEl = document.getElementById(opts.ignoreTarget)
+      if (skipEl && skipEl.contains(e.target)) return
+    }
     if (container.scrollTop <= 0) {
+      startX = e.touches[0].clientX
       startY = e.touches[0].clientY
       isDragging = true
     }
@@ -3368,7 +3377,15 @@ function initPullToRefresh(containerId, reloadFn) {
 
   container.addEventListener('touchmove', e => {
     if (!isDragging) return
+    const dx = Math.abs(e.touches[0].clientX - startX)
     const dy = e.touches[0].clientY - startY
+    // Cancel if the gesture drifts more horizontal than vertical — avoids
+    // conflicting with card swipes or horizontal scrollers inside the container
+    if (dx > dy) {
+      isDragging = false
+      if (indicator) { indicator.remove(); indicator = null }
+      return
+    }
     if (dy > 10) {
       if (!indicator) {
         indicator = document.createElement('div')
