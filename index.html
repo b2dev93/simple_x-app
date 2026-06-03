@@ -2356,20 +2356,20 @@ function renderPostCard(p, isTrending = false) {
   const pinned = p.is_pinned
   const avatarBg = avatar ? 'none' : AVATAR_COLORS[Math.abs(name.charCodeAt(0)) % AVATAR_COLORS.length]
   return `
-  <div style="background:#1c1c1c;border-radius:16px;border:1px solid ${isTrending ? '#3a1f00' : pinned ? '#2e2a0a' : '#252525'};padding:16px;margin-bottom:14px;position:relative">
+  <div id="post-card-${p.id}" style="background:#1c1c1c;border-radius:16px;border:1px solid ${isTrending ? '#3a1f00' : pinned ? '#2e2a0a' : '#252525'};padding:16px;margin-bottom:14px;position:relative">
     <div id="post-dot-${p.id}" style="display:none;position:absolute;top:14px;right:14px;width:8px;height:8px;border-radius:50%;background:#e8503a"></div>
-    ${isTrending ? '<div style="position:absolute;top:12px;right:12px;background:#3a1f00;color:#ff8c42;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">&#x1F525; Trending</div>' : pinned ? '<div style="position:absolute;top:12px;right:12px;font-size:14px">&#x1F4CC;</div>' : ''}
+    ${isTrending ? '<div style="position:absolute;top:12px;right:12px;background:#3a1f00;color:#ff8c42;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">&#x1F525; Trending</div>' : `<div id="post-pin-badge-${p.id}" style="position:absolute;top:12px;right:12px;font-size:14px;display:${pinned ? 'block' : 'none'}">&#x1F4CC;</div>`}
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
       <div onclick="showProfilePreview('${p.user_id}')" class="avatar" style="width:36px;height:36px;font-size:13px;flex-shrink:0;background:${avatarBg};cursor:pointer">
         ${avatar ? `<img src="${avatar}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">` : name.charAt(0).toUpperCase()}
       </div>
       <div style="flex:1">
-        <p style="color:#f0ede8;font-size:14px;font-weight:600">${name}${pinned ? ' <span style="color:#f5c518;font-size:11px;font-weight:500">Pinned</span>' : ''}</p>
+        <p style="color:#f0ede8;font-size:14px;font-weight:600">${name} <span id="post-pinned-label-${p.id}" style="color:#f5c518;font-size:11px;font-weight:500;display:${pinned ? 'inline' : 'none'}">Pinned</span></p>
         <p style="color:#6b6866;font-size:12px">${new Date(p.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
       </div>
       ${isOwn || isAdminUser ? `
       <div style="display:flex;gap:6px" onclick="event.stopPropagation()">
-        ${isAdminUser ? `<button onclick="${pinned ? `unpinPost('${p.id}')` : `pinPost('${p.id}')`}" style="background:none;border:none;color:#f5c518;font-size:12px;cursor:pointer;padding:4px 8px;border-radius:8px;border:1px solid #2e2a0a">${pinned ? 'Unpin' : '&#x1F4CC; Pin'}</button>` : ''}
+        ${isAdminUser ? `<button id="pin-btn-${p.id}" onclick="togglePostPin('${p.id}',this)" style="background:none;border:none;cursor:pointer;padding:4px;font-size:16px;line-height:1;color:${pinned ? '#e8503a' : '#6b6866'}">📌</button>` : ''}
         ${isOwn ? `<button onclick="editPost('${p.id}')" style="background:none;border:none;color:#9e9b97;font-size:12px;cursor:pointer;padding:4px 8px;border-radius:8px;border:1px solid #252525">&#x270F;&#xFE0F; Edit</button>` : ''}
         <button onclick="deletePost('${p.id}')" style="background:none;border:none;color:#6b6866;font-size:12px;cursor:pointer;padding:4px 8px;border-radius:8px;border:1px solid #252525">${isAdminUser && !isOwn ? 'Remove' : 'Delete'}</button>
       </div>` : `<button onclick="reportPost('${p.id}','${p.user_id}')" style="background:none;border:none;color:#6b6866;font-size:12px;cursor:pointer;padding:4px 8px;border-radius:8px;border:1px solid #252525">&#x1F6A9; Report</button>`}
@@ -2847,26 +2847,21 @@ async function openPostThread(postId) {
   // Update stored counts so dot clears correctly
   localStorage.setItem('sx_post_seen_counts_' + postId, JSON.stringify({ likes: likeCount, comments: allComments?.length || 0 }))
 
-  // Pre-compute pin button strings to avoid nested backticks in the template
   const _threadPinned = !!post.is_pinned
-  const _threadPinLabel = _threadPinned ? 'Unpin' : '&#x1F4CC; Pin'
-  const _threadPinOnclick = _threadPinned
-    ? `unpinPostFromThread('${post.id}')`
-    : `pinPostFromThread('${post.id}')`
 
   // Render post header
   let html = `
-    <div style="background:#1c1c1c;border-radius:16px;border:1px solid ${_threadPinned ? '#2e2a0a' : '#252525'};padding:16px;margin-bottom:20px">
+    <div id="thread-post-card-${post.id}" style="background:#1c1c1c;border-radius:16px;border:1px solid ${_threadPinned ? '#2e2a0a' : '#252525'};padding:16px;margin-bottom:20px">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
         <div class="avatar" style="width:36px;height:36px;font-size:13px;flex-shrink:0;background:${avatar ? 'none' : AVATAR_COLORS[Math.abs(name.charCodeAt(0)) % AVATAR_COLORS.length]}">
           ${avatar ? `<img src="${avatar}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">` : name.charAt(0).toUpperCase()}
         </div>
         <div style="flex:1">
-          <p style="color:#f0ede8;font-size:14px;font-weight:600">${name}${_threadPinned ? ' <span style="color:#f5c518;font-size:11px;font-weight:500">Pinned</span>' : ''}</p>
+          <p style="color:#f0ede8;font-size:14px;font-weight:600">${name} <span id="thread-pinned-label-${post.id}" style="color:#f5c518;font-size:11px;font-weight:500;display:${_threadPinned ? 'inline' : 'none'}">Pinned</span></p>
           <p style="color:#6b6866;font-size:12px">${new Date(post.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
         </div>
         ${isOwn || isAdminUser ? `<div style="display:flex;gap:6px">
-          ${isAdminUser ? `<button onclick="${_threadPinOnclick}" style="background:none;border:none;color:#f5c518;font-size:12px;cursor:pointer;padding:4px 8px;border-radius:8px;border:1px solid #2e2a0a">${_threadPinLabel}</button>` : ''}
+          ${isAdminUser ? `<button id="thread-pin-btn-${post.id}" onclick="togglePostPin('${post.id}',this)" style="background:none;border:none;cursor:pointer;padding:4px;font-size:16px;line-height:1;color:${_threadPinned ? '#e8503a' : '#6b6866'}">📌</button>` : ''}
           ${isOwn ? `<button onclick="editPost('${post.id}');document.getElementById('post-thread-page')?.remove()" style="background:none;border:none;color:#9e9b97;font-size:12px;cursor:pointer;padding:4px 8px;border-radius:8px;border:1px solid #252525">&#x270F;&#xFE0F; Edit</button>` : ''}
           <button onclick="deletePost('${post.id}');document.getElementById('post-thread-page')?.remove()" style="background:none;border:none;color:#6b6866;font-size:12px;cursor:pointer;padding:4px 8px;border-radius:8px;border:1px solid #252525">${isAdminUser && !isOwn ? 'Remove' : 'Delete'}</button>
         </div>` : `<button onclick="reportPost('${post.id}','${post.user_id}')" style="background:none;border:none;color:#6b6866;font-size:12px;cursor:pointer;padding:4px 8px;border-radius:8px;border:1px solid #252525">&#x1F6A9; Report</button>`}
@@ -3065,27 +3060,36 @@ async function submitPost() {
   loadCommunity()
 }
 
-async function pinPost(postId) {
+async function togglePostPin(postId, btn) {
   if (!currentProfile?.is_admin) return
-  const { error } = await sb.from('community_posts').update({ is_pinned: true }).eq('id', postId)
-  if (error) { showToast('Could not pin post.'); return }
-  showToast('Post pinned')
-  await loadCommunity()
-}
-async function unpinPost(postId) {
-  if (!currentProfile?.is_admin) return
-  const { error } = await sb.from('community_posts').update({ is_pinned: false }).eq('id', postId)
-  if (error) { showToast('Could not unpin post.'); return }
-  showToast('Post unpinned')
-  await loadCommunity()
-}
-async function pinPostFromThread(postId) {
-  await pinPost(postId)
-  document.getElementById('post-thread-page')?.remove()
-}
-async function unpinPostFromThread(postId) {
-  await unpinPost(postId)
-  document.getElementById('post-thread-page')?.remove()
+  if (btn) btn.disabled = true
+  const { data, error: fetchErr } = await sb.from('community_posts').select('is_pinned').eq('id', postId).maybeSingle()
+  if (fetchErr || !data) { if (btn) btn.disabled = false; showToast('Could not fetch post.'); return }
+  const newPinned = !data.is_pinned
+  const { error } = await sb.from('community_posts').update({ is_pinned: newPinned }).eq('id', postId)
+  if (btn) btn.disabled = false
+  if (error) { showToast('Could not update pin.'); return }
+
+  // Update every pin button for this post (feed + thread may both exist)
+  const color = newPinned ? '#e8503a' : '#6b6866'
+  ;[document.getElementById('pin-btn-' + postId), document.getElementById('thread-pin-btn-' + postId)].forEach(b => {
+    if (b) b.style.color = color
+  })
+  // Update card borders
+  const feedCard = document.getElementById('post-card-' + postId)
+  if (feedCard) feedCard.style.borderColor = newPinned ? '#2e2a0a' : '#252525'
+  const threadCard = document.getElementById('thread-post-card-' + postId)
+  if (threadCard) threadCard.style.borderColor = newPinned ? '#2e2a0a' : '#252525'
+  // Update "Pinned" labels
+  const feedLabel = document.getElementById('post-pinned-label-' + postId)
+  if (feedLabel) feedLabel.style.display = newPinned ? 'inline' : 'none'
+  const threadLabel = document.getElementById('thread-pinned-label-' + postId)
+  if (threadLabel) threadLabel.style.display = newPinned ? 'inline' : 'none'
+  // Update the 📌 top-right badge (feed only; thread has no badge)
+  const badge = document.getElementById('post-pin-badge-' + postId)
+  if (badge) badge.style.display = newPinned ? 'block' : 'none'
+
+  showToast(newPinned ? 'Pinned ✓' : 'Unpinned')
 }
 
 async function deletePost(postId) {
