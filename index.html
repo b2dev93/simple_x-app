@@ -3061,14 +3061,34 @@ async function submitPost() {
 }
 
 async function togglePostPin(postId, btn) {
-  if (!currentProfile?.is_admin) return
+  console.log('[togglePostPin] called — postId:', postId, 'is_admin:', currentProfile?.is_admin)
+  if (!currentProfile?.is_admin) { console.warn('[togglePostPin] blocked — not admin'); return }
   if (btn) btn.disabled = true
+
   const { data, error: fetchErr } = await sb.from('community_posts').select('is_pinned').eq('id', postId).maybeSingle()
-  if (fetchErr || !data) { if (btn) btn.disabled = false; showToast('Could not fetch post.'); return }
-  const newPinned = !data.is_pinned
-  const { error } = await sb.from('community_posts').update({ is_pinned: newPinned }).eq('id', postId)
+  console.log('[togglePostPin] fetch result — data:', data, 'fetchErr:', fetchErr)
+
+  if (fetchErr || !data) {
+    if (btn) btn.disabled = false
+    console.error('[togglePostPin] fetch failed:', fetchErr)
+    showToast('Could not fetch post.')
+    return
+  }
+
+  // Treat null as false — column may be null before it's ever set
+  const currentPinned = data.is_pinned === true
+  const newPinned = !currentPinned
+  console.log('[togglePostPin] currentPinned:', currentPinned, '→ newPinned:', newPinned)
+
+  const { data: updateData, error } = await sb.from('community_posts').update({ is_pinned: newPinned }).eq('id', postId).select('is_pinned').maybeSingle()
   if (btn) btn.disabled = false
+  console.log('[togglePostPin] update result — updateData:', updateData, 'error:', error)
+
   if (error) { showToast('Could not update pin.'); return }
+
+  // Confirm what the DB actually stored
+  const confirmed = updateData?.is_pinned === true
+  console.log('[togglePostPin] DB confirmed is_pinned:', confirmed, '(expected', newPinned, ')')
 
   // Update every pin button for this post (feed + thread may both exist)
   const color = newPinned ? '#e8503a' : '#6b6866'
