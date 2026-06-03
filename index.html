@@ -2331,6 +2331,7 @@ async function loadCommunity() {
       recentLikes.forEach(l => { likeCounts[l.post_id] = (likeCounts[l.post_id] || 0) + 1 })
       trendingPostIds = Object.entries(likeCounts)
         .sort((a, b) => b[1] - a[1])
+        .filter(([id]) => !posts.find(p => p.id === id)?.is_pinned)
         .slice(0, 3)
         .map(([id]) => id)
     }
