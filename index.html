@@ -240,6 +240,46 @@
     .moment-add-ring { border:2px dashed #444;border-radius:50%;padding:2px;display:inline-flex;position:relative }
     .moment-add-av { width:52px;height:52px;border-radius:50%;background:#1c1c1c;display:flex;align-items:center;justify-content:center;font-size:22px;color:#6b6866 }
     #moments-strip::-webkit-scrollbar { display:none }
+
+    /* ── POLISH PASS ─────────────────────────────── */
+
+    /* Skeleton loading animation for lists/feeds */
+    @keyframes shimmer {
+      0%   { background-position: -200% 0; }
+      100% { background-position:  200% 0; }
+    }
+    .skeleton {
+      background: linear-gradient(90deg, #1c1c1c 25%, #2a2a2a 50%, #1c1c1c 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+      border-radius: 8px;
+    }
+
+    /* Subtle fade-in when a tab's content becomes visible */
+    @keyframes tabFadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .tab-fade { animation: tabFadeIn 0.22s ease-out; }
+
+    /* Modal slide-up animation */
+    @keyframes slideUp {
+      from { transform: translateY(20px); opacity: 0; }
+      to   { transform: translateY(0);    opacity: 1; }
+    }
+    .slide-up { animation: slideUp 0.25s cubic-bezier(0.22,1,0.36,1); }
+
+    /* Error state helper */
+    .error-state { text-align:center; padding:60px 20px; }
+
+    /* Minimum 44 × 44 px touch targets for sort pills (mobile accessibility) */
+    #discover-online-view .sort-row button { min-height:44px; }
+
+    /* Nav buttons already 64px tall — ensure icons are big enough */
+    .nav-btn { min-height:48px; }
+
+    /* Back buttons: keep them square and tappable */
+    .back-btn { min-width:44px; min-height:44px; display:flex; align-items:center; justify-content:center; }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
   <script>emailjs.init("6hhTlpLKzeQ4Q2eRv")</script>
@@ -309,9 +349,12 @@
       <button class="tab-btn" id="tab-up" onclick="switchTab('up')">Create account</button>
     </div>
     <div class="form-fields">
-      <input class="input hidden" id="auth-name" placeholder="Display name" />
-      <input class="input" id="auth-email" type="email" placeholder="Email" />
-      <input class="input" id="auth-pass" type="password" placeholder="Password" />
+      <label for="auth-name" class="hidden" aria-hidden="true">Display name</label>
+      <input class="input hidden" id="auth-name" placeholder="Display name" autocomplete="name" />
+      <label for="auth-email" class="hidden" aria-hidden="true">Email</label>
+      <input class="input" id="auth-email" type="email" placeholder="Email" autocomplete="email" />
+      <label for="auth-pass" class="hidden" aria-hidden="true">Password</label>
+      <input class="input" id="auth-pass" type="password" placeholder="Password" autocomplete="current-password" />
       <div class="hidden" id="hsv-picker">
         <p style="color:#6b6866;font-size:12px;margin-bottom:10px">I have</p>
         <div class="hsv-options" id="hsv-type-options">
@@ -382,10 +425,10 @@
     <div id="discover-content">
 
       <!-- SUB-TAB BAR -->
-      <div style="display:flex;border-bottom:1px solid #1c1c1c;background:#0a0a0a;position:sticky;top:56px;z-index:10">
-        <button id="sub-tab-swipe" onclick="switchDiscoverTab('swipe')" style="flex:1;padding:12px;border:none;background:transparent;color:#e8503a;font-size:14px;font-weight:600;cursor:pointer;border-bottom:2px solid #e8503a">Discover</button>
-        <button id="sub-tab-online" onclick="switchDiscoverTab('online')" style="flex:1;padding:12px;border:none;background:transparent;color:#6b6866;font-size:14px;font-weight:600;cursor:pointer;border-bottom:2px solid transparent">● Online</button>
-        <button id="sub-tab-liked" onclick="switchDiscoverTab('liked')" style="flex:1;padding:12px;border:none;background:transparent;color:#6b6866;font-size:14px;font-weight:600;cursor:pointer;border-bottom:2px solid transparent">📋 Contacts</button>
+      <div style="display:flex;border-bottom:1px solid #1c1c1c;background:#0a0a0a;position:sticky;top:56px;z-index:10" role="tablist" aria-label="Discover sections">
+        <button id="sub-tab-swipe" onclick="switchDiscoverTab('swipe')" style="flex:1;padding:12px;border:none;background:transparent;color:#e8503a;font-size:14px;font-weight:600;cursor:pointer;border-bottom:2px solid #e8503a;min-height:44px" role="tab" aria-selected="true" aria-controls="discover-swipe-view">Discover</button>
+        <button id="sub-tab-online" onclick="switchDiscoverTab('online')" style="flex:1;padding:12px;border:none;background:transparent;color:#6b6866;font-size:14px;font-weight:600;cursor:pointer;border-bottom:2px solid transparent;min-height:44px" role="tab" aria-selected="false" aria-controls="discover-online-view">● Online</button>
+        <button id="sub-tab-liked" onclick="switchDiscoverTab('liked')" style="flex:1;padding:12px;border:none;background:transparent;color:#6b6866;font-size:14px;font-weight:600;cursor:pointer;border-bottom:2px solid transparent;min-height:44px" role="tab" aria-selected="false" aria-controls="discover-liked-view">📋 Contacts</button>
       </div>
 
       <!-- ANDROID BETA TESTER BANNER -->
@@ -412,14 +455,14 @@
           <input id="online-search" type="search" placeholder="Search by name or city…" oninput="filterOnlineSearch(this.value)" style="width:100%;padding:11px 16px 11px 40px;background:#1c1c1c;border:1px solid #252525;border-radius:12px;color:#f0ede8;font-size:14px;outline:none;box-sizing:border-box;-webkit-appearance:none">
           <span style="position:absolute;left:13px;top:50%;transform:translateY(-50%);font-size:15px;pointer-events:none;color:#6b6866">🔍</span>
         </div>
-        <div style="display:flex;gap:8px;margin-bottom:16px;overflow-x:auto;scrollbar-width:none">
-          <button onclick="setOnlineSort('recent')" id="sort-recent" style="flex-shrink:0;padding:6px 14px;border-radius:20px;border:1px solid #e8503a;background:#3a1a14;color:#e8503a;font-size:13px;font-weight:600;cursor:pointer">Most Recent</button>
-          <button onclick="setOnlineSort('youngest')" id="sort-youngest" style="flex-shrink:0;padding:6px 14px;border-radius:20px;border:1px solid #252525;background:transparent;color:#6b6866;font-size:13px;cursor:pointer">Youngest</button>
-          <button onclick="setOnlineSort('oldest')" id="sort-oldest" style="flex-shrink:0;padding:6px 14px;border-radius:20px;border:1px solid #252525;background:transparent;color:#6b6866;font-size:13px;cursor:pointer">Oldest</button>
-          <button onclick="setOnlineSort('newest')" id="sort-newest" style="flex-shrink:0;padding:6px 14px;border-radius:20px;border:1px solid #252525;background:transparent;color:#6b6866;font-size:13px;cursor:pointer">Newest Profiles</button>
-          <button onclick="setOnlineSort('closest')" id="sort-closest" style="flex-shrink:0;padding:6px 14px;border-radius:20px;border:1px solid #252525;background:transparent;color:#6b6866;font-size:13px;cursor:pointer">Nearest</button>
-          <button onclick="setOnlineSort('today')" id="sort-today" style="flex-shrink:0;padding:6px 14px;border-radius:20px;border:1px solid #252525;background:transparent;color:#6b6866;font-size:13px;cursor:pointer">Active Today</button>
-          <button onclick="setOnlineSort('joined24h')" id="sort-joined24h" style="flex-shrink:0;padding:6px 14px;border-radius:20px;border:1px solid #252525;background:transparent;color:#6b6866;font-size:13px;cursor:pointer">Last 24h Joined</button>
+        <div class="sort-row" style="display:flex;gap:8px;margin-bottom:16px;overflow-x:auto;scrollbar-width:none" role="group" aria-label="Sort profiles by">
+          <button onclick="setOnlineSort('recent')" id="sort-recent" aria-label="Sort by most recently active" style="flex-shrink:0;padding:6px 14px;min-height:44px;border-radius:20px;border:1px solid #e8503a;background:#3a1a14;color:#e8503a;font-size:13px;font-weight:600;cursor:pointer">Most Recent</button>
+          <button onclick="setOnlineSort('youngest')" id="sort-youngest" aria-label="Sort by youngest first" style="flex-shrink:0;padding:6px 14px;min-height:44px;border-radius:20px;border:1px solid #252525;background:transparent;color:#6b6866;font-size:13px;cursor:pointer">Youngest</button>
+          <button onclick="setOnlineSort('oldest')" id="sort-oldest" aria-label="Sort by oldest first" style="flex-shrink:0;padding:6px 14px;min-height:44px;border-radius:20px;border:1px solid #252525;background:transparent;color:#6b6866;font-size:13px;cursor:pointer">Oldest</button>
+          <button onclick="setOnlineSort('newest')" id="sort-newest" aria-label="Show newest profiles" style="flex-shrink:0;padding:6px 14px;min-height:44px;border-radius:20px;border:1px solid #252525;background:transparent;color:#6b6866;font-size:13px;cursor:pointer">Newest Profiles</button>
+          <button onclick="setOnlineSort('closest')" id="sort-closest" aria-label="Sort by nearest location" style="flex-shrink:0;padding:6px 14px;min-height:44px;border-radius:20px;border:1px solid #252525;background:transparent;color:#6b6866;font-size:13px;cursor:pointer">Nearest</button>
+          <button onclick="setOnlineSort('today')" id="sort-today" aria-label="Show profiles active today" style="flex-shrink:0;padding:6px 14px;min-height:44px;border-radius:20px;border:1px solid #252525;background:transparent;color:#6b6866;font-size:13px;cursor:pointer">Active Today</button>
+          <button onclick="setOnlineSort('joined24h')" id="sort-joined24h" aria-label="Show profiles joined in last 24 hours" style="flex-shrink:0;padding:6px 14px;min-height:44px;border-radius:20px;border:1px solid #252525;background:transparent;color:#6b6866;font-size:13px;cursor:pointer">Last 24h Joined</button>
         </div>
         <div id="online-grid">
           <div style="grid-column:1/-1;text-align:center;padding:40px 0"><p style="color:#6b6866;font-size:14px">Loading...</p></div>
@@ -564,30 +607,30 @@
     </div>
 
     <!-- NAV -->
-    <div id="nav">
-      <button class="nav-btn active" id="nav-discover" onclick="switchTab2('discover')">
-        <span class="nav-icon">🔍</span>
+    <div id="nav" role="navigation" aria-label="Main navigation">
+      <button class="nav-btn active" id="nav-discover" onclick="switchTab2('discover')" aria-label="Discover" aria-current="page">
+        <span class="nav-icon" aria-hidden="true">🔍</span>
         <span class="nav-label">Discover</span>
       </button>
-      <button class="nav-btn" id="nav-messages" onclick="switchTab2('messages')" style="position:relative">
-        <span class="nav-icon">💬</span>
+      <button class="nav-btn" id="nav-messages" onclick="switchTab2('messages')" style="position:relative" aria-label="Messages">
+        <span class="nav-icon" aria-hidden="true">💬</span>
         <span class="nav-label">Messages</span>
-        <span id="messages-badge" style="display:none;position:absolute;top:4px;right:18px;background:#e8503a;color:#fff;font-size:10px;font-weight:700;border-radius:50%;width:16px;height:16px;align-items:center;justify-content:center;line-height:1"></span>
+        <span id="messages-badge" style="display:none;position:absolute;top:4px;right:18px;background:#e8503a;color:#fff;font-size:10px;font-weight:700;border-radius:50%;width:16px;height:16px;align-items:center;justify-content:center;line-height:1" aria-live="polite" aria-label="Unread messages"></span>
       </button>
-      <button class="nav-btn" id="nav-research" onclick="switchTab2('research');clearResearchBadge()" style="position:relative">
-        <span class="nav-icon">📖</span>
+      <button class="nav-btn" id="nav-research" onclick="switchTab2('research');clearResearchBadge()" style="position:relative" aria-label="Research">
+        <span class="nav-icon" aria-hidden="true">📖</span>
         <span class="nav-label">Research</span>
-        <span id="research-badge" style="display:none;position:absolute;top:4px;right:18px;background:#e8503a;color:#fff;font-size:10px;font-weight:700;border-radius:50%;width:16px;height:16px;align-items:center;justify-content:center;line-height:1"></span>
+        <span id="research-badge" style="display:none;position:absolute;top:4px;right:18px;background:#e8503a;color:#fff;font-size:10px;font-weight:700;border-radius:50%;width:16px;height:16px;align-items:center;justify-content:center;line-height:1" aria-live="polite"></span>
       </button>
-      <button class="nav-btn" id="nav-community" onclick="switchTab2('community');clearCommunityBadge()" style="position:relative">
-        <span class="nav-icon">👥</span>
+      <button class="nav-btn" id="nav-community" onclick="switchTab2('community');clearCommunityBadge()" style="position:relative" aria-label="Community">
+        <span class="nav-icon" aria-hidden="true">👥</span>
         <span class="nav-label">Community</span>
-        <span id="community-badge" style="display:none;position:absolute;top:4px;right:18px;background:#e8503a;color:#fff;font-size:10px;font-weight:700;border-radius:50%;width:16px;height:16px;align-items:center;justify-content:center;line-height:1"></span>
+        <span id="community-badge" style="display:none;position:absolute;top:4px;right:18px;background:#e8503a;color:#fff;font-size:10px;font-weight:700;border-radius:50%;width:16px;height:16px;align-items:center;justify-content:center;line-height:1" aria-live="polite"></span>
       </button>
-      <button class="nav-btn" id="nav-profile" onclick="switchTab2('profile')" style="position:relative">
-        <span class="nav-icon">👤</span>
+      <button class="nav-btn" id="nav-profile" onclick="switchTab2('profile')" style="position:relative" aria-label="Profile">
+        <span class="nav-icon" aria-hidden="true">👤</span>
         <span class="nav-label">Profile</span>
-        <span id="anon-q-badge" style="display:none;position:absolute;top:4px;right:18px;background:#e8503a;color:#fff;font-size:10px;font-weight:700;border-radius:50%;width:16px;height:16px;align-items:center;justify-content:center;line-height:1"></span>
+        <span id="anon-q-badge" style="display:none;position:absolute;top:4px;right:18px;background:#e8503a;color:#fff;font-size:10px;font-weight:700;border-radius:50%;width:16px;height:16px;align-items:center;justify-content:center;line-height:1" aria-live="polite"></span>
       </button>
     </div>
 
@@ -619,10 +662,10 @@
     </div>
 
     <!-- CHAT OVERLAY -->
-    <div id="chat" style="display:none">
+    <div id="chat" style="display:none" role="dialog" aria-label="Chat conversation">
       <div class="chat-header">
-        <button class="back-btn" onclick="closeChat()">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#9e9b97" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        <button class="back-btn" onclick="closeChat()" aria-label="Back to messages">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#9e9b97" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
         </button>
         <div class="avatar" id="chat-avatar" style="width:38px;height:38px;font-size:14px"></div>
         <div style="flex:1">
@@ -663,10 +706,10 @@
         </div>
       </div>
       <div class="chat-input-bar">
-        <input class="chat-input" id="chat-input" placeholder="Message..." />
-        <button onclick="toggleEmojiPicker()" style="background:transparent;border:none;font-size:22px;cursor:pointer;padding:0 4px;flex-shrink:0;display:flex;align-items:center;line-height:1" title="Emoji">😊</button>
-        <button class="send-btn" id="send-btn" onclick="sendMessage()">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        <input class="chat-input" id="chat-input" placeholder="Message..." aria-label="Type a message" />
+        <button onclick="toggleEmojiPicker()" style="background:transparent;border:none;font-size:22px;cursor:pointer;padding:0 4px;flex-shrink:0;display:flex;align-items:center;line-height:1;min-width:44px;min-height:44px;justify-content:center" title="Emoji" aria-label="Open emoji picker">😊</button>
+        <button class="send-btn" id="send-btn" onclick="sendMessage()" aria-label="Send message">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
         </button>
       </div>
     </div>
@@ -1240,7 +1283,7 @@ function avatarEl(name, size, idx, targetEl, photoUrl) {
     targetEl.style.background = 'none'
     targetEl.style.width = size + 'px'
     targetEl.style.height = size + 'px'
-    targetEl.innerHTML = `<img src="${safeImgSrc(photoUrl)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%" />`
+    targetEl.innerHTML = `<img src="${safeImgSrc(photoUrl)}" loading="lazy" alt="${escapeHtml(name || 'User')}" style="width:100%;height:100%;object-fit:cover;border-radius:50%" />`
   } else {
     targetEl.style.background = AVATAR_COLORS[idx % AVATAR_COLORS.length]
     targetEl.style.width = size + 'px'
@@ -2317,7 +2360,19 @@ function safeImgSrc(url) {
 
 async function loadCommunity() {
   const list = el('community-list')
-  list.innerHTML = '<div style="text-align:center;padding:40px 0"><p style="color:#6b6866;font-size:14px">Loading posts...</p></div>'
+  // Skeleton post cards while content loads
+  list.innerHTML = Array(3).fill(0).map(() => `
+    <div style="background:#1c1c1c;border-radius:16px;border:1px solid #252525;padding:16px;margin-bottom:14px">
+      <div style="display:flex;gap:10px;margin-bottom:12px;align-items:center">
+        <div class="skeleton" style="width:36px;height:36px;border-radius:50%;flex-shrink:0"></div>
+        <div style="flex:1;display:flex;flex-direction:column;gap:6px">
+          <div class="skeleton" style="height:13px;width:40%;border-radius:4px"></div>
+          <div class="skeleton" style="height:11px;width:25%;border-radius:4px"></div>
+        </div>
+      </div>
+      <div class="skeleton" style="height:14px;width:90%;margin-bottom:8px;border-radius:4px"></div>
+      <div class="skeleton" style="height:14px;width:75%;border-radius:4px"></div>
+    </div>`).join('')
 
   let query = sb
     .from('community_posts')
@@ -2331,7 +2386,13 @@ async function loadCommunity() {
   console.log('[loadCommunity] post order from Supabase:', posts?.map(p => ({ id: p.id, is_pinned: p.is_pinned, created_at: p.created_at })))
 
   if (error) {
-    list.innerHTML = '<div style="text-align:center;padding:40px 0"><p style="color:#6b6866;font-size:14px">Could not load posts.</p></div>'
+    list.innerHTML = `
+      <div style="text-align:center;padding:60px 20px">
+        <p style="font-size:28px;margin-bottom:12px">⚠️</p>
+        <p style="color:#f0ede8;font-size:15px;font-weight:600;margin-bottom:8px">Couldn't load posts</p>
+        <p style="color:#6b6866;font-size:14px;margin-bottom:20px">Check your connection and try again.</p>
+        <button class="btn-ghost" style="width:auto;padding:10px 24px" onclick="loadCommunity()">Try again</button>
+      </div>`
     return
   }
 
@@ -2403,8 +2464,8 @@ function renderPostCard(p, isTrending = false) {
     <div id="post-dot-${p.id}" style="display:none;position:absolute;top:14px;right:14px;width:8px;height:8px;border-radius:50%;background:#e8503a"></div>
     ${isTrending ? '<div style="position:absolute;top:12px;right:12px;background:#3a1f00;color:#ff8c42;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">&#x1F525; Trending</div>' : `<div id="post-pin-badge-${p.id}" style="position:absolute;top:12px;right:12px;font-size:14px;display:${pinned ? 'block' : 'none'};pointer-events:none">&#x1F4CC;</div>`}
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
-      <div onclick="showProfilePreview('${p.user_id}')" class="avatar" style="width:36px;height:36px;font-size:13px;flex-shrink:0;background:${avatarBg};cursor:pointer">
-        ${avatar ? `<img src="${safeImgSrc(avatar)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">` : name.charAt(0).toUpperCase()}
+      <div onclick="showProfilePreview('${p.user_id}')" class="avatar" style="width:36px;height:36px;font-size:13px;flex-shrink:0;background:${avatarBg};cursor:pointer" aria-label="View ${name}'s profile">
+        ${avatar ? `<img src="${safeImgSrc(avatar)}" loading="lazy" alt="${name}'s avatar" style="width:100%;height:100%;object-fit:cover;border-radius:50%">` : name.charAt(0).toUpperCase()}
       </div>
       <div style="flex:1">
         <p style="color:#f0ede8;font-size:14px;font-weight:600">${name} <span id="post-pinned-label-${p.id}" style="color:#f5c518;font-size:11px;font-weight:500;display:${pinned ? 'inline' : 'none'}">Pinned</span></p>
@@ -3360,10 +3421,25 @@ function switchTab2(tab) {
   const tabs = ['discover', 'messages', 'research', 'community', 'profile']
   tabs.forEach(t => {
     const content = el(t === 'discover' ? 'discover-content' : t + '-content')
-    if (content) content.style.display = t === tab ? '' : 'none'
+    const isActive = t === tab
+    if (content) {
+      content.style.display = isActive ? '' : 'none'
+      if (isActive) {
+        // Fade-in animation on the newly visible tab
+        content.classList.remove('tab-fade')
+        void content.offsetWidth // force reflow to restart animation
+        content.classList.add('tab-fade')
+        // Reset scroll so the tab always starts at the top
+        content.scrollTop = 0
+      }
+    }
     const navBtn = el('nav-' + t)
     if (navBtn) {
-      navBtn.classList.toggle('active', t === tab)
+      navBtn.classList.toggle('active', isActive)
+      // Update aria-current for accessibility
+      if (navBtn.getAttribute('aria-current') !== null) {
+        navBtn.setAttribute('aria-current', isActive ? 'page' : 'false')
+      }
     }
   })
   el('location-pill').style.display = tab === 'discover' ? '' : 'none'
@@ -3449,13 +3525,19 @@ function switchDiscoverTab(tab) {
   const tabs = ['swipe', 'online', 'liked']
   tabs.forEach(t => {
     const btn = el(`sub-tab-${t}`)
-    const view = el(`discover-${t === 'swipe' ? 'swipe' : t === 'online' ? 'online' : 'liked'}-view`)
+    const viewId = `discover-${t === 'swipe' ? 'swipe' : t === 'online' ? 'online' : 'liked'}-view`
+    const view = el(viewId)
     const isActive = t === tab
     if (btn) {
       btn.style.color = isActive ? '#e8503a' : '#6b6866'
       btn.style.borderBottom = isActive ? '2px solid #e8503a' : '2px solid transparent'
+      btn.setAttribute('aria-selected', isActive ? 'true' : 'false')
     }
-    if (view) view.style.display = isActive ? '' : 'none'
+    if (view) {
+      view.style.display = isActive ? '' : 'none'
+      // Reset scroll to top when switching to a new sub-tab
+      if (isActive) view.scrollTop = 0
+    }
   })
   if (tab === 'online') { loadOnlineNow(); loadMoments() }
   if (tab === 'liked') loadContacts()
@@ -3490,8 +3572,8 @@ function renderProfileGrid(profiles, containerId, emptyMsg) {
     return `
     <div onclick="showProfilePreview('${p.id}')" style="cursor:pointer;position:relative;aspect-ratio:1;background:#1c1c1c;overflow:hidden">
       ${photo
-        ? `<img src="${safeImgSrc(photo)}" style="width:100%;height:100%;object-fit:cover">`
-        : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:32px;color:#f0ede8;font-weight:700">${escapeHtml((p.display_name||'?')[0].toUpperCase())}</div>`}
+        ? `<img src="${safeImgSrc(photo)}" loading="lazy" alt="${escapeHtml(p.display_name || 'Member')}'s photo" style="width:100%;height:100%;object-fit:cover">`
+        : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:32px;color:#f0ede8;font-weight:700" role="img" aria-label="${escapeHtml(p.display_name || 'Member')} has no photo">${escapeHtml((p.display_name||'?')[0].toUpperCase())}</div>`}
       ${_dotColor ? `<span style="position:absolute;top:6px;right:6px;width:10px;height:10px;background:${_dotColor};border-radius:50%;border:2px solid #0a0a0a"></span>` : ''}
       <div style="position:absolute;bottom:0;left:0;right:0;background:linear-gradient(transparent,rgba(0,0,0,0.75));padding:16px 8px 6px">
         <p style="color:#fff;font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${firstName}</p>
@@ -3502,7 +3584,15 @@ function renderProfileGrid(profiles, containerId, emptyMsg) {
 
 async function loadOnlineNow() {
   const grid = el('online-grid')
-  grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:40px 0"><p style="color:#6b6866;font-size:14px">Loading...</p></div>`
+  // Skeleton cards while profiles load
+  grid.innerHTML = Array(3).fill(0).map(() => `
+    <div style="margin-bottom:8px">
+      <div class="skeleton" style="width:100%;height:260px;border-radius:0"></div>
+      <div style="padding:14px 20px;background:#141414;border-bottom:1px solid #1a1a1a">
+        <div class="skeleton" style="height:16px;width:50%;margin-bottom:8px;border-radius:4px"></div>
+        <div class="skeleton" style="height:12px;width:35%;border-radius:4px"></div>
+      </div>
+    </div>`).join('')
 
   // 'newest' and 'joined24h' must show ALL profiles — no gender/seeking filter applied
   const showAllProfiles = currentOnlineSort === 'newest' || currentOnlineSort === 'joined24h'
@@ -3534,7 +3624,19 @@ async function loadOnlineNow() {
     query = query.order('last_seen', { ascending: false, nullsFirst: false })
   }
 
-  const { data } = await query
+  const { data, error: onlineErr } = await query
+
+  // Show retry if the query failed
+  if (onlineErr) {
+    grid.innerHTML = `
+      <div style="grid-column:1/-1;text-align:center;padding:60px 20px">
+        <p style="font-size:28px;margin-bottom:12px">⚠️</p>
+        <p style="color:#f0ede8;font-size:15px;font-weight:600;margin-bottom:8px">Couldn't load profiles</p>
+        <p style="color:#6b6866;font-size:14px;margin-bottom:20px">Check your connection and try again.</p>
+        <button class="btn-ghost" style="width:auto;padding:10px 24px" onclick="loadOnlineNow()">Try again</button>
+      </div>`
+    return
+  }
 
   let filtered = (data || []).filter(p => {
     if (currentOnlineSort === 'recent') return p.last_seen != null
@@ -3584,27 +3686,30 @@ function renderOnlineFeed(profiles) {
       : { text: '◌ Active recently', color: '#9e9b97', bg: '#1c1c1c' }
     const photoCount = p.photo_urls?.length || 0
     const displayName = escapeHtml(p.display_name || 'Member')
-    const bio = escapeHtml(p.bio || '')
+    // Truncate long bios before escaping to avoid rendering thousands of chars in the feed DOM
+    const bioRaw = p.bio || ''
+    const bio = escapeHtml(bioRaw.length > 300 ? bioRaw.slice(0, 300) + '…' : bioRaw)
     const city = escapeHtml(p.city || '')
     const winkName = (p.display_name || '').split(' ')[0].replace(/\\/g, '\\\\').replace(/"/g, '&quot;').replace(/'/g, "\\'")
     return `
     <div onclick="showProfilePreview('${p.id}')">
       <div style="position:relative">
         ${photo
-          ? `<img src="${safeImgSrc(photo)}" style="width:100%;height:420px;object-fit:cover;display:block">`
-          : `<div style="width:100%;height:420px;background:#1c1c1c;display:flex;align-items:center;justify-content:center;font-size:80px;color:#f0ede8">${escapeHtml((p.display_name||'?')[0].toUpperCase())}</div>`
+          ? `<img src="${safeImgSrc(photo)}" loading="lazy" alt="${escapeHtml(p.display_name || 'Member')}'s photo" style="width:100%;height:420px;object-fit:cover;display:block">`
+          : `<div style="width:100%;height:420px;background:#1c1c1c;display:flex;align-items:center;justify-content:center;font-size:80px;color:#f0ede8" role="img" aria-label="${escapeHtml(p.display_name || 'Member')} has no photo">${escapeHtml((p.display_name||'?')[0].toUpperCase())}</div>`
         }
         <div style="position:absolute;top:12px;left:12px;display:flex;flex-direction:column;gap:4px;z-index:5">
           ${_actLabel ? `<div style="background:${_actLabel.bg};color:${_actLabel.color};font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px">${_actLabel.text}</div>` : ''}
           ${isNewMember(p) ? '<div style="background:#0d2838;color:#4fc3f7;font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px">✦ NEW</div>' : ''}
         </div>
         ${photoCount > 1 ? `<div style="position:absolute;top:12px;right:12px;background:rgba(0,0,0,0.6);border-radius:20px;padding:3px 10px;font-size:12px;color:#fff">📷 ${photoCount}</div>` : ''}
+        ${photoCount === 0 ? `<div style="position:absolute;top:12px;right:12px;background:rgba(0,0,0,0.5);border-radius:20px;padding:3px 10px;font-size:11px;color:#9e9b97">No photos</div>` : ''}
       </div>
       <div style="padding:16px 20px;border-bottom:1px solid #1a1a1a;cursor:pointer">
         <h3 style="color:#f0ede8;font-size:20px;font-weight:700;margin:0 0 4px;text-transform:uppercase">${displayName}${age ? ', ' + age : ''}${p.verified ? ' <span style="color:#3b9eff">✓</span>' : ''}</h3>
         ${p.city ? `<p style="color:#9e9b97;font-size:14px;margin:0 0 2px">${city}${dist ? ' · ' + dist : ''}</p>` : ''}
         ${p.hsv_type ? `<p style="color:#9e9b97;font-size:14px;margin:0 0 2px">${escapeHtml(p.hsv_type)}</p>` : ''}
-        ${p.bio ? `<p style="color:#9e9b97;font-size:14px;margin:8px 0 0;line-height:1.5;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden">${bio}</p>` : ''}
+        ${bio ? `<p style="color:#9e9b97;font-size:14px;margin:8px 0 0;line-height:1.5;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden">${bio}</p>` : ''}
       </div>
       <div style="display:flex;border-bottom:2px solid #111" onclick="event.stopPropagation()">
         <button style="flex:1;padding:14px;border:none;background:transparent;color:#f5c518;font-size:15px;cursor:pointer;border-right:1px solid #1a1a1a" onclick="sendWink('${p.id}','${winkName}',this)">😉 Wink</button>
@@ -4051,11 +4156,18 @@ async function loadContacts() {
     container.innerHTML = '<div style="text-align:center;padding:60px 20px"><p style="color:#6b6866;font-size:14px">Sign up to see who liked you.</p></div>'
     return
   }
-  container.innerHTML = '<div style="text-align:center;padding:40px 0"><p style="color:#6b6866;font-size:14px">Loading...</p></div>'
+  // Skeleton grid cards while data loads
+  container.innerHTML = `
+    <div style="padding:12px 16px 24px;display:grid;grid-template-columns:repeat(2,1fr);gap:12px">
+      ${Array(4).fill(0).map(() => `
+        <div style="border-radius:20px;overflow:hidden;aspect-ratio:1">
+          <div class="skeleton" style="width:100%;height:100%"></div>
+        </div>`).join('')}
+    </div>`
 
   const isPremium = !!(currentProfile?.is_premium || currentProfile?.is_admin)
 
-  const [{ data: views }, { data: likedMe }, { data: iLiked }, { data: matchRows }, { data: albumReqs }, { data: anonQs }] = await Promise.all([
+  const results = await Promise.all([
     sb.from('profile_views').select('viewer_id').eq('viewed_id', currentUser.id).order('created_at', { ascending: false }).limit(50),
     sb.from('swipes').select('swiper_id, direction').eq('swiped_id', currentUser.id).in('direction', ['like', 'super']).order('created_at', { ascending: false }).limit(50),
     sb.from('swipes').select('swiped_id').eq('swiper_id', currentUser.id).in('direction', ['like', 'super']).order('created_at', { ascending: false }).limit(50),
@@ -4063,6 +4175,21 @@ async function loadContacts() {
     sb.from('private_album_access').select('status').eq('owner_id', currentUser.id),
     sb.from('anonymous_questions').select('id, answer').eq('target_id', currentUser.id)
   ])
+
+  // If all queries failed (network error), show a retry state
+  const allFailed = results.every(r => r.error && !r.data)
+  if (allFailed) {
+    container.innerHTML = `
+      <div style="text-align:center;padding:60px 20px">
+        <p style="font-size:28px;margin-bottom:12px">⚠️</p>
+        <p style="color:#f0ede8;font-size:15px;font-weight:600;margin-bottom:8px">Couldn't load contacts</p>
+        <p style="color:#6b6866;font-size:14px;margin-bottom:20px">Check your connection and try again.</p>
+        <button class="btn-ghost" style="width:auto;padding:10px 24px" onclick="loadContacts()">Try again</button>
+      </div>`
+    return
+  }
+
+  const [{ data: views }, { data: likedMe }, { data: iLiked }, { data: matchRows }, { data: albumReqs }, { data: anonQs }] = results
 
   const viewerIds = [...new Set((views || []).map(v => v.viewer_id).filter(id => id !== currentUser.id))]
   const superLikedMeIds = [...new Set((likedMe || []).filter(l => l.direction === 'super' && l.swiper_id !== currentUser.id).map(l => l.swiper_id))]
@@ -4277,7 +4404,9 @@ async function openContactsSection(sectionKey) {
     const dist = (userLat && userLng && p.lat && p.lng) ? Math.round(haversineDistance(userLat, userLng, p.lat, p.lng)) + ' mi' : ''
     const photoCount = p.photo_urls?.length || 0
     const displayName = escapeHtml(p.display_name || 'Member')
-    const bio = escapeHtml(p.bio || '')
+    // Truncate long bios to avoid bloating the DOM
+    const bioRaw2 = p.bio || ''
+    const bio = escapeHtml(bioRaw2.length > 300 ? bioRaw2.slice(0, 300) + '…' : bioRaw2)
     const city = escapeHtml(p.city || '')
     const winkName = (p.display_name || '').split(' ')[0].replace(/\\/g, '\\\\').replace(/"/g, '&quot;').replace(/'/g, "\\'")
     const isSuper = sectionKey === 'liked-me' && superIds.has(p.id)
@@ -4291,8 +4420,8 @@ async function openContactsSection(sectionKey) {
     <div onclick="showProfilePreview('${p.id}')">
       <div style="position:relative">
         ${photo
-          ? `<img src="${safeImgSrc(photo)}" style="width:100%;height:420px;object-fit:cover;display:block">`
-          : `<div style="width:100%;height:420px;background:#1c1c1c;display:flex;align-items:center;justify-content:center;font-size:80px;color:#f0ede8">${escapeHtml((p.display_name||'?')[0].toUpperCase())}</div>`
+          ? `<img src="${safeImgSrc(photo)}" loading="lazy" alt="${escapeHtml(p.display_name || 'Member')}'s photo" style="width:100%;height:420px;object-fit:cover;display:block">`
+          : `<div style="width:100%;height:420px;background:#1c1c1c;display:flex;align-items:center;justify-content:center;font-size:80px;color:#f0ede8" role="img" aria-label="${escapeHtml(p.display_name || 'Member')} has no photo">${escapeHtml((p.display_name||'?')[0].toUpperCase())}</div>`
         }
         <div style="position:absolute;top:12px;left:12px;display:flex;flex-direction:column;gap:4px;z-index:5">
           ${isSuper ? '<div style="background:#3a2e0a;color:#f5c518;font-size:12px;font-weight:700;padding:4px 10px;border-radius:20px">⭐ Super Like</div>' : ''}
@@ -5091,15 +5220,18 @@ function renderCard() {
       </div>
       ${p.photo_urls?.length > 0
         ? `${isVideoUrl(p.photo_urls[0])
-            ? `<video class="card-photo" id="card-photo-img" src="${safeImgSrc(p.photo_urls[0])}" autoplay muted playsinline loop style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0;cursor:pointer" onclick="nextCardPhoto()"></video>`
-            : `<img class="card-photo" id="card-photo-img" src="${safeImgSrc(p.photo_urls[0])}" alt="" onclick="nextCardPhoto()" />`
+            ? `<video class="card-photo" id="card-photo-img" src="${safeImgSrc(p.photo_urls[0])}" autoplay muted playsinline loop style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0;cursor:pointer" onclick="nextCardPhoto()" aria-label="${escapeHtml(p.display_name || 'Member')}'s video"></video>`
+            : `<img class="card-photo" id="card-photo-img" src="${safeImgSrc(p.photo_urls[0])}" alt="${escapeHtml(p.display_name || 'Member')}'s photo" loading="eager" onclick="nextCardPhoto()" />`
           }
            ${p.photo_urls.length > 1 ? `
-           <div style="position:absolute;top:10px;left:0;right:0;display:flex;justify-content:center;gap:4px;z-index:5;padding:0 12px">
+           <div style="position:absolute;top:10px;left:0;right:0;display:flex;justify-content:center;gap:4px;z-index:5;padding:0 12px" role="tablist" aria-label="Photo ${1} of ${p.photo_urls.length}">
              ${p.photo_urls.map((_, i) => `<div class="photo-dot ${i === 0 ? 'active' : ''}" id="photo-dot-${i}" style="flex:1;height:3px;border-radius:2px;background:${i === 0 ? '#fff' : 'rgba(255,255,255,0.4)'}"></div>`).join('')}
            </div>` : ''}
           `
-        : `<div class="card-placeholder"><svg width="80" height="80" viewBox="0 0 24 24" fill="white" opacity="0.15"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4" fill="white"/></svg></div>`
+        : `<div class="card-placeholder" role="img" aria-label="${escapeHtml(p.display_name || 'Member')} has not added any photos yet">
+             <svg width="80" height="80" viewBox="0 0 24 24" fill="white" opacity="0.15" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4" fill="white"/></svg>
+             <p style="color:rgba(255,255,255,0.35);font-size:13px;margin-top:12px">No photos yet</p>
+           </div>`
       }
       <div class="card-overlay" onclick="if(discoverProfiles[discoverIdx])showProfilePreview(discoverProfiles[discoverIdx].id)" style="cursor:pointer">
         <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:8px">
@@ -5113,7 +5245,7 @@ function renderCard() {
             ${p.relationship_status ? `<span style="display:inline-block;background:rgba(255,255,255,0.18);color:#fff;font-size:12px;font-weight:600;padding:4px 10px;border-radius:20px;backdrop-filter:blur(4px)">${escapeHtml(p.relationship_status)}</span>` : ''}
           </div>
         </div>
-        ${p.bio ? `<p class="card-bio">${escapeHtml(p.bio)}</p>` : ''}
+        ${p.bio ? `<p class="card-bio">${escapeHtml(p.bio.length > 160 ? p.bio.slice(0, 160) + '…' : p.bio)}</p>` : ''}
       </div>
     </div>
     <div class="card-actions">
@@ -5584,12 +5716,32 @@ function dismissProfileNudge() {
 
 async function loadMatches() {
   const list = el('matches-list')
-  list.innerHTML = '<p style="color:#6b6866;font-size:14px;text-align:center;margin-top:40px">Loading...</p>'
+  // Skeleton loading cards while data fetches
+  list.innerHTML = Array(3).fill(0).map(() => `
+    <div style="display:flex;align-items:center;gap:14px;padding:14px 20px;border-bottom:1px solid #1a1a1a">
+      <div class="skeleton" style="width:50px;height:50px;border-radius:50%;flex-shrink:0"></div>
+      <div style="flex:1;display:flex;flex-direction:column;gap:8px">
+        <div class="skeleton" style="height:14px;width:55%;border-radius:4px"></div>
+        <div class="skeleton" style="height:12px;width:80%;border-radius:4px"></div>
+      </div>
+    </div>`).join('')
 
-  const { data } = await sb.from('matches')
+  const { data, error } = await sb.from('matches')
     .select('*, profiles_a:profiles!matches_user_a_fkey(*), profiles_b:profiles!matches_user_b_fkey(*)')
     .or(`user_a.eq.${currentUser.id},user_b.eq.${currentUser.id}`)
     .order('created_at', { ascending: false })
+
+  // Show retry button if the network request failed
+  if (error) {
+    list.innerHTML = `
+      <div class="empty-state" style="margin-top:40px">
+        <p class="empty-icon">⚠️</p>
+        <p class="empty-title">Couldn't load messages</p>
+        <p class="empty-sub">Check your connection and try again.</p>
+        <button class="btn-ghost" style="margin-top:16px;width:auto;padding:12px 28px" onclick="loadMatches()">Try again</button>
+      </div>`
+    return
+  }
 
   if (!data || data.length === 0) {
     const isNew = currentProfile?.created_at && (Date.now() - new Date(currentProfile.created_at).getTime()) < 7 * 24 * 60 * 60 * 1000
@@ -5658,7 +5810,7 @@ async function loadMatches() {
     row.innerHTML = `
       <div style="position:relative">
         ${photo
-          ? `<div style="width:50px;height:50px;border-radius:50%;overflow:hidden;flex-shrink:0"><img src="${safeImgSrc(photo)}" style="width:100%;height:100%;object-fit:cover"/></div>`
+          ? `<div style="width:50px;height:50px;border-radius:50%;overflow:hidden;flex-shrink:0"><img src="${safeImgSrc(photo)}" loading="lazy" alt="${escapeHtml(other?.display_name || 'User')}'s photo" style="width:100%;height:100%;object-fit:cover"/></div>`
           : `<div class="avatar" style="width:50px;height:50px;font-size:18px;background:${color}">${initial}</div>`
         }
         ${unread ? '<div style="position:absolute;top:0;right:0;width:12px;height:12px;border-radius:50%;background:#e8503a;border:2px solid #0a0a0a"></div>' : ''}
@@ -6630,8 +6782,18 @@ async function sendMessage() {
   const content = input.value.trim()
   if (!content || !activeMatch) return
   if (!(await checkMessageLimit())) return
+  const sendBtn = el('send-btn')
+  // Optimistic UI: clear input and disable button while sending
   input.value = ''
-  await sb.from('messages').insert({ match_id: activeMatch.id, sender_id: currentUser.id, content })
+  if (sendBtn) sendBtn.disabled = true
+  const { error: sendErr } = await sb.from('messages').insert({ match_id: activeMatch.id, sender_id: currentUser.id, content })
+  if (sendBtn) sendBtn.disabled = false
+  if (sendErr) {
+    // Restore the message so the user can retry
+    input.value = content
+    showToast('Message failed to send. Please try again.')
+    return
+  }
   checkConversationalistBadge()
   // Push from sender's device so delivery works even when recipient's app is closed
   const recipientId = activeMatch.user_a === currentUser.id ? activeMatch.user_b : activeMatch.user_a
@@ -8503,7 +8665,7 @@ async function loadFavoritesSection() {
     const color = AVATAR_COLORS[Math.abs((p.display_name || '?').charCodeAt(0)) % AVATAR_COLORS.length]
     return `<div onclick="showProfilePreview('${p.id}')" style="display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;flex-shrink:0">
       <div style="width:56px;height:56px;border-radius:14px;overflow:hidden;border:2px solid #f5c518;background:${color};display:flex;align-items:center;justify-content:center">
-        ${photo ? `<img src="${safeImgSrc(photo)}" style="width:100%;height:100%;object-fit:cover">` : `<span style="color:#fff;font-size:20px;font-weight:700">${name[0].toUpperCase()}</span>`}
+        ${photo ? `<img src="${safeImgSrc(photo)}" loading="lazy" alt="${name}" style="width:100%;height:100%;object-fit:cover">` : `<span style="color:#fff;font-size:20px;font-weight:700">${name[0].toUpperCase()}</span>`}
       </div>
       <p style="color:#9e9b97;font-size:11px;max-width:56px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center">${name.split(' ')[0]}</p>
     </div>`
