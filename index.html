@@ -3508,7 +3508,11 @@ async function loadOnlineNow() {
   const showAllProfiles = currentOnlineSort === 'newest' || currentOnlineSort === 'joined24h'
   const fetchLimit = showAllProfiles ? 200 : 60
 
-  let query = sb.from('profiles').select(PUBLIC_PROFILE_COLS).or('incognito.is.null,incognito.eq.false').or('visibility.is.null,visibility.eq.everyone').limit(fetchLimit)
+  // For newest/joined24h: skip visibility filter so new/incomplete profiles (which may not have
+  // visibility set to 'everyone' yet) still appear. Incognito filter always applies.
+  let query = sb.from('profiles').select(PUBLIC_PROFILE_COLS).or('incognito.is.null,incognito.eq.false')
+  if (!showAllProfiles) query = query.or('visibility.is.null,visibility.eq.everyone')
+  query = query.limit(fetchLimit)
   if (currentUser?.id) query = query.neq('id', currentUser.id)
 
   // Auto-filter by seeking preference — skipped for newest/joined24h to show ALL new profiles
@@ -5004,7 +5008,8 @@ async function loadDiscover() {
   secondLookChecked = false
   el('card-stack').innerHTML = '<div class="empty-state"><p style="color:#6b6866;font-size:14px">Loading profiles...</p></div>'
   const { data: swipes } = await sb.from('swipes').select('swiped_id').eq('swiper_id', currentUser.id)
-  const swipedIds = [...new Set((swipes || []).map(s => s.swiped_id))]
+  // Filter out nulls — a null in the IN list causes SQL NOT IN to return no rows for every profile
+  const swipedIds = [...new Set((swipes || []).map(s => s.swiped_id).filter(id => id != null))]
   swipedIds.push(currentUser.id)
 
   // Always fetch 200 so new members are never suppressed by a tiny batch limit
@@ -5012,25 +5017,30 @@ async function loadDiscover() {
   // Exclude already-swiped profiles (pass, like, super) and own profile
   if (swipedIds.length > 0) query = query.not('id', 'in', `(${swipedIds.join(',')})`)
   // Gender filter: explicit selection beats seeking preference
+  let activeGenderFilter = null
   if (filterGender !== 'all') {
     query = query.eq('gender', filterGender)
+    activeGenderFilter = filterGender
   } else if (currentProfile?.seeking && currentProfile.seeking !== 'Everyone') {
     const genderWanted = currentProfile.seeking === 'Women' ? 'Woman' : 'Man'
     query = query.eq('gender', genderWanted)
+    activeGenderFilter = genderWanted + ' (from seeking)'
   }
   // HSV type filter (only when explicitly selected — 'all' passes everything through)
   if (filterHsv !== 'all') query = query.eq('hsv_type', filterHsv)
 
-  const { data: rawProfiles } = await query
+  const { data: rawProfiles, error: rawError } = await query
 
   // Age and distance filtered client-side (profiles without birthdate pass through age check)
   const now = new Date()
+  let afterAge = 0
   let data = (rawProfiles || []).filter(p => {
     if (p.birthdate) {
       const age = Math.floor((now - new Date(p.birthdate)) / (365.25 * 24 * 3600 * 1000))
       if (age < filterAgeMin) return false
       if (filterAgeMax < 65 && age > filterAgeMax) return false
     }
+    afterAge++
     // Distance filter only applies when a limit is set and both locations are known
     if (filterDistance !== null && userLat && userLng && p.lat && p.lng) {
       const dist = haversineDistance(userLat, userLng, p.lat, p.lng)
@@ -5038,6 +5048,18 @@ async function loadDiscover() {
     }
     return true
   })
+
+  console.log('[Discover Debug]',
+    'swipedExcluded:', swipedIds.length - 1,
+    '| serverFetched:', rawProfiles?.length ?? 0,
+    '| genderFilter:', activeGenderFilter || 'none',
+    '| hsvFilter:', filterHsv !== 'all' ? filterHsv : 'none',
+    '| ageRange:', filterAgeMin + '-' + (filterAgeMax >= 65 ? '65+' : filterAgeMax),
+    '| afterAge:', afterAge,
+    '| distFilter:', filterDistance != null ? filterDistance + 'mi' : 'none',
+    '| finalDeck:', data.length,
+    '| queryError:', rawError?.message || 'none'
+  )
 
   // Boost new members (joined last 7 days) into the first 20% of the deck
   const newMembers = data.filter(p => isNewMember(p))
