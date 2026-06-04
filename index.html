@@ -1225,7 +1225,7 @@ function avatarEl(name, size, idx, targetEl, photoUrl) {
     targetEl.style.background = 'none'
     targetEl.style.width = size + 'px'
     targetEl.style.height = size + 'px'
-    targetEl.innerHTML = `<img src="${photoUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:50%" />`
+    targetEl.innerHTML = `<img src="${safeImgSrc(photoUrl)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%" />`
   } else {
     targetEl.style.background = AVATAR_COLORS[idx % AVATAR_COLORS.length]
     targetEl.style.width = size + 'px'
@@ -1565,7 +1565,7 @@ async function loadPrivateAlbumRequests() {
       const color = AVATAR_COLORS[(name.charCodeAt(0) || 0) % AVATAR_COLORS.length]
       html += `<div style="display:flex;align-items:center;gap:12px;padding:12px;background:#1c1c1c;border-radius:14px;border:1px solid #252525;margin-bottom:8px">
         <div onclick="showProfilePreview('${v.id}')" style="width:44px;height:44px;border-radius:50%;overflow:hidden;flex-shrink:0;background:${color};display:flex;align-items:center;justify-content:center;cursor:pointer">
-          ${photo ? `<img src="${photo}" style="width:100%;height:100%;object-fit:cover">` : `<span style="color:#fff;font-size:16px;font-weight:700">${escapeHtml(name[0].toUpperCase())}</span>`}
+          ${photo ? `<img src="${safeImgSrc(photo)}" style="width:100%;height:100%;object-fit:cover">` : `<span style="color:#fff;font-size:16px;font-weight:700">${escapeHtml(name[0].toUpperCase())}</span>`}
         </div>
         <p style="color:#f0ede8;font-size:14px;flex:1">${escapeHtml(name)}</p>
         <div style="display:flex;gap:6px">
@@ -1585,7 +1585,7 @@ async function loadPrivateAlbumRequests() {
       const color = AVATAR_COLORS[(name.charCodeAt(0) || 0) % AVATAR_COLORS.length]
       html += `<div style="display:flex;align-items:center;gap:12px;padding:12px;background:#1c1c1c;border-radius:14px;border:1px solid #252525;margin-bottom:8px">
         <div onclick="showProfilePreview('${v.id}')" style="width:44px;height:44px;border-radius:50%;overflow:hidden;flex-shrink:0;background:${color};display:flex;align-items:center;justify-content:center;cursor:pointer">
-          ${photo ? `<img src="${photo}" style="width:100%;height:100%;object-fit:cover">` : `<span style="color:#fff;font-size:16px;font-weight:700">${escapeHtml(name[0].toUpperCase())}</span>`}
+          ${photo ? `<img src="${safeImgSrc(photo)}" style="width:100%;height:100%;object-fit:cover">` : `<span style="color:#fff;font-size:16px;font-weight:700">${escapeHtml(name[0].toUpperCase())}</span>`}
         </div>
         <p style="color:#f0ede8;font-size:14px;flex:1">${escapeHtml(name)} <span style="color:#27ae60;font-size:12px">✓ Access</span></p>
         <button onclick="revokePrivateAlbumAccess('${v.id}')" style="padding:8px 14px;border-radius:20px;border:1px solid #3a1a14;background:transparent;color:#e8503a;font-size:13px;cursor:pointer">Revoke</button>
@@ -2293,6 +2293,12 @@ const COMMUNITY_RULES = [
 function escapeHtml(str) {
   return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;')
 }
+// Safe img src: rejects non-https URLs (blocks javascript:/data: injection)
+// and HTML-encodes the URL to prevent attribute breakout via " or < characters
+function safeImgSrc(url) {
+  if (!url || typeof url !== 'string' || !url.startsWith('https://')) return ''
+  return escapeHtml(url)
+}
 
 async function loadCommunity() {
   const list = el('community-list')
@@ -2383,7 +2389,7 @@ function renderPostCard(p, isTrending = false) {
     ${isTrending ? '<div style="position:absolute;top:12px;right:12px;background:#3a1f00;color:#ff8c42;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">&#x1F525; Trending</div>' : `<div id="post-pin-badge-${p.id}" style="position:absolute;top:12px;right:12px;font-size:14px;display:${pinned ? 'block' : 'none'};pointer-events:none">&#x1F4CC;</div>`}
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
       <div onclick="showProfilePreview('${p.user_id}')" class="avatar" style="width:36px;height:36px;font-size:13px;flex-shrink:0;background:${avatarBg};cursor:pointer">
-        ${avatar ? `<img src="${avatar}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">` : name.charAt(0).toUpperCase()}
+        ${avatar ? `<img src="${safeImgSrc(avatar)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">` : name.charAt(0).toUpperCase()}
       </div>
       <div style="flex:1">
         <p style="color:#f0ede8;font-size:14px;font-weight:600">${name} <span id="post-pinned-label-${p.id}" style="color:#f5c518;font-size:11px;font-weight:500;display:${pinned ? 'inline' : 'none'}">Pinned</span></p>
@@ -2498,7 +2504,7 @@ async function loadCommunityNotifs() {
       row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #1e1e1e'
       row.innerHTML = `
         <div style="width:36px;height:36px;border-radius:50%;overflow:hidden;flex-shrink:0;background:${color};display:flex;align-items:center;justify-content:center">
-          ${photo ? `<img src="${photo}" style="width:100%;height:100%;object-fit:cover">` : `<span style="color:#fff;font-size:13px;font-weight:700">${name[0].toUpperCase()}</span>`}
+          ${photo ? `<img src="${safeImgSrc(photo)}" style="width:100%;height:100%;object-fit:cover">` : `<span style="color:#fff;font-size:13px;font-weight:700">${name[0].toUpperCase()}</span>`}
         </div>
         <p style="color:#f0ede8;font-size:13px;line-height:1.4;flex:1">${text}</p>
         <span style="color:#6b6866;font-size:11px;flex-shrink:0">${ago}</span>`
@@ -2809,7 +2815,7 @@ async function showPostLikers(postId) {
     row.style.cssText = 'display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid #1a1a1a'
     row.innerHTML = `
       <div style="width:44px;height:44px;border-radius:50%;overflow:hidden;flex-shrink:0;background:${color};display:flex;align-items:center;justify-content:center">
-        ${photo ? `<img src="${photo}" style="width:100%;height:100%;object-fit:cover">` : `<span style="color:#fff;font-size:16px;font-weight:700">${escapeHtml(name[0].toUpperCase())}</span>`}
+        ${photo ? `<img src="${safeImgSrc(photo)}" style="width:100%;height:100%;object-fit:cover">` : `<span style="color:#fff;font-size:16px;font-weight:700">${escapeHtml(name[0].toUpperCase())}</span>`}
       </div>
       <span style="color:#f0ede8;font-size:14px;font-weight:500;flex:1">${escapeHtml(name)}</span>
       <button onclick="showProfilePreview('${l.user_id}')" style="padding:8px 14px;border-radius:20px;border:1px solid #252525;background:transparent;color:#9e9b97;font-size:12px;cursor:pointer;flex-shrink:0">View</button>`
@@ -2879,7 +2885,7 @@ async function openPostThread(postId) {
     <div id="thread-post-card-${post.id}" style="background:#1c1c1c;border-radius:16px;border:1px solid ${_threadPinned ? '#2e2a0a' : '#252525'};padding:16px;margin-bottom:20px">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
         <div class="avatar" style="width:36px;height:36px;font-size:13px;flex-shrink:0;background:${avatar ? 'none' : AVATAR_COLORS[Math.abs(name.charCodeAt(0)) % AVATAR_COLORS.length]}">
-          ${avatar ? `<img src="${avatar}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">` : name.charAt(0).toUpperCase()}
+          ${avatar ? `<img src="${safeImgSrc(avatar)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">` : name.charAt(0).toUpperCase()}
         </div>
         <div style="flex:1">
           <p style="color:#f0ede8;font-size:14px;font-weight:600">${name} <span id="thread-pinned-label-${post.id}" style="color:#f5c518;font-size:11px;font-weight:500;display:${_threadPinned ? 'inline' : 'none'}">Pinned</span></p>
@@ -3275,11 +3281,13 @@ async function sendPush(userId, title, body, tag, matchId) {
       const { data: prefs } = await sb.from('profiles').select('notifications_enabled,' + prefKey).eq('id', userId).maybeSingle()
       if (prefs && (prefs.notifications_enabled === false || prefs[prefKey] === false)) return
     }
+    const { data: { session: _pushSession } } = await sb.auth.getSession()
+    if (!_pushSession?.access_token) return
     await fetch('https://ocwgwfnrstzrapsblkxm.supabase.co/functions/v1/send-push', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9jd2d3Zm5yc3R6cmFwc2Jsa3htIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY1NjAxNzksImV4cCI6MjA5MjEzNjE3OX0.Tr_l0wJjUDHdklj1AG9MW9FIlNC3lNgGbklpzz4AAfo'
+        'Authorization': `Bearer ${_pushSession.access_token}`
       },
       body: JSON.stringify({ user_id: userId, title, body, tag, match_id: matchId || null })
     })
@@ -3467,8 +3475,8 @@ function renderProfileGrid(profiles, containerId, emptyMsg) {
     return `
     <div onclick="showProfilePreview('${p.id}')" style="cursor:pointer;position:relative;aspect-ratio:1;background:#1c1c1c;overflow:hidden">
       ${photo
-        ? `<img src="${photo}" style="width:100%;height:100%;object-fit:cover">`
-        : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:32px;color:#f0ede8;font-weight:700">${(p.display_name||'?')[0].toUpperCase()}</div>`}
+        ? `<img src="${safeImgSrc(photo)}" style="width:100%;height:100%;object-fit:cover">`
+        : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:32px;color:#f0ede8;font-weight:700">${escapeHtml((p.display_name||'?')[0].toUpperCase())}</div>`}
       ${_dotColor ? `<span style="position:absolute;top:6px;right:6px;width:10px;height:10px;background:${_dotColor};border-radius:50%;border:2px solid #0a0a0a"></span>` : ''}
       <div style="position:absolute;bottom:0;left:0;right:0;background:linear-gradient(transparent,rgba(0,0,0,0.75));padding:16px 8px 6px">
         <p style="color:#fff;font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${firstName}</p>
@@ -3563,8 +3571,8 @@ function renderOnlineFeed(profiles) {
     <div onclick="showProfilePreview('${p.id}')">
       <div style="position:relative">
         ${photo
-          ? `<img src="${photo}" style="width:100%;height:420px;object-fit:cover;display:block">`
-          : `<div style="width:100%;height:420px;background:#1c1c1c;display:flex;align-items:center;justify-content:center;font-size:80px;color:#f0ede8">${(p.display_name||'?')[0].toUpperCase()}</div>`
+          ? `<img src="${safeImgSrc(photo)}" style="width:100%;height:420px;object-fit:cover;display:block">`
+          : `<div style="width:100%;height:420px;background:#1c1c1c;display:flex;align-items:center;justify-content:center;font-size:80px;color:#f0ede8">${escapeHtml((p.display_name||'?')[0].toUpperCase())}</div>`
         }
         <div style="position:absolute;top:12px;left:12px;display:flex;flex-direction:column;gap:4px;z-index:5">
           ${_actLabel ? `<div style="background:${_actLabel.bg};color:${_actLabel.color};font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px">${_actLabel.text}</div>` : ''}
@@ -4259,8 +4267,8 @@ async function openContactsSection(sectionKey) {
     <div onclick="showProfilePreview('${p.id}')">
       <div style="position:relative">
         ${photo
-          ? `<img src="${photo}" style="width:100%;height:420px;object-fit:cover;display:block">`
-          : `<div style="width:100%;height:420px;background:#1c1c1c;display:flex;align-items:center;justify-content:center;font-size:80px;color:#f0ede8">${(p.display_name||'?')[0].toUpperCase()}</div>`
+          ? `<img src="${safeImgSrc(photo)}" style="width:100%;height:420px;object-fit:cover;display:block">`
+          : `<div style="width:100%;height:420px;background:#1c1c1c;display:flex;align-items:center;justify-content:center;font-size:80px;color:#f0ede8">${escapeHtml((p.display_name||'?')[0].toUpperCase())}</div>`
         }
         <div style="position:absolute;top:12px;left:12px;display:flex;flex-direction:column;gap:4px;z-index:5">
           ${isSuper ? '<div style="background:#3a2e0a;color:#f5c518;font-size:12px;font-weight:700;padding:4px 10px;border-radius:20px">⭐ Super Like</div>' : ''}
@@ -4609,8 +4617,8 @@ function buildPreviewCarouselHtml(photos, captions) {
   if (!photos.length) return ''
   const first = photos[0]
   const mediaHtml = isVideoUrl(first)
-    ? `<video id="preview-media" src="${first}" style="width:100%;height:420px;object-fit:cover" autoplay muted playsinline loop></video>`
-    : `<img id="preview-media" src="${first}" style="width:100%;height:420px;object-fit:cover;display:block">`
+    ? `<video id="preview-media" src="${safeImgSrc(first)}" style="width:100%;height:420px;object-fit:cover" autoplay muted playsinline loop></video>`
+    : `<img id="preview-media" src="${safeImgSrc(first)}" style="width:100%;height:420px;object-fit:cover;display:block">`
   const dotsHtml = photos.length > 1 ? `
     <div style="position:absolute;bottom:12px;left:0;right:0;display:flex;justify-content:center;gap:6px;z-index:5">
       ${photos.map((_, i) => `<div id="prev-dot-${i}" onclick="previewCarouselGoTo(${i})" style="width:${i===0?'18':'6'}px;height:6px;border-radius:3px;background:${i===0?'#fff':'rgba(255,255,255,0.4)'};transition:all 0.2s;cursor:pointer;padding:6px 0;box-sizing:content-box"></div>`).join('')}
@@ -5041,8 +5049,8 @@ function renderCard() {
       </div>
       ${p.photo_urls?.length > 0
         ? `${isVideoUrl(p.photo_urls[0])
-            ? `<video class="card-photo" id="card-photo-img" src="${p.photo_urls[0]}" autoplay muted playsinline loop style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0;cursor:pointer" onclick="nextCardPhoto()"></video>`
-            : `<img class="card-photo" id="card-photo-img" src="${p.photo_urls[0]}" alt="" onclick="nextCardPhoto()" />`
+            ? `<video class="card-photo" id="card-photo-img" src="${safeImgSrc(p.photo_urls[0])}" autoplay muted playsinline loop style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0;cursor:pointer" onclick="nextCardPhoto()"></video>`
+            : `<img class="card-photo" id="card-photo-img" src="${safeImgSrc(p.photo_urls[0])}" alt="" onclick="nextCardPhoto()" />`
           }
            ${p.photo_urls.length > 1 ? `
            <div style="position:absolute;top:10px;left:0;right:0;display:flex;justify-content:center;gap:4px;z-index:5;padding:0 12px">
@@ -5453,7 +5461,7 @@ function showMatchModal(profile) {
   if (ringMe) {
     const myPhoto = currentProfile?.photo_urls?.[0]
     if (myPhoto) {
-      ringMe.innerHTML = `<img src="${myPhoto}" style="width:100%;height:100%;object-fit:cover" />`
+      ringMe.innerHTML = `<img src="${safeImgSrc(myPhoto)}" style="width:100%;height:100%;object-fit:cover" />`
     } else {
       const myName = currentProfile?.display_name || '?'
       ringMe.style.background = cols[myName.charCodeAt(0) % cols.length]
@@ -5463,7 +5471,7 @@ function showMatchModal(profile) {
   const ringThem = el('match-photo-ring-them')
   if (ringThem) {
     if (profile.photo_urls?.[0]) {
-      ringThem.innerHTML = `<img src="${profile.photo_urls[0]}" style="width:100%;height:100%;object-fit:cover" />`
+      ringThem.innerHTML = `<img src="${safeImgSrc(profile.photo_urls[0])}" style="width:100%;height:100%;object-fit:cover" />`
     } else {
       ringThem.style.background = cols[(profile.display_name || '?').charCodeAt(0) % cols.length]
       ringThem.innerHTML = `<span style="color:#fff;font-size:36px;font-weight:700;line-height:1">${escapeHtml((profile.display_name || '?')[0].toUpperCase())}</span>`
@@ -5608,7 +5616,7 @@ async function loadMatches() {
     row.innerHTML = `
       <div style="position:relative">
         ${photo
-          ? `<div style="width:50px;height:50px;border-radius:50%;overflow:hidden;flex-shrink:0"><img src="${photo}" style="width:100%;height:100%;object-fit:cover"/></div>`
+          ? `<div style="width:50px;height:50px;border-radius:50%;overflow:hidden;flex-shrink:0"><img src="${safeImgSrc(photo)}" style="width:100%;height:100%;object-fit:cover"/></div>`
           : `<div class="avatar" style="width:50px;height:50px;font-size:18px;background:${color}">${initial}</div>`
         }
         ${unread ? '<div style="position:absolute;top:0;right:0;width:12px;height:12px;border-radius:50%;background:#e8503a;border:2px solid #0a0a0a"></div>' : ''}
@@ -6813,8 +6821,8 @@ function renderPhotoGrid() {
     cell.style.cssText = 'position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;background:#1c1c1c'
     cell.innerHTML = `
       ${isVideoUrl(url)
-        ? `<video src="${url}" style="width:100%;height:100%;object-fit:cover" muted playsinline preload="metadata"></video><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none"><span style="font-size:24px;opacity:0.85">▶️</span></div>`
-        : `<img src="${url}" style="width:100%;height:100%;object-fit:cover" />`
+        ? `<video src="${safeImgSrc(url)}" style="width:100%;height:100%;object-fit:cover" muted playsinline preload="metadata"></video><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none"><span style="font-size:24px;opacity:0.85">▶️</span></div>`
+        : `<img src="${safeImgSrc(url)}" style="width:100%;height:100%;object-fit:cover" />`
       }
       <button onclick="deletePhoto(${i})" style="position:absolute;top:4px;right:4px;width:22px;height:22px;border-radius:50%;background:rgba(0,0,0,0.7);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;line-height:1">×</button>
       ${i === 0 ? '<div style="position:absolute;bottom:4px;left:4px;background:rgba(0,0,0,0.6);border-radius:6px;padding:2px 6px;font-size:10px;color:#fff">Main</div>' : ''}
@@ -8113,7 +8121,7 @@ async function loadBlockedMembers() {
     return `
     <div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid #252525">
       <div class="avatar" style="width:40px;height:40px;font-size:14px;background:${color};flex-shrink:0">
-        ${photo ? `<img src="${photo}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">` : name.charAt(0).toUpperCase()}
+        ${photo ? `<img src="${safeImgSrc(photo)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">` : name.charAt(0).toUpperCase()}
       </div>
       <span style="flex:1;color:#f0ede8;font-size:14px">${name}</span>
       <button onclick="unblockMember('${b.blocked_id}')" style="padding:8px 16px;border-radius:20px;border:1px solid #252525;background:transparent;color:#9e9b97;font-size:13px;cursor:pointer">Unblock</button>
@@ -8453,7 +8461,7 @@ async function loadFavoritesSection() {
     const color = AVATAR_COLORS[Math.abs((p.display_name || '?').charCodeAt(0)) % AVATAR_COLORS.length]
     return `<div onclick="showProfilePreview('${p.id}')" style="display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;flex-shrink:0">
       <div style="width:56px;height:56px;border-radius:14px;overflow:hidden;border:2px solid #f5c518;background:${color};display:flex;align-items:center;justify-content:center">
-        ${photo ? `<img src="${photo}" style="width:100%;height:100%;object-fit:cover">` : `<span style="color:#fff;font-size:20px;font-weight:700">${name[0].toUpperCase()}</span>`}
+        ${photo ? `<img src="${safeImgSrc(photo)}" style="width:100%;height:100%;object-fit:cover">` : `<span style="color:#fff;font-size:20px;font-weight:700">${name[0].toUpperCase()}</span>`}
       </div>
       <p style="color:#9e9b97;font-size:11px;max-width:56px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center">${name.split(' ')[0]}</p>
     </div>`
