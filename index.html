@@ -672,6 +672,7 @@
           <p style="font-weight:600;font-size:15px" id="chat-name"></p>
           <p style="color:#6b6866;font-size:12px" id="chat-city"></p>
         </div>
+        <button id="date-ideas-btn" onclick="showDateIdeasModal()" style="border:none;background:transparent;cursor:pointer;padding:4px 6px;display:flex;align-items:center;font-size:16px;min-width:44px;min-height:44px;justify-content:center" title="Date ideas" aria-label="Date ideas">💡</button>
         <button id="chat-pin-btn" onclick="togglePinActiveChat()" style="border:none;background:transparent;cursor:pointer;padding:4px;display:flex;align-items:center;margin-left:auto;font-size:18px;opacity:0.4" title="Pin conversation">📌</button>
         <button onclick="deleteActiveConversation()" style="border:none;background:transparent;cursor:pointer;padding:4px;display:flex;align-items:center" title="Delete conversation">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#e8503a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
@@ -4572,6 +4573,14 @@ async function showProfilePreview(userId) {
           ${activityLabel ? `<span style="background:${activityLabel.bg};color:${activityLabel.color};font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">${activityLabel.text}</span>` : ''}
           ${isMatched ? `<span style="background:#3a1a14;color:#e8503a;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">✓ Matched${match.created_at ? ` • ${new Date(match.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}` : ''}</span>` : ''}
           ${isNewMember(p) ? `<span style="background:#0d2838;color:#4fc3f7;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">✦ NEW</span>` : ''}
+          ${(() => {
+            if (userId === currentUser?.id || !currentProfile) return ''
+            const score = calcCompatibility(currentProfile, p)
+            if (score === null || score < 30) return ''
+            const bg = score >= 80 ? '#0d2e1a' : score >= 60 ? '#2e2a0a' : '#1c1c1c'
+            const color = score >= 80 ? '#2ecc71' : score >= 60 ? '#f5c518' : '#9e9b97'
+            return `<span style="background:${bg};color:${color};font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;cursor:pointer" title="Compatibility score based on shared values and preferences">❤️ ${score}% match</span>`
+          })()}
         </div>
         ${p.badges?.length ? `<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px">${p.badges.map(b => `<span style="background:#1c1c1c;border:1px solid #252525;border-radius:20px;padding:3px 10px;font-size:12px;color:#f0ede8">${escapeHtml(b)}</span>`).join('')}</div>` : ''}
         ${p.city ? `<p style="color:#6b6866;font-size:14px;margin-bottom:6px">📍 ${eH(p.city)}</p>` : ''}
@@ -6808,6 +6817,170 @@ async function sendMessage() {
 
 // ── PROFILE ───────────────────────────────────────
 
+// ── DATE IDEAS ────────────────────────────────────
+
+const DATE_IDEAS = [
+  // Casual
+  { cat: 'Casual ☕',       text: 'Try a new coffee shop together and order something you\'ve never had' },
+  { cat: 'Casual ☕',       text: 'Walk through a farmers market and pick out ingredients for dinner' },
+  { cat: 'Casual ☕',       text: 'Take a walk in a local park and trade your favorite songs' },
+  { cat: 'Casual ☕',       text: 'Explore a new neighborhood on foot — no destination, just wander' },
+  { cat: 'Casual ☕',       text: 'Grab ice cream and sit somewhere with a great view' },
+  { cat: 'Casual ☕',       text: 'Visit a bookstore and pick out a book for each other, then read a chapter aloud' },
+  // Romantic
+  { cat: 'Romantic 🌹',     text: 'Cook a meal together over video call with the same recipe' },
+  { cat: 'Romantic 🌹',     text: 'Watch the sunset at a scenic spot and talk about your biggest dreams' },
+  { cat: 'Romantic 🌹',     text: 'Have a candlelit dinner at home with a recipe you\'ve never tried' },
+  { cat: 'Romantic 🌹',     text: 'Write each other a handwritten letter and read them aloud together' },
+  { cat: 'Romantic 🌹',     text: 'Slow dance in the kitchen to a playlist you made just for them' },
+  { cat: 'Romantic 🌹',     text: 'Take a scenic drive, stop wherever feels right, and get food from a random diner' },
+  { cat: 'Romantic 🌹',     text: 'Star-gaze somewhere dark and share your childhood dreams' },
+  // Adventurous
+  { cat: 'Adventurous 🏕️', text: 'Take a day trip to a nearby town neither of you has been to' },
+  { cat: 'Adventurous 🏕️', text: 'Go kayaking or paddleboarding at a local lake or river' },
+  { cat: 'Adventurous 🏕️', text: 'Do an escape room challenge and see how well you work as a team' },
+  { cat: 'Adventurous 🏕️', text: 'Rent bikes and explore a trail or greenway neither of you has done' },
+  { cat: 'Adventurous 🏕️', text: 'Go to a farmers market at sunrise, then make brunch from whatever you find' },
+  { cat: 'Adventurous 🏕️', text: 'Try an outdoor workout class together — yoga in the park, bootcamp, or salsa dancing' },
+  { cat: 'Adventurous 🏕️', text: 'Drive to the nearest state park and do a short hike with a picnic at the top' },
+  // Creative
+  { cat: 'Creative 🎨',     text: 'Go to a paint and sip class and compare your masterpieces' },
+  { cat: 'Creative 🎨',     text: 'Visit an art museum and each pick a favorite painting to explain to the other' },
+  { cat: 'Creative 🎨',     text: 'Build something together from a DIY kit — candles, pottery, macramé, or terracotta' },
+  { cat: 'Creative 🎨',     text: 'Create a collaborative playlist, share each song\'s meaning, and slow-dance to it' },
+  { cat: 'Creative 🎨',     text: 'Take a pottery or ceramics class and make something for each other' },
+  { cat: 'Creative 🎨',     text: 'Attend a live open-mic night or small-venue music show together' },
+  // At-home
+  { cat: 'At home 🛋️',     text: 'Have a movie marathon of each other\'s all-time favorite films' },
+  { cat: 'At home 🛋️',     text: 'Do a blind taste-test challenge — cuisines, hot sauces, chocolates, or teas' },
+  { cat: 'At home 🛋️',     text: 'Build a blanket fort and watch movies inside with popcorn you made together' },
+  { cat: 'At home 🛋️',     text: 'Play a board game or card game tournament (winner picks the next date)' },
+  { cat: 'At home 🛋️',     text: 'Try a new recipe from a cuisine neither of you has cooked before' },
+  // Thoughtful
+  { cat: 'Thoughtful 💜',   text: 'Volunteer together for a local cause you both care about' },
+  { cat: 'Thoughtful 💜',   text: 'Plan a "future date" — research a city or country you\'d both love to visit someday' },
+  { cat: 'Thoughtful 💜',   text: 'Take a meditation or breathwork class together, then talk about how it felt' },
+  { cat: 'Thoughtful 💜',   text: 'Write each other 10 things you appreciate about them, then swap lists' },
+]
+
+let _lastDateIdeaIdx = -1
+
+function showDateIdeasModal() {
+  document.getElementById('date-ideas-modal')?.remove()
+
+  // Pick a random idea different from the last one shown
+  let idx
+  do { idx = Math.floor(Math.random() * DATE_IDEAS.length) } while (idx === _lastDateIdeaIdx && DATE_IDEAS.length > 1)
+  _lastDateIdeaIdx = idx
+  const idea = DATE_IDEAS[idx]
+
+  const overlay = document.createElement('div')
+  overlay.id = 'date-ideas-modal'
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:10020;display:flex;align-items:flex-end;justify-content:center'
+  overlay.onclick = e => { if (e.target === overlay) overlay.remove() }
+
+  overlay.innerHTML = `
+    <div style="background:#141414;border-radius:24px 24px 0 0;width:100%;max-width:480px;padding:28px 24px 40px;border-top:1px solid #252525">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+        <p style="color:#f0ede8;font-size:17px;font-weight:700">Date ideas 💡</p>
+        <button onclick="document.getElementById('date-ideas-modal')?.remove()" style="background:rgba(255,255,255,0.08);border:none;border-radius:50%;width:36px;height:36px;color:#f0ede8;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center">×</button>
+      </div>
+      <div id="date-idea-card" style="background:#1c1c1c;border:1px solid #252525;border-radius:18px;padding:24px 20px;margin-bottom:20px;text-align:center">
+        <p id="date-idea-cat" style="color:#e8503a;font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:14px">${escapeHtml(idea.cat)}</p>
+        <p id="date-idea-text" style="color:#f0ede8;font-size:17px;font-weight:500;line-height:1.55">${escapeHtml(idea.text)}</p>
+      </div>
+      <p style="color:#6b6866;font-size:13px;text-align:center;margin-bottom:20px">Tap for another idea</p>
+      <button onclick="refreshDateIdea()" style="width:100%;padding:15px;border-radius:14px;border:none;background:#e8503a;color:#fff;font-size:15px;font-weight:600;cursor:pointer">✨ Another idea</button>
+      <button onclick="shareDateIdea()" style="width:100%;padding:14px;border-radius:14px;border:1px solid #252525;background:transparent;color:#9e9b97;font-size:14px;cursor:pointer;margin-top:10px">Share this idea 💬</button>
+    </div>`
+
+  document.body.appendChild(overlay)
+}
+
+function refreshDateIdea() {
+  let idx
+  do { idx = Math.floor(Math.random() * DATE_IDEAS.length) } while (idx === _lastDateIdeaIdx && DATE_IDEAS.length > 1)
+  _lastDateIdeaIdx = idx
+  const idea = DATE_IDEAS[idx]
+  const catEl = document.getElementById('date-idea-cat')
+  const textEl = document.getElementById('date-idea-text')
+  if (catEl) catEl.textContent = idea.cat
+  if (textEl) {
+    // Quick fade-swap animation
+    textEl.style.opacity = '0'
+    textEl.style.transition = 'opacity 0.18s'
+    setTimeout(() => {
+      textEl.textContent = idea.text
+      textEl.style.opacity = '1'
+    }, 180)
+  }
+}
+
+function shareDateIdea() {
+  const idea = DATE_IDEAS[_lastDateIdeaIdx] || DATE_IDEAS[0]
+  const text = `Date idea from Simple-x 💡\n"${idea.text}"`
+  if (navigator.share) {
+    navigator.share({ text }).catch(() => {})
+  } else {
+    navigator.clipboard?.writeText(text).then(() => showToast('Copied to clipboard!')).catch(() => {})
+  }
+}
+
+// ── COMPATIBILITY SCORE ───────────────────────────
+
+/**
+ * Calculate a compatibility score (0–100) between the logged-in user's
+ * profile and another profile based on shared values and preferences.
+ */
+function calcCompatibility(me, them) {
+  if (!me || !them) return null
+  let score = 0
+
+  // Same HSV type (+10)
+  if (me.hsv_type && them.hsv_type && me.hsv_type === them.hsv_type) score += 10
+
+  // Age overlap: their age falls within my looking-for range AND vice-versa (+10)
+  const myAgeMin = me.looking_for_age_min ?? 18
+  const myAgeMax = me.looking_for_age_max ?? 99
+  const theirAgeMin = them.looking_for_age_min ?? 18
+  const theirAgeMax = them.looking_for_age_max ?? 99
+  const myAge = me.birthdate ? Math.floor((Date.now() - new Date(me.birthdate)) / (365.25 * 86400000)) : null
+  const theirAge = them.birthdate ? Math.floor((Date.now() - new Date(them.birthdate)) / (365.25 * 86400000)) : null
+  const iAgeOk = theirAge != null && theirAge >= myAgeMin && theirAge <= myAgeMax
+  const theyAgeOk = myAge != null && myAge >= theirAgeMin && myAge <= theirAgeMax
+  if (iAgeOk && theyAgeOk) score += 10
+
+  // Same relationship_type (+15)
+  if (me.relationship_type && them.relationship_type && me.relationship_type === them.relationship_type) score += 15
+
+  // Same children preference (+15)
+  if (me.children && them.children && me.children === them.children) score += 15
+
+  // Same religion (+10)
+  if (me.religion && them.religion && me.religion === them.religion) score += 10
+
+  // Same alcohol preference (+5)
+  if (me.alcohol && them.alcohol && me.alcohol === them.alcohol) score += 5
+
+  // Same cannabis preference (+5)
+  if (me.cannabis && them.cannabis && me.cannabis === them.cannabis) score += 5
+
+  // Same nicotine preference (+5)
+  if (me.nicotine && them.nicotine && me.nicotine === them.nicotine) score += 5
+
+  // Shared occupation or work lifestyle (+10)
+  const sameOccupation = me.occupation && them.occupation && me.occupation.toLowerCase().trim() === them.occupation.toLowerCase().trim()
+  const sameWorkStyle = me.work_lifestyle && them.work_lifestyle && me.work_lifestyle === them.work_lifestyle
+  if (sameOccupation || sameWorkStyle) score += 10
+
+  // Their age falls inside my preferred looking-for range, and vice-versa — already counted above
+  // as the age overlap; here we additionally check if both have set compatible age ranges (+10)
+  const rangesOverlap = myAgeMin <= theirAgeMax && theirAgeMin <= myAgeMax
+  if (rangesOverlap && me.looking_for_age_min && them.looking_for_age_min) score += 5
+
+  return Math.min(100, score)
+}
+
 // ── ACTIVITY STREAK ───────────────────────────────
 async function updateStreak() {
   const today = new Date().toISOString().slice(0, 10)
@@ -6826,9 +6999,10 @@ async function updateStreak() {
   localStorage.setItem('sx_streak', String(streak))
   localStorage.setItem('sx_last_active', today)
 
-  // Milestone celebrations and daily check-in (delayed so app finishes loading)
+  // Milestone celebrations, 60-day Plus bonus, and daily check-in
   setTimeout(async () => {
     await checkStreakMilestone(streak)
+    await checkStreak60Bonus(streak)
     showDailyCheckIn(streak)
   }, 2500)
 }
@@ -6849,6 +7023,81 @@ async function checkStreakMilestone(streak) {
   localStorage.setItem(key, '1')
   showStreakAchievementModal(milestone.emoji, milestone.msg, milestone.badge, streak)
   if (currentUser && currentProfile) await checkAndAwardBadge(milestone.badge)
+}
+
+/**
+ * On a 60-day streak, grant the user 7 days of Plus — once per account.
+ * Guards against double-award with localStorage flag sx_streak60_bonus.
+ */
+async function checkStreak60Bonus(streak) {
+  if (streak !== 60) return
+  if (localStorage.getItem('sx_streak60_bonus')) return
+  if (!currentUser || !currentProfile) return
+
+  // Mark bonus as awarded immediately so concurrent calls don't double-grant
+  localStorage.setItem('sx_streak60_bonus', '1')
+
+  // Extend premium_expires_at by 7 days from now, or from existing expiry, whichever is later
+  const sevenDaysFromNow = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+  const existing = currentProfile.premium_expires_at ? new Date(currentProfile.premium_expires_at) : new Date(0)
+  const newExpiry = existing > sevenDaysFromNow ? existing : sevenDaysFromNow
+  const newExpiryISO = newExpiry.toISOString()
+
+  const { error } = await sb.from('profiles')
+    .update({ is_premium: true, premium_expires_at: newExpiryISO })
+    .eq('id', currentUser.id)
+
+  if (error) {
+    // Don't remove the localStorage flag — re-awarding on next open would be wrong.
+    // The DB update can be retried if needed but the celebratory modal should still show.
+    console.error('[Streak60] Could not grant Plus:', error.message)
+  } else {
+    if (currentProfile) {
+      currentProfile.is_premium = true
+      currentProfile.premium_expires_at = newExpiryISO
+    }
+  }
+
+  showStreak60BonusModal(newExpiry)
+}
+
+function showStreak60BonusModal(expiresAt) {
+  document.getElementById('streak60-bonus-modal')?.remove()
+
+  const overlay = document.createElement('div')
+  overlay.id = 'streak60-bonus-modal'
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.9);z-index:10015;display:flex;align-items:center;justify-content:center;padding:32px;overflow:hidden'
+  overlay.onclick = e => { if (e.target === overlay) overlay.remove() }
+
+  // Confetti
+  const confettiWrap = document.createElement('div')
+  confettiWrap.style.cssText = 'position:absolute;inset:0;pointer-events:none;overflow:hidden'
+  const colors = ['#e8503a','#f5c518','#2ecc71','#4fc3f7','#f0ede8','#ff8c42','#c084fc']
+  for (let i = 0; i < 70; i++) {
+    const piece = document.createElement('div')
+    const sz = 6 + Math.random() * 10
+    piece.className = 'confetti-piece'
+    piece.style.cssText = `left:${Math.random()*100}%;width:${sz}px;height:${sz}px;background:${colors[i%colors.length]};border-radius:${Math.random()>.5?'50%':'2px'};animation-duration:${1.4+Math.random()*2}s;animation-delay:${Math.random()*0.6}s`
+    confettiWrap.appendChild(piece)
+  }
+  overlay.appendChild(confettiWrap)
+
+  const expiryLabel = expiresAt
+    ? expiresAt.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+    : '7 days from now'
+
+  const box = document.createElement('div')
+  box.style.cssText = 'background:#141414;border:1px solid #3a1a14;border-radius:24px;padding:36px 28px;text-align:center;width:100%;max-width:320px;position:relative;z-index:1'
+  box.onclick = e => e.stopPropagation()
+  box.innerHTML = `
+    <div style="font-size:68px;margin-bottom:12px;line-height:1">🔥</div>
+    <p style="color:#e8503a;font-size:12px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;margin-bottom:8px">60-Day Streak!</p>
+    <h2 style="color:#f0ede8;font-size:22px;font-weight:800;margin-bottom:12px;line-height:1.3">You earned 7 days of Plus — on us! 🎁</h2>
+    <p style="color:#9e9b97;font-size:14px;line-height:1.6;margin-bottom:8px">Your dedication to showing up every day deserves a reward. Enjoy unlimited likes, messages, and more.</p>
+    <p style="color:#f5c518;font-size:13px;font-weight:600;margin-bottom:24px">Active until ${escapeHtml(expiryLabel)}</p>
+    <button onclick="document.getElementById('streak60-bonus-modal')?.remove()" style="background:#e8503a;border:none;color:#fff;border-radius:14px;padding:15px;font-size:15px;font-weight:700;cursor:pointer;width:100%">Claim my reward 🎉</button>`
+  overlay.appendChild(box)
+  document.body.appendChild(overlay)
 }
 
 function showStreakAchievementModal(emoji, msg, badge, streak) {
