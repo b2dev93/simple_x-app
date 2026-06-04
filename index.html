@@ -4514,6 +4514,22 @@ async function showProfilePreview(userId) {
   _previewAlbumStatus = albumStatus
   _previewOwnerId = p.id
 
+  // Pre-compute compatibility badge outside the template literal so any
+  // error in calcCompatibility never aborts the whole modal build.
+  let compatBadgeHtml = ''
+  if (userId !== currentUser?.id && currentProfile) {
+    try {
+      const score = calcCompatibility(currentProfile, p)
+      if (score !== null && score >= 30) {
+        const bg = score >= 80 ? '#0d2e1a' : score >= 60 ? '#2e2a0a' : '#1c1c1c'
+        const clr = score >= 80 ? '#2ecc71' : score >= 60 ? '#f5c518' : '#9e9b97'
+        compatBadgeHtml = `<span style="background:${bg};color:${clr};font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px" title="Compatibility based on shared values">❤️ ${score}% match</span>`
+      }
+    } catch (compatErr) {
+      console.warn('[showProfilePreview] calcCompatibility error:', compatErr)
+    }
+  }
+
   const modal = document.createElement('div')
   modal.id = 'profile-preview-modal'
   modal.style.cssText = 'position:fixed;inset:0;background:#0a0a0a;z-index:10001'
@@ -4546,7 +4562,8 @@ async function showProfilePreview(userId) {
     return { text: '◌ Active recently', color: '#9e9b97', bg: '#1c1c1c' }
   })()
 
-  modal.innerHTML = `
+  // Guarantee the loading overlay is always removed — even if innerHTML assignment throws.
+  try { modal.innerHTML = `
     <div style="position:absolute;top:0;left:0;right:0;z-index:10;display:flex;justify-content:space-between;padding:48px 16px 16px;background:linear-gradient(to bottom,rgba(0,0,0,0.65) 0%,transparent 100%);pointer-events:none">
       <button onclick="document.getElementById('profile-preview-modal')?.remove()" style="pointer-events:auto;background:rgba(0,0,0,0.45);border:none;border-radius:50%;width:46px;height:46px;color:#f0ede8;font-size:28px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1">‹</button>
       <button onclick="shareCurrentPreview()" style="pointer-events:auto;background:rgba(0,0,0,0.45);border:none;border-radius:50%;width:46px;height:46px;color:#f0ede8;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center">📤</button>
@@ -4573,14 +4590,7 @@ async function showProfilePreview(userId) {
           ${activityLabel ? `<span style="background:${activityLabel.bg};color:${activityLabel.color};font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">${activityLabel.text}</span>` : ''}
           ${isMatched ? `<span style="background:#3a1a14;color:#e8503a;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">✓ Matched${match.created_at ? ` • ${new Date(match.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}` : ''}</span>` : ''}
           ${isNewMember(p) ? `<span style="background:#0d2838;color:#4fc3f7;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">✦ NEW</span>` : ''}
-          ${(() => {
-            if (userId === currentUser?.id || !currentProfile) return ''
-            const score = calcCompatibility(currentProfile, p)
-            if (score === null || score < 30) return ''
-            const bg = score >= 80 ? '#0d2e1a' : score >= 60 ? '#2e2a0a' : '#1c1c1c'
-            const color = score >= 80 ? '#2ecc71' : score >= 60 ? '#f5c518' : '#9e9b97'
-            return `<span style="background:${bg};color:${color};font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;cursor:pointer" title="Compatibility score based on shared values and preferences">❤️ ${score}% match</span>`
-          })()}
+          ${compatBadgeHtml}
         </div>
         ${p.badges?.length ? `<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px">${p.badges.map(b => `<span style="background:#1c1c1c;border:1px solid #252525;border-radius:20px;padding:3px 10px;font-size:12px;color:#f0ede8">${escapeHtml(b)}</span>`).join('')}</div>` : ''}
         ${p.city ? `<p style="color:#6b6866;font-size:14px;margin-bottom:6px">📍 ${eH(p.city)}</p>` : ''}
@@ -4634,7 +4644,13 @@ async function showProfilePreview(userId) {
         <div id="preview-action-btns" style="display:flex;gap:10px"></div>
       </div>
     </div>
-  `
+  ` } catch (htmlErr) {
+    console.error('[showProfilePreview] modal HTML build failed:', htmlErr)
+    document.getElementById('profile-preview-loading')?.remove()
+    return
+  }
+  // Loading overlay must be removed before appending the modal so there's
+  // no frame where both are visible and no frame where neither is visible.
   document.getElementById('profile-preview-loading')?.remove()
   document.body.appendChild(modal)
 
