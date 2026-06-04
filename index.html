@@ -3508,7 +3508,8 @@ async function loadOnlineNow() {
   const showAllProfiles = currentOnlineSort === 'newest' || currentOnlineSort === 'joined24h'
   const fetchLimit = showAllProfiles ? 200 : 60
 
-  let query = sb.from('profiles').select(PUBLIC_PROFILE_COLS).neq('id', currentUser.id).or('incognito.is.null,incognito.eq.false').or('visibility.is.null,visibility.eq.everyone').limit(fetchLimit)
+  let query = sb.from('profiles').select(PUBLIC_PROFILE_COLS).or('incognito.is.null,incognito.eq.false').or('visibility.is.null,visibility.eq.everyone').limit(fetchLimit)
+  if (currentUser?.id) query = query.neq('id', currentUser.id)
 
   // Auto-filter by seeking preference — skipped for newest/joined24h to show ALL new profiles
   if (!showAllProfiles && currentProfile?.seeking && currentProfile.seeking !== 'Everyone') {
@@ -4042,6 +4043,10 @@ async function deleteMoment(momentId, viewer) {
 async function loadContacts() {
   const container = document.getElementById('contacts-container')
   if (!container) return
+  if (!currentUser) {
+    container.innerHTML = '<div style="text-align:center;padding:60px 20px"><p style="color:#6b6866;font-size:14px">Sign up to see who liked you.</p></div>'
+    return
+  }
   container.innerHTML = '<div style="text-align:center;padding:40px 0"><p style="color:#6b6866;font-size:14px">Loading...</p></div>'
 
   const isPremium = !!(currentProfile?.is_premium || currentProfile?.is_admin)
