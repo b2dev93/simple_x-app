@@ -917,6 +917,17 @@
               <span id="notif-reminders-thumb" style="position:absolute;left:2px;top:2px;width:16px;height:16px;background:#fff;border-radius:50%;transition:0.2s"></span>
             </label>
           </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0">
+            <div>
+              <p style="color:#9e9b97;font-size:14px">Streak reminders</p>
+              <p style="color:#6b6866;font-size:11px;margin-top:2px">Progress toward your free week of Plus</p>
+            </div>
+            <label style="position:relative;display:inline-block;width:36px;height:20px;cursor:pointer;flex-shrink:0">
+              <input type="checkbox" id="notif-streak-toggle" onchange="toggleStreakNotif(this.checked)" style="opacity:0;width:0;height:0">
+              <span id="notif-streak-slider" style="position:absolute;inset:0;background:#2a2a2a;border-radius:20px;transition:0.2s"></span>
+              <span id="notif-streak-thumb" style="position:absolute;left:2px;top:2px;width:16px;height:16px;background:#fff;border-radius:50%;transition:0.2s"></span>
+            </label>
+          </div>
         </div>
         <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0">
           <div>
@@ -7149,16 +7160,96 @@ function showStreakAchievementModal(emoji, msg, badge, streak) {
   document.body.appendChild(overlay)
 }
 
+/**
+ * Returns a one-line string about the user's progress toward the 60-day Plus
+ * reward, or null when nothing should be shown (toggle off, quiet period, etc.).
+ *
+ * State is read entirely from localStorage + currentProfile so this is pure
+ * client-side and requires no extra network request.
+ */
+function getStreakDigestLine() {
+  // Respect the toggle the user set in Settings → Notifications
+  if (localStorage.getItem('sx_notif_streak') === 'false') return null
+
+  const today     = new Date().toISOString().slice(0, 10)
+  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10)
+  const lastActive = localStorage.getItem('sx_last_active')
+  const streak     = parseInt(localStorage.getItem('sx_streak') || '0', 10)
+
+  // streakIsAlive: checked in within the valid window (today or yesterday)
+  const streakIsAlive  = lastActive === today || lastActive === yesterday
+  const checkedInToday = lastActive === today
+  const atRisk         = streakIsAlive && !checkedInToday   // alive but will lapse if no check-in
+
+  const claimed = localStorage.getItem('sx_streak60_bonus') === '1'
+  const plusFromStreakActive = claimed &&
+    !!(currentProfile?.is_premium) &&
+    !!(currentProfile?.premium_expires_at) &&
+    new Date(currentProfile.premium_expires_at) > new Date()
+
+  // ── Already earned the free week ──────────────────
+  if (claimed) {
+    // Reward is currently live: stop dangling the deal
+    if (plusFromStreakActive) return null
+    // Claimed before, streak since reset — treat as normal, no reward countdown
+    return null
+  }
+
+  // ── Streak lapsed ─────────────────────────────────
+  // Re-engage but do NOT show a countdown — they can't reach 60 on this run
+  if (!streakIsAlive) {
+    if (streak === 0) return null
+    return "Your streak reset — check in today to start building toward a free week of Plus."
+  }
+
+  const daysLeft = 60 - streak
+
+  // ── Close (50–59): lean in, loss-aversion is legit ──
+  if (streak >= 50) {
+    if (atRisk) return `Check in today — you're ${daysLeft} days from a free week of Plus.`
+    return `Day ${streak} of 60. ${daysLeft} days from a free week of Plus — keep it going!`
+  }
+
+  // ── Mid (20–49): milestone days or at-risk only ───
+  if (streak >= 20) {
+    if (streak % 5 === 0 || atRisk) return `Day ${streak} of 60 toward a free week of Plus.`
+    return null
+  }
+
+  // ── Early (1–19): one-time intro, then quiet ──────
+  if (streak >= 1) {
+    if (!localStorage.getItem('sx_streak_intro_seen')) {
+      localStorage.setItem('sx_streak_intro_seen', '1')
+      return "Check in daily — hit a 60-day streak and earn a free week of Plus."
+    }
+    return null
+  }
+
+  return null
+}
+
 function showDailyCheckIn(streak) {
-  if (!streak || streak < 2) return
   const today = new Date().toISOString().slice(0, 10)
+
+  // Day 1: showDailyCheckIn won't show a modal, but the intro digest line
+  // should still surface — deliver it as a light toast instead.
+  if (!streak || streak < 2) {
+    const introLine = getStreakDigestLine()
+    if (introLine) setTimeout(() => showToast(introLine, 5000), 1200)
+    return
+  }
+
   const key = 'sx_checkin_shown_' + today
   if (localStorage.getItem(key)) return
   localStorage.setItem(key, '1')
 
-  // Delay so milestone modal (if any) shows first
+  // Get the reward-progress line (may be null on quiet days)
+  const digestLine = getStreakDigestLine()
+
+  // Delay so milestone / streak-60 modals (if any) render first
   setTimeout(() => {
-    if (document.getElementById('streak-achievement-modal')) return
+    if (document.getElementById('streak-achievement-modal') ||
+        document.getElementById('streak60-bonus-modal')) return
     document.getElementById('daily-checkin-modal')?.remove()
     const overlay = document.createElement('div')
     overlay.id = 'daily-checkin-modal'
@@ -7170,7 +7261,10 @@ function showDailyCheckIn(streak) {
     box.innerHTML = `
       <div style="font-size:44px;margin-bottom:10px">🔥</div>
       <h2 style="color:#f0ede8;font-size:20px;font-weight:800;margin-bottom:6px">${streak}-day streak!</h2>
-      <p style="color:#9e9b97;font-size:14px;margin-bottom:20px">Come back tomorrow to keep it going!</p>
+      ${digestLine
+        ? `<p style="color:#e8503a;font-size:14px;font-weight:600;line-height:1.5;margin-bottom:20px">${escapeHtml(digestLine)}</p>`
+        : `<p style="color:#9e9b97;font-size:14px;margin-bottom:20px">Come back tomorrow to keep it going!</p>`
+      }
       <button onclick="document.getElementById('daily-checkin-modal')?.remove()" style="background:#e8503a;border:none;color:#fff;border-radius:14px;padding:14px;font-size:15px;font-weight:600;cursor:pointer;width:100%">Keep Going 🔥</button>`
     overlay.appendChild(box)
     document.body.appendChild(overlay)
@@ -8389,12 +8483,12 @@ async function blockFromPreview(userId, name) {
   showToast(`${name} has been blocked.`)
 }
 
-function showToast(msg) {
+function showToast(msg, ms = 3000) {
   const toast = document.createElement('div')
-  toast.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#1c1c1c;color:#f0ede8;padding:12px 20px;border-radius:12px;font-size:14px;z-index:300;border:1px solid #252525;white-space:nowrap'
+  toast.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#1c1c1c;color:#f0ede8;padding:12px 20px;border-radius:12px;font-size:14px;z-index:300;border:1px solid #252525;white-space:nowrap;max-width:calc(100vw - 40px);text-align:center'
   toast.textContent = msg
   document.body.appendChild(toast)
-  setTimeout(() => toast.remove(), 3000)
+  setTimeout(() => toast.remove(), ms)
 }
 
 // ── UPGRADE PROMPT ───────────────────────────────
@@ -8507,7 +8601,7 @@ function openSettings() {
   if (ssl) ssl.style.background = soundsEnabled ? '#e8503a' : '#2a2a2a'
   if (sth) sth.style.transform = soundsEnabled ? 'translateX(20px)' : 'translateX(0)'
 
-  // Sync notification type preference toggles
+  // Sync notification type preference toggles (DB-backed)
   ;['notif_matches','notif_messages','notif_winks','notif_views','notif_reminders'].forEach(key => {
     const val = currentProfile?.[key] !== false
     const base = key.replaceAll('_', '-')
@@ -8516,6 +8610,13 @@ function openSettings() {
     if (sl)  sl.style.background = val ? '#e8503a' : '#2a2a2a'
     if (th)  th.style.transform  = val ? 'translateX(16px)' : 'translateX(0)'
   })
+
+  // Sync streak reminders toggle (localStorage-backed — no DB column needed)
+  const streakNotifEnabled = localStorage.getItem('sx_notif_streak') !== 'false'
+  const snTog = el('notif-streak-toggle'), snSl = el('notif-streak-slider'), snTh = el('notif-streak-thumb')
+  if (snTog) snTog.checked = streakNotifEnabled
+  if (snSl)  snSl.style.background = streakNotifEnabled ? '#e8503a' : '#2a2a2a'
+  if (snTh)  snTh.style.transform  = streakNotifEnabled ? 'translateX(16px)' : 'translateX(0)'
 
   const incogToggle = el('incognito-toggle'), incogSlider = el('incognito-slider'), incogThumb = el('incognito-thumb')
   const isIncognito = currentProfile?.incognito || false
@@ -8565,6 +8666,14 @@ function toggleSounds(val) {
   if (th) th.style.transform = val ? 'translateX(20px)' : 'translateX(0)'
   localStorage.setItem('sx_sounds', val ? 'true' : 'false')
   showToast(val ? 'Sounds on' : 'Sounds off')
+}
+
+function toggleStreakNotif(val) {
+  const sl = el('notif-streak-slider'), th = el('notif-streak-thumb')
+  if (sl) sl.style.background = val ? '#e8503a' : '#2a2a2a'
+  if (th) th.style.transform  = val ? 'translateX(16px)' : 'translateX(0)'
+  localStorage.setItem('sx_notif_streak', val ? 'true' : 'false')
+  showToast(val ? 'Streak reminders on' : 'Streak reminders off')
 }
 
 async function loadBlockedMembers() {
