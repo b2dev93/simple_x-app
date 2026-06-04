@@ -1192,6 +1192,21 @@ const SUPABASE_URL = 'https://ocwgwfnrstzrapsblkxm.supabase.co'
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9jd2d3Zm5yc3R6cmFwc2Jsa3htIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY1NjAxNzksImV4cCI6MjA5MjEzNjE3OX0.Tr_l0wJjUDHdklj1AG9MW9FIlNC3lNgGbklpzz4AAfo'
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
 
+// Columns safe to return for any authenticated user's profile view.
+// Excludes: email, lat, lng, push_subscription, is_admin, referred_by, referral_code.
+// Own-profile fetches (enterApp, post-upgrade refresh) still use select('*').
+const PUBLIC_PROFILE_COLS = [
+  'id','display_name','photo_urls','photo_captions','bio','quote','occupation',
+  'about_match','height','body_type','hair_color','eye_color','ethnicity',
+  'hsv_type','gender','seeking','relationship_type','relationship_status',
+  'alcohol','cannabis','children','religion','nicotine','work_lifestyle',
+  'dating_distance','willing_to_fly','city','birthdate','last_seen','badges',
+  'verified','is_premium','incognito','visibility','allow_anon_questions',
+  'featured_quote','featured_fact','featured_question',
+  'private_photo_urls','private_photo_captions','created_at','boost_until',
+  'is_tester','profile_views'
+].join(',')
+
 const AVATAR_COLORS = ['#3a4a8a','#6a3a5a','#2a5a4a','#5a3a2a','#3a5a6a','#4a3a6a']
 let currentUser = null
 let currentProfile = null
@@ -2034,7 +2049,7 @@ async function loadDiscoverGuest() {
   const stack = el('card-stack')
   if (!stack) return
   stack.innerHTML = '<div class="empty-state"><p style="color:#6b6866;font-size:14px">Loading profiles...</p></div>'
-  const { data: raw } = await sb.from('profiles').select('*')
+  const { data: raw } = await sb.from('profiles').select(PUBLIC_PROFILE_COLS)
     .or('incognito.is.null,incognito.eq.false')
     .or('visibility.is.null,visibility.eq.everyone')
     .limit(20)
@@ -3307,7 +3322,7 @@ function startRealtimeListeners() {
       if (matchAge > 15000) return // ignore matches older than 15 seconds
       if (m.user_a === currentUser.id || m.user_b === currentUser.id) {
         const otherId = m.user_a === currentUser.id ? m.user_b : m.user_a
-        sb.from('profiles').select('*').eq('id', otherId).maybeSingle().then(({ data }) => {
+        sb.from('profiles').select(PUBLIC_PROFILE_COLS).eq('id', otherId).maybeSingle().then(({ data }) => {
           if (data) {
             showMatchModal(data)
             // Notify the OTHER user they got a match
@@ -3493,7 +3508,7 @@ async function loadOnlineNow() {
   const showAllProfiles = currentOnlineSort === 'newest' || currentOnlineSort === 'joined24h'
   const fetchLimit = showAllProfiles ? 200 : 60
 
-  let query = sb.from('profiles').select('*').neq('id', currentUser.id).or('incognito.is.null,incognito.eq.false').or('visibility.is.null,visibility.eq.everyone').limit(fetchLimit)
+  let query = sb.from('profiles').select(PUBLIC_PROFILE_COLS).neq('id', currentUser.id).or('incognito.is.null,incognito.eq.false').or('visibility.is.null,visibility.eq.everyone').limit(fetchLimit)
 
   // Auto-filter by seeking preference — skipped for newest/joined24h to show ALL new profiles
   if (!showAllProfiles && currentProfile?.seeking && currentProfile.seeking !== 'Everyone') {
@@ -4236,7 +4251,7 @@ async function openContactsSection(sectionKey) {
     return
   }
 
-  const { data: profiles } = await sb.from('profiles').select('*').in('id', ids)
+  const { data: profiles } = await sb.from('profiles').select(PUBLIC_PROFILE_COLS).in('id', ids)
   if (!feed.isConnected) return
 
   if (!profiles || !profiles.length) {
@@ -4306,7 +4321,7 @@ async function showProfilePreview(userId) {
   if (currentUser && userId !== currentUser.id) {
     sb.from('profile_views').insert({ viewer_id: currentUser.id, viewed_id: userId }).then(() => {})
   }
-  const { data: p } = await sb.from('profiles').select('*').eq('id', userId).maybeSingle()
+  const { data: p } = await sb.from('profiles').select(PUBLIC_PROFILE_COLS).eq('id', userId).maybeSingle()
   if (!p) { document.getElementById('profile-preview-loading')?.remove(); return }
 
   const existing = document.getElementById('profile-preview-modal')
@@ -4988,7 +5003,7 @@ async function loadDiscover() {
   swipedIds.push(currentUser.id)
 
   // Always fetch 200 so new members are never suppressed by a tiny batch limit
-  let query = sb.from('profiles').select('*').or('incognito.is.null,incognito.eq.false').or('visibility.is.null,visibility.eq.everyone').limit(200)
+  let query = sb.from('profiles').select(PUBLIC_PROFILE_COLS).or('incognito.is.null,incognito.eq.false').or('visibility.is.null,visibility.eq.everyone').limit(200)
   // Exclude already-swiped profiles (pass, like, super) and own profile
   if (swipedIds.length > 0) query = query.not('id', 'in', `(${swipedIds.join(',')})`)
   // Gender filter: explicit selection beats seeking preference
@@ -5161,7 +5176,7 @@ async function maybeShowSecondLook(stack) {
   if (!passes || passes.length === 0) { renderEmptyState(); return }
 
   const randomId = passes[Math.floor(Math.random() * passes.length)].swiped_id
-  const { data: profile } = await sb.from('profiles').select('*').eq('id', randomId).maybeSingle()
+  const { data: profile } = await sb.from('profiles').select(PUBLIC_PROFILE_COLS).eq('id', randomId).maybeSingle()
 
   if (!profile) { renderEmptyState(); return }
 
