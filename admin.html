@@ -187,6 +187,17 @@
       width: 14px; height: 14px; border: 2px solid #333; border-top-color: #e8503a;
       border-radius: 50%; animation: spin 0.7s linear infinite; display: inline-block;
     }
+
+    /* ── Recent Activity ── */
+    .activity-list { padding: 6px 0 }
+    .activity-item {
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 20px; border-top: 1px solid #0f0f0f;
+    }
+    .activity-item:first-child { border-top: none }
+    .activity-icon { font-size: 18px; width: 28px; text-align: center; flex-shrink: 0 }
+    .activity-text { flex: 1; font-size: 13px; color: #f0ede8 }
+    .activity-time { font-size: 11px; color: #4a4a4a; white-space: nowrap }
   </style>
 </head>
 <body>
@@ -395,6 +406,17 @@
     </div>
   </div>
 
+  <!-- ── Recent Activity ── -->
+  <div class="section">
+    <div class="section-header">
+      <p class="section-title">Recent Activity</p>
+      <button class="btn-ghost btn-sm" onclick="loadRecentActivity()">↻ Refresh</button>
+    </div>
+    <div class="card" id="activity-card">
+      <div class="activity-list" id="activity-list"><div class="empty"><span class="spinner"></span></div></div>
+    </div>
+  </div>
+
 </div><!-- /dashboard -->
 
 <script>
@@ -453,7 +475,8 @@ async function loadAll() {
     loadDauChart(),
     loadRecentUsers(),
     loadRecentReports(),
-    loadPinnablePosts()
+    loadPinnablePosts(),
+    loadRecentActivity()
   ])
 }
 
@@ -618,11 +641,13 @@ async function loadRecentUsers() {
   document.getElementById('users-tbody').innerHTML =
     '<tr><td colspan="8" class="empty"><span class="spinner"></span></td></tr>'
 
-  const { data, error } = await sb
-    .from('profiles')
-    .select('id, display_name, email, hsv_type, city, created_at, last_seen, is_premium, is_admin, verified, is_tester')
-    .order('created_at', { ascending: false })
-    .limit(300)
+  const [{ data, error }, { data: privRows }] = await Promise.all([
+    sb.from('profiles')
+      .select('id, display_name, hsv_type, city, created_at, last_seen, is_premium, is_admin, verified, is_tester')
+      .order('created_at', { ascending: false })
+      .limit(300),
+    sb.from('profiles_private').select('id, email'),
+  ])
 
   if (error) {
     document.getElementById('users-tbody').innerHTML =
@@ -630,7 +655,9 @@ async function loadRecentUsers() {
     return
   }
 
-  _usersData = data || []
+  const emailMap = {}
+  ;(privRows || []).forEach(r => { emailMap[r.id] = r.email })
+  _usersData = (data || []).map(u => ({ ...u, email: emailMap[u.id] || null }))
   document.getElementById('users-count').textContent = `(${_usersData.length})`
   renderUsers()
 }
@@ -911,12 +938,20 @@ async function sendBroadcast() {
 
   // Fetch recipients
   statusEl.textContent = 'Fetching user list…'
-  const { data: profiles } = await sb
-    .from('profiles')
-    .select('email, display_name')
+  const { data: privRows } = await sb
+    .from('profiles_private')
+    .select('id, email')
     .not('email', 'is', null)
 
-  const recipients = (profiles || []).filter(p => p.email && p.email.includes('@'))
+  const validPriv = (privRows || []).filter(r => r.email && r.email.includes('@'))
+  const { data: nameRows } = await sb
+    .from('profiles')
+    .select('id, display_name')
+    .in('id', validPriv.map(r => r.id))
+
+  const nameMap = {}
+  ;(nameRows || []).forEach(r => { nameMap[r.id] = r.display_name })
+  const recipients = validPriv.map(r => ({ email: r.email, display_name: nameMap[r.id] || 'Member' }))
 
   if (!recipients.length) { showToast('No emails found'); statusEl.textContent = ''; return }
 
@@ -948,6 +983,55 @@ async function sendBroadcast() {
   btn.disabled = false
   statusEl.textContent = `✓ Done — ${sent} sent, ${failed} failed.`
   showToast(`Broadcast complete: ${sent} sent`)
+}
+
+// ── Recent Activity ─────────────────────────────────────────────────────────
+async function loadRecentActivity() {
+  const listEl = document.getElementById('activity-list')
+  listEl.innerHTML = '<div class="empty"><span class="spinner"></span></div>'
+
+  const since = new Date(Date.now() - 48 * 3600 * 1000).toISOString()
+
+  const [
+    { data: signups },
+    { data: matches },
+    { data: posts },
+    { count: msgCount },
+  ] = await Promise.all([
+    sb.from('profiles').select('display_name, created_at').gte('created_at', since).order('created_at', { ascending: false }).limit(20),
+    sb.from('matches').select('created_at').gte('created_at', since).order('created_at', { ascending: false }).limit(20),
+    sb.from('community_posts').select('title, body, created_at').gte('created_at', since).order('created_at', { ascending: false }).limit(20),
+    sb.from('messages').select('*', { count: 'exact', head: true }).gte('created_at', since),
+  ])
+
+  // Merge events into a single timeline
+  const events = []
+  ;(signups || []).forEach(u => events.push({ icon: '👤', text: `<b>${escHtml(u.display_name || 'New user')}</b> signed up`, ts: u.created_at }))
+  ;(matches || []).forEach(m => events.push({ icon: '💜', text: 'New match created', ts: m.created_at }))
+  ;(posts   || []).forEach(p => {
+    const label = p.title || (p.body || '').slice(0, 50)
+    events.push({ icon: '📝', text: `New community post: <b>${escHtml(label)}</b>`, ts: p.created_at })
+  })
+
+  // Sort newest first
+  events.sort((a, b) => new Date(b.ts) - new Date(a.ts))
+  const top20 = events.slice(0, 20)
+
+  if (!top20.length && !msgCount) {
+    listEl.innerHTML = '<div class="empty">No activity in the last 48 hours.</div>'
+    return
+  }
+
+  const msgRow = (msgCount || 0) > 0
+    ? `<div class="activity-item"><span class="activity-icon">💬</span><span class="activity-text"><b>${fmtNum(msgCount)}</b> message${msgCount === 1 ? '' : 's'} sent in last 48h</span></div>`
+    : ''
+
+  listEl.innerHTML = msgRow + top20.map(e => `
+    <div class="activity-item">
+      <span class="activity-icon">${e.icon}</span>
+      <span class="activity-text">${e.text}</span>
+      <span class="activity-time">${fmtDate(e.ts)}</span>
+    </div>`).join('')
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────

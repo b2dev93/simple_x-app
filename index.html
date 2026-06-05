@@ -1251,7 +1251,8 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
 // Excludes: email, lat, lng, push_subscription, is_admin, referred_by, referral_code,
 //           private_photo_urls, private_photo_captions  ← fetched separately inside
 //           showProfilePreview only after album access is confirmed (F-6 fix).
-// Own-profile fetches (enterApp, post-upgrade refresh) still use select('*').
+// Own-profile fetches (enterApp, post-upgrade refresh) use select('*') on profiles,
+// then separately fetch email/lat/lng from profiles_private (owner-only RLS table).
 const PUBLIC_PROFILE_COLS = [
   'id','display_name','photo_urls','photo_captions','bio','quote','occupation',
   'about_match','height','body_type','hair_color','eye_color','ethnicity',
@@ -1758,7 +1759,6 @@ async function acceptTos() {
       await sb.from('profiles').upsert({
         id: data.user.id,
         display_name: name,
-        email: email,
         hsv_type: selectedHsv,
         relationship_type: selectedRelType || null,
         gender: selectedGender,
@@ -1766,6 +1766,7 @@ async function acceptTos() {
         birthdate: el('auth-birthdate').value || null,
         referred_by: referredBy,
       })
+      await sb.from('profiles_private').upsert({ id: data.user.id, email: email })
       sendWelcomeEmail(email, name)
       if (referredBy) {
         // F-7/F-8 fix: premium grants happen server-side only.
@@ -2201,11 +2202,18 @@ async function enterApp(user) {
   currentUser = user
   const { data } = await sb.from('profiles').select('*').eq('id', user.id).single()
   currentProfile = data
-  if (data?.lat) userLat = data.lat
-  if (data?.lng) userLng = data.lng
-  // Backfill email if missing
-  if (data && !data.email && user.email) {
-    await sb.from('profiles').update({ email: user.email }).eq('id', user.id)
+  // Fetch private fields from owner-only table and merge into currentProfile
+  const { data: priv } = await sb.from('profiles_private').select('email,lat,lng').eq('id', user.id).maybeSingle()
+  if (priv) {
+    currentProfile.email = priv.email
+    currentProfile.lat   = priv.lat
+    currentProfile.lng   = priv.lng
+  }
+  if (currentProfile?.lat) userLat = currentProfile.lat
+  if (currentProfile?.lng) userLng = currentProfile.lng
+  // Backfill email into profiles_private if missing
+  if (user.email && !priv?.email) {
+    await sb.from('profiles_private').upsert({ id: user.id, email: user.email })
     currentProfile.email = user.email
   }
   hide('auth')
@@ -8288,8 +8296,7 @@ function requestLocation() {
   navigator.geolocation.getCurrentPosition(async pos => {
     userLat = pos.coords.latitude
     userLng = pos.coords.longitude
-    // Save to profile
-    await sb.from('profiles').update({ lat: userLat, lng: userLng }).eq('id', currentUser.id)
+    await sb.from('profiles_private').upsert({ id: currentUser.id, lat: userLat, lng: userLng })
     currentProfile.lat = userLat
     currentProfile.lng = userLng
   }, () => {}) // silently fail if denied
@@ -8618,6 +8625,12 @@ async function checkUpgradeReturn() {
     const { data } = await sb.from('profiles').select('*').eq('id', currentUser.id).single()
     if (data) {
       currentProfile = data
+      const { data: priv } = await sb.from('profiles_private').select('email,lat,lng').eq('id', currentUser.id).maybeSingle()
+      if (priv) {
+        currentProfile.email = priv.email
+        currentProfile.lat   = priv.lat
+        currentProfile.lng   = priv.lng
+      }
       renderProfileScreen()
     }
     showToast('🎉 Welcome to Simple-x Plus! Enjoy unlimited likes and messages.')
