@@ -1248,7 +1248,9 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
 
 // Columns safe to return for any authenticated user's profile view.
-// Excludes: email, lat, lng, push_subscription, is_admin, referred_by, referral_code.
+// Excludes: email, lat, lng, push_subscription, is_admin, referred_by, referral_code,
+//           private_photo_urls, private_photo_captions  ← fetched separately inside
+//           showProfilePreview only after album access is confirmed (F-6 fix).
 // Own-profile fetches (enterApp, post-upgrade refresh) still use select('*').
 const PUBLIC_PROFILE_COLS = [
   'id','display_name','photo_urls','photo_captions','bio','quote','occupation',
@@ -1258,8 +1260,7 @@ const PUBLIC_PROFILE_COLS = [
   'dating_distance','willing_to_fly','city','birthdate','last_seen','badges',
   'verified','is_premium','incognito','visibility','allow_anon_questions',
   'featured_quote','featured_fact','featured_question',
-  'private_photo_urls','private_photo_captions','created_at','boost_until',
-  'is_tester','profile_views'
+  'created_at','boost_until','is_tester','profile_views'
 ].join(',')
 
 const AVATAR_COLORS = ['#3a4a8a','#6a3a5a','#2a5a4a','#5a3a2a','#3a5a6a','#4a3a6a']
@@ -1439,6 +1440,17 @@ function showLightbox(url) {
 
 // ── PRIVATE ALBUM ─────────────────────────────────
 
+async function getSignedPrivateUrls(paths, expiresIn = 3600) {
+  const newPaths = paths.filter(p => !p.startsWith('http'))
+  const legacyUrls = paths.map(p => p.startsWith('http') ? p : null)
+  if (!newPaths.length) return legacyUrls
+  const { data, error } = await sb.storage.from('private-photos').createSignedUrls(newPaths, expiresIn)
+  if (error) { console.error('createSignedUrls failed:', error.message); return legacyUrls }
+  const signedMap = {}
+  ;(data || []).forEach(item => { signedMap[item.path] = item.signedUrl })
+  return paths.map(p => p.startsWith('http') ? p : (signedMap[p] || ''))
+}
+
 async function uploadPrivatePhoto(input) {
   const files = Array.from(input.files)
   if (!files.length) return
@@ -1455,17 +1467,16 @@ async function uploadPrivatePhoto(input) {
       uploadBlob = await convertToJpeg(file)
       contentType = 'image/jpeg'
     } catch (e) { showToast('Could not process image.'); continue }
-    const path = `${currentUser.id}/private/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`
-    const { error: upErr } = await sb.storage.from('avatars').upload(path, uploadBlob, { upsert: false, contentType })
+    const path = `${currentUser.id}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`
+    const { error: upErr } = await sb.storage.from('private-photos').upload(path, uploadBlob, { upsert: false, contentType })
     if (upErr) { showToast('Upload failed: ' + upErr.message); continue }
-    const { data: urlData } = sb.storage.from('avatars').getPublicUrl(path)
-    newUrls.push(urlData.publicUrl)
+    newUrls.push(path)
   }
   if (!newUrls.length) { input.value = ''; return }
   const updated = [...existing, ...newUrls]
   await sb.from('profiles').update({ private_photo_urls: updated }).eq('id', currentUser.id)
   currentProfile.private_photo_urls = updated
-  renderPrivateAlbum()
+  await renderPrivateAlbum()
   input.value = ''
   showToast(`${newUrls.length} photo${newUrls.length > 1 ? 's' : ''} added to private album.`)
 }
@@ -1473,16 +1484,21 @@ async function uploadPrivatePhoto(input) {
 async function deletePrivatePhoto(idx) {
   if (!confirm('Remove this photo from your private album?')) return
   const urls = [...(currentProfile.private_photo_urls || [])]
+  const path = urls[idx]
+  if (path && !path.startsWith('http')) await sb.storage.from('private-photos').remove([path])
   urls.splice(idx, 1)
   await sb.from('profiles').update({ private_photo_urls: urls }).eq('id', currentUser.id)
   currentProfile.private_photo_urls = urls
-  renderPrivateAlbum()
+  await renderPrivateAlbum()
 }
 
 async function requestPrivateAlbum(ownerId) {
   const btn = document.getElementById('private-album-btn')
   if (btn) { btn.textContent = 'Request Sent ✓'; btn.disabled = true; btn.style.opacity = '1'; btn.style.background = '#252525'; btn.style.color = '#6b6866' }
-  const { error } = await sb.from('private_album_access').insert({ owner_id: ownerId, viewer_id: currentUser.id, status: 'pending' })
+  // F-12 fix: do not send `status` from the client — rely on the DB column
+  // default ('pending').  A RLS WITH CHECK should also enforce status='pending'
+  // on INSERT so a caller hitting the API directly cannot self-approve access.
+  const { error } = await sb.from('private_album_access').insert({ owner_id: ownerId, viewer_id: currentUser.id })
   if (error) {
     if (error.code === '23505') {
       _previewAlbumStatus = 'pending'
@@ -1556,12 +1572,13 @@ async function revokePrivateAlbumAccess(viewerId) {
   loadPrivateAlbumRequests()
 }
 
-function renderPrivateAlbum() {
+async function renderPrivateAlbum() {
   const profileContent = el('profile-content')
   if (!profileContent) return
   const old = document.getElementById('private-album-section')
   if (old) old.remove()
-  const photos = currentProfile.private_photo_urls || []
+  const paths = currentProfile.private_photo_urls || []
+  const photos = await getSignedPrivateUrls(paths)
 
   const section = document.createElement('div')
   section.id = 'private-album-section'
@@ -1575,7 +1592,7 @@ function renderPrivateAlbum() {
       <p style="color:#f0ede8;font-size:14px;font-weight:600">🔒 Private Album</p>
       <p style="color:#6b6866;font-size:12px;margin-top:2px">Only visible to connections you approve</p>
     </div>
-    <span style="color:#6b6866;font-size:12px">${photos.length}/20</span>`
+    <span style="color:#6b6866;font-size:12px">${paths.length}/20</span>`
   section.appendChild(header)
 
   // Grid
@@ -1595,7 +1612,7 @@ function renderPrivateAlbum() {
     cell.appendChild(del)
     grid.appendChild(cell)
   })
-  if (photos.length < 20) {
+  if (paths.length < 20) {
     const add = document.createElement('div')
     add.style.cssText = 'aspect-ratio:1;border-radius:10px;border:1px dashed #3a2a14;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;gap:4px;background:#1a1208;touch-action:manipulation'
     add.onclick = () => el('private-photo-input').click()
@@ -1735,7 +1752,9 @@ async function acceptTos() {
     if (error) throw error
     if (data.user) {
       const referredBy = new URLSearchParams(window.location.search).get('ref') || null
-      const sevenDaysOut = new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString()
+      // F-7 fix: is_premium / premium_expires_at are NOT written by the client.
+      // The grant-referral-bonus edge function validates the referral server-side
+      // and writes is_premium using the service-role key.
       await sb.from('profiles').upsert({
         id: data.user.id,
         display_name: name,
@@ -1746,11 +1765,23 @@ async function acceptTos() {
         seeking: selectedSeeking,
         birthdate: el('auth-birthdate').value || null,
         referred_by: referredBy,
-        ...(referredBy ? { is_premium: true, premium_expires_at: sevenDaysOut } : {}),
       })
       sendWelcomeEmail(email, name)
       if (referredBy) {
-        notifyReferrer(referredBy, sevenDaysOut)
+        // F-7/F-8 fix: premium grants happen server-side only.
+        // The edge function reads referred_by from the DB row (not from the
+        // client), validates it is a real user, and updates both accounts.
+        const { data: { session: refSess } } = await sb.auth.getSession()
+        if (refSess?.access_token) {
+          fetch(`${SUPABASE_URL}/functions/v1/grant-referral-bonus`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${refSess.access_token}`,
+            },
+            body: JSON.stringify({}),
+          }).catch(e => console.warn('grant-referral-bonus call failed:', e))
+        }
         sessionStorage.setItem('sx_referral_bonus', '1')
       }
     }
@@ -1960,17 +1991,9 @@ async function checkNewReferrals() {
   }
 }
 
-async function notifyReferrer(referrerId, expiresAt) {
-  // Grant the referrer a 7-day Plus trial (extend if they already have one)
-  const { data: referrer } = await sb.from('profiles').select('is_premium, premium_expires_at').eq('id', referrerId).maybeSingle()
-  if (!referrer) return
-  const currentExpiry = referrer.premium_expires_at ? new Date(referrer.premium_expires_at) : new Date(0)
-  const newExpiry = new Date(expiresAt)
-  const grantExpiry = newExpiry > currentExpiry ? expiresAt : referrer.premium_expires_at
-  await sb.from('profiles').update({ is_premium: true, premium_expires_at: grantExpiry }).eq('id', referrerId)
-  // Push notification to the referrer (fire-and-forget)
-  sendPush(referrerId, 'You invited someone new to Simple-x! 🎉', 'You both got 7 days of Plus free as a thank-you 💜', 'referral')
-}
+// notifyReferrer() removed — referral bonus grants (is_premium on both accounts)
+// and the referrer push notification are now handled entirely by the
+// grant-referral-bonus edge function (F-7/F-8 fix).
 
 async function handleLogout() {
   await sb.auth.signOut()
@@ -4513,6 +4536,22 @@ async function showProfilePreview(userId) {
     : { data: null }
   const albumStatus = albumAccess?.status || null
 
+  // F-6 fix: private_photo_urls / private_photo_captions are NOT in PUBLIC_PROFILE_COLS.
+  // Only fetch them when the viewer has been explicitly granted access by the owner.
+  // This prevents private photo URLs from being transmitted to every profile viewer.
+  let privatePhotos = []
+  let privateCaptions = []
+  if (albumStatus === 'approved' && userId !== currentUser.id) {
+    const { data: privData } = await sb
+      .from('profiles')
+      .select('private_photo_urls,private_photo_captions')
+      .eq('id', userId)
+      .maybeSingle()
+    const rawPaths = privData?.private_photo_urls || []
+    privatePhotos   = await getSignedPrivateUrls(rawPaths)
+    privateCaptions = privData?.private_photo_captions || []
+  }
+
   // Set up preview carousel state
   previewPhotos = p.photo_urls || []
   previewPhotoIdx = 0
@@ -4520,8 +4559,8 @@ async function showProfilePreview(userId) {
   _previewProfile = p
   _previewPublicPhotos = p.photo_urls || []
   _previewPublicCaptions = p.photo_captions || []
-  _previewPrivatePhotos = albumStatus === 'approved' ? (p.private_photo_urls || []) : []
-  _previewPrivateCaptions = albumStatus === 'approved' ? (p.private_photo_captions || []) : []
+  _previewPrivatePhotos = privatePhotos
+  _previewPrivateCaptions = privateCaptions
   _previewAlbumStatus = albumStatus
   _previewOwnerId = p.id
 
@@ -7509,7 +7548,7 @@ let _touchDragIdx = null
 let _touchDragClone = null
 let _touchDragCells = []
 
-function renderEditPhotos() {
+async function renderEditPhotos() {
   const grid = el('edit-photo-grid')
   if (!grid) return
   grid.innerHTML = ''
@@ -7641,7 +7680,8 @@ function renderEditPhotos() {
   grid.appendChild(privSub)
   const privGrid = document.createElement('div')
   privGrid.style.cssText = 'display:grid;grid-template-columns:repeat(3,1fr);gap:6px'
-  const privPhotos = currentProfile?.private_photo_urls || []
+  const privPaths = currentProfile?.private_photo_urls || []
+  const privPhotos = await getSignedPrivateUrls(privPaths)
   privPhotos.forEach((url, i) => {
     const cell = document.createElement('div')
     cell.style.cssText = 'position:relative;aspect-ratio:1;background:#1a1208;border:1px solid #3a2a14;cursor:pointer;overflow:hidden;border-radius:0'
@@ -7668,7 +7708,7 @@ function renderEditPhotos() {
     cellGroup.appendChild(captionInput)
     privGrid.appendChild(cellGroup)
   })
-  if (privPhotos.length < 20) {
+  if (privPaths.length < 20) {
     const add = document.createElement('div')
     add.style.cssText = 'aspect-ratio:1;border-radius:10px;border:1px dashed #3a2a14;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;gap:4px;background:#1a1208;touch-action:manipulation'
     add.addEventListener('click', () => (el('edit-private-photo-input') || el('private-photo-input')).click())
