@@ -749,22 +749,25 @@
 
   <!-- FILTER PANEL -->
   <div id="filter-panel" class="hidden" style="position:fixed;inset:0;background:rgba(0,0,0,0.88);display:flex;align-items:flex-end;z-index:150">
-    <div style="background:#141414;border-radius:24px 24px 0 0;width:100%;padding:28px 24px 40px;border-top:1px solid #252525">
+    <div style="background:#141414;border-radius:24px 24px 0 0;width:100%;padding:28px 24px 48px;border-top:1px solid #252525;max-height:90dvh;overflow-y:auto">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:28px">
         <h2 style="font-size:18px;font-weight:700">Filters</h2>
         <button onclick="hide('filter-panel')" style="border:none;background:transparent;color:#6b6866;font-size:15px;cursor:pointer">Done</button>
       </div>
 
-      <!-- Distance -->
-      <div style="margin-bottom:28px">
-        <div style="display:flex;justify-content:space-between;margin-bottom:12px">
-          <span style="color:#9e9b97;font-size:14px">Distance</span>
-          <span style="color:#f0ede8;font-size:14px;font-weight:600" id="distance-label">Worldwide</span>
-        </div>
-        <input type="range" id="filter-distance" min="0" max="7" value="7" step="1" style="width:100%" oninput="updateDistanceLabel(this.value)" />
-        <div style="display:flex;justify-content:space-between;margin-top:6px">
-          <span style="color:#6b6866;font-size:11px">5 mi</span>
-          <span style="color:#6b6866;font-size:11px">Worldwide</span>
+      <!-- DISTANCE FILTER: hidden until server-side distance RPC is built — remove display:none to restore -->
+      <div style="display:none">
+        <!-- Distance -->
+        <div style="margin-bottom:28px">
+          <div style="display:flex;justify-content:space-between;margin-bottom:12px">
+            <span style="color:#9e9b97;font-size:14px">Distance</span>
+            <span style="color:#f0ede8;font-size:14px;font-weight:600" id="distance-label">Worldwide</span>
+          </div>
+          <input type="range" id="filter-distance" min="0" max="7" value="7" step="1" style="width:100%" oninput="updateDistanceLabel(this.value)" />
+          <div style="display:flex;justify-content:space-between;margin-top:6px">
+            <span style="color:#6b6866;font-size:11px">5 mi</span>
+            <span style="color:#6b6866;font-size:11px">Worldwide</span>
+          </div>
         </div>
       </div>
 
@@ -8273,8 +8276,8 @@ function openFilterPanel() {
 }
 
 function applyFilters() {
-  const distVal = parseInt(el('filter-distance').value)
-  filterDistance = DISTANCE_STEPS[distVal]
+  const distEl = el('filter-distance')
+  filterDistance = distEl ? DISTANCE_STEPS[parseInt(distEl.value)] : null
   filterAgeMin = parseInt(el('filter-age-min')?.value ?? 18)
   filterAgeMax = parseInt(el('filter-age-max').value)
   localStorage.setItem('sx_filter_age_min', filterAgeMin)
