@@ -799,9 +799,9 @@
       <div style="margin-bottom:28px">
         <span style="color:#9e9b97;font-size:14px;display:block;margin-bottom:12px">Show me</span>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button class="filter-gender-btn selected" onclick="toggleFilterGender(this,'all')">Both</button>
-          <button class="filter-gender-btn" onclick="toggleFilterGender(this,'Man')">Men</button>
-          <button class="filter-gender-btn" onclick="toggleFilterGender(this,'Woman')">Women</button>
+          <button class="filter-gender-btn selected" data-val="all" onclick="toggleFilterGender(this,'all')">Both</button>
+          <button class="filter-gender-btn" data-val="Man" onclick="toggleFilterGender(this,'Man')">Men</button>
+          <button class="filter-gender-btn" data-val="Woman" onclick="toggleFilterGender(this,'Woman')">Women</button>
         </div>
       </div>
 
@@ -8227,11 +8227,11 @@ function sharePost(postId) {
 const DISTANCE_STEPS = [5, 25, 50, 100, 250, 500, 1000, null] // null = worldwide
 let userLat = null
 let userLng = null
-let filterDistance = null // miles, null = worldwide
+let filterDistance = DISTANCE_STEPS[parseInt(localStorage.getItem('sx_filter_distance_idx') ?? '7')] ?? null
 let filterAgeMin = parseInt(localStorage.getItem('sx_filter_age_min') || '18', 10)
 let filterAgeMax = parseInt(localStorage.getItem('sx_filter_age_max') || '65', 10)
-let filterHsv = 'all'
-let filterGender = 'all'
+let filterHsv = localStorage.getItem('sx_filter_hsv') || 'all'
+let filterGender = localStorage.getItem('sx_filter_gender') || 'all'
 let _favoriteIds = new Set()
 
 function updateDistanceLabel(val) {
@@ -8245,11 +8245,23 @@ function updateAgeLabel() {
   const minEl = el('filter-age-min')
   const maxEl = el('filter-age-max')
   if (!minEl || !maxEl) return
+  const MIN_GAP = 2
   let min = parseInt(minEl.value)
   let max = parseInt(maxEl.value)
-  if (min > max) {
-    if (document.activeElement === minEl) { minEl.value = max; min = max }
-    else { maxEl.value = min; max = min }
+  if (document.activeElement === minEl) {
+    if (min > max - MIN_GAP) {
+      min = max - MIN_GAP
+      if (min < 18) { min = 18; max = min + MIN_GAP }
+      minEl.value = min
+      maxEl.value = max
+    }
+  } else if (document.activeElement === maxEl) {
+    if (max < min + MIN_GAP) {
+      max = min + MIN_GAP
+      if (max > 65) { max = 65; min = max - MIN_GAP }
+      maxEl.value = max
+      minEl.value = min
+    }
   }
   const maxLabel = max >= 65 ? '65+' : String(max)
   el('age-range-label').textContent = `${min} – ${maxLabel}`
@@ -8299,6 +8311,14 @@ function openFilterPanel() {
   if (minEl) minEl.value = filterAgeMin
   if (maxEl) maxEl.value = filterAgeMax
   updateAgeLabel()
+  document.querySelectorAll('.filter-gender-btn').forEach(b => b.classList.toggle('selected', b.dataset.val === filterGender))
+  document.querySelectorAll('.filter-hsv-btn').forEach(b => b.classList.toggle('selected', b.dataset.val === filterHsv))
+  const distEl = el('filter-distance')
+  if (distEl) {
+    const idx = DISTANCE_STEPS.indexOf(filterDistance)
+    distEl.value = String(idx !== -1 ? idx : 7)
+    updateDistanceLabel(distEl.value)
+  }
   const debugPanel = el('discover-debug-panel')
   if (debugPanel) debugPanel.style.display = currentProfile?.is_admin ? '' : 'none'
   show('filter-panel')
@@ -8306,11 +8326,15 @@ function openFilterPanel() {
 
 function applyFilters() {
   const distEl = el('filter-distance')
-  filterDistance = distEl ? DISTANCE_STEPS[parseInt(distEl.value)] : null
+  const distIdx = distEl ? parseInt(distEl.value) : 7
+  filterDistance = DISTANCE_STEPS[distIdx]
   filterAgeMin = parseInt(el('filter-age-min')?.value ?? 18)
   filterAgeMax = parseInt(el('filter-age-max').value)
   localStorage.setItem('sx_filter_age_min', filterAgeMin)
   localStorage.setItem('sx_filter_age_max', filterAgeMax)
+  localStorage.setItem('sx_filter_gender', filterGender)
+  localStorage.setItem('sx_filter_hsv', filterHsv)
+  localStorage.setItem('sx_filter_distance_idx', String(distIdx))
   hide('filter-panel')
   if (filterDistance !== null && !userLat) {
     requestLocation()
