@@ -5244,14 +5244,17 @@ async function loadDiscover() {
 
   const { data: rawProfiles, error: rawError } = await query
 
-  // Age and distance filtered client-side (profiles without birthdate pass through age check)
+  // Age filtered client-side; profiles without birthdate are excluded when a non-default age range is active
   const now = new Date()
+  const ageFiltered = filterAgeMin > 18 || filterAgeMax < 65
   let afterAge = 0
   let data = (rawProfiles || []).filter(p => {
     if (p.birthdate) {
       const age = Math.floor((now - new Date(p.birthdate)) / (365.25 * 24 * 3600 * 1000))
       if (age < filterAgeMin) return false
       if (filterAgeMax < 65 && age > filterAgeMax) return false
+    } else if (ageFiltered) {
+      return false
     }
     afterAge++
     // Distance filter only applies when a limit is set and both locations are known
