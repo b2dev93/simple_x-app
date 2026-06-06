@@ -280,6 +280,17 @@
 
     /* Back buttons: keep them square and tappable */
     .back-btn { min-width:44px; min-height:44px; display:flex; align-items:center; justify-content:center; }
+
+    /* ── Dual-thumb age slider ── */
+    .age-slider-wrap { position:relative; height:24px; display:flex; align-items:center; }
+    .age-track { position:absolute; left:0; right:0; height:4px; background:#2a2a2a; border-radius:2px; }
+    .age-track-fill { position:absolute; height:100%; background:#e8503a; border-radius:2px; }
+    .age-range-input { position:absolute; left:0; width:100%; -webkit-appearance:none; appearance:none; background:transparent; pointer-events:none; height:24px; margin:0; padding:0; }
+    .age-range-input::-webkit-slider-thumb { -webkit-appearance:none; appearance:none; width:20px; height:20px; border-radius:50%; background:#e8503a; cursor:pointer; pointer-events:all; border:2px solid #0a0a0a; box-shadow:0 1px 6px rgba(0,0,0,0.5); }
+    .age-range-input::-moz-range-thumb { width:20px; height:20px; border-radius:50%; background:#e8503a; cursor:pointer; pointer-events:all; border:2px solid #0a0a0a; box-shadow:0 1px 6px rgba(0,0,0,0.5); }
+    .age-range-input::-webkit-slider-runnable-track { background:transparent; }
+    .age-range-input::-moz-range-track { background:transparent; }
+    .age-range-input::-moz-range-progress { background:transparent; }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
   <script>emailjs.init("6hhTlpLKzeQ4Q2eRv")</script>
@@ -777,19 +788,10 @@
           <span style="color:#9e9b97;font-size:14px">Age range</span>
           <span style="color:#f0ede8;font-size:14px;font-weight:600" id="age-range-label">18 – 65+</span>
         </div>
-        <div style="margin-bottom:14px">
-          <div style="display:flex;justify-content:space-between;margin-bottom:4px">
-            <span style="color:#6b6866;font-size:11px">Min age</span>
-            <span style="color:#6b6866;font-size:11px" id="age-min-val">18</span>
-          </div>
-          <input type="range" id="filter-age-min" min="18" max="65" value="18" step="1" style="width:100%" oninput="updateAgeLabel()" />
-        </div>
-        <div>
-          <div style="display:flex;justify-content:space-between;margin-bottom:4px">
-            <span style="color:#6b6866;font-size:11px">Max age</span>
-            <span style="color:#6b6866;font-size:11px" id="age-max-val">65+</span>
-          </div>
-          <input type="range" id="filter-age-max" min="18" max="65" value="65" step="1" style="width:100%" oninput="updateAgeLabel()" />
+        <div class="age-slider-wrap" onpointermove="ageSliderProximity(event)" onpointerdown="ageSliderProximity(event)">
+          <div class="age-track"><div class="age-track-fill" id="age-track-fill"></div></div>
+          <input type="range" id="filter-age-min" class="age-range-input" min="18" max="65" value="18" step="1" oninput="updateAgeLabel()" />
+          <input type="range" id="filter-age-max" class="age-range-input" min="18" max="65" value="65" step="1" oninput="updateAgeLabel()" />
         </div>
       </div>
 
@@ -8245,11 +8247,38 @@ function updateAgeLabel() {
   if (!minEl || !maxEl) return
   let min = parseInt(minEl.value)
   let max = parseInt(maxEl.value)
-  if (min > max) { minEl.value = max; min = max }
+  if (min > max) {
+    if (document.activeElement === minEl) { minEl.value = max; min = max }
+    else { maxEl.value = min; max = min }
+  }
   const maxLabel = max >= 65 ? '65+' : String(max)
   el('age-range-label').textContent = `${min} – ${maxLabel}`
-  const minValEl = el('age-min-val'); if (minValEl) minValEl.textContent = String(min)
-  const maxValEl = el('age-max-val'); if (maxValEl) maxValEl.textContent = maxLabel
+  const fill = el('age-track-fill')
+  if (fill) {
+    const pct = v => ((v - 18) / (65 - 18)) * 100
+    fill.style.left = pct(min) + '%'
+    fill.style.width = (pct(max) - pct(min)) + '%'
+  }
+}
+
+function ageSliderProximity(e) {
+  const wrap = e.currentTarget
+  const rect = wrap.getBoundingClientRect()
+  const minEl = el('filter-age-min')
+  const maxEl = el('filter-age-max')
+  if (!minEl || !maxEl) return
+  const pct = v => ((v - 18) / (65 - 18)) * rect.width
+  const minPos = pct(parseInt(minEl.value))
+  const maxPos = pct(parseInt(maxEl.value))
+  const pointerX = (e.clientX ?? e.touches?.[0]?.clientX) - rect.left
+  if (pointerX === undefined || isNaN(pointerX)) return
+  if (Math.abs(pointerX - minPos) <= Math.abs(pointerX - maxPos)) {
+    minEl.style.zIndex = '5'
+    maxEl.style.zIndex = ''
+  } else {
+    maxEl.style.zIndex = '5'
+    minEl.style.zIndex = ''
+  }
 }
 
 function toggleFilterHsv(btn, val) {
