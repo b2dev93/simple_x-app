@@ -8253,15 +8253,15 @@ function updateAgeLabel() {
   let max = parseInt(maxEl.value)
   if (document.activeElement === minEl) {
     if (min > max - MIN_GAP) {
-      min = max - MIN_GAP
-      if (min < 18) { min = 18; max = min + MIN_GAP }
+      max = min + MIN_GAP
+      if (max > 65) { max = 65; min = max - MIN_GAP }
       minEl.value = min
       maxEl.value = max
     }
   } else if (document.activeElement === maxEl) {
     if (max < min + MIN_GAP) {
-      max = min + MIN_GAP
-      if (max > 65) { max = 65; min = max - MIN_GAP }
+      min = max - MIN_GAP
+      if (min < 18) { min = 18; max = min + MIN_GAP }
       maxEl.value = max
       minEl.value = min
     }
@@ -8333,6 +8333,7 @@ function applyFilters() {
   filterDistance = DISTANCE_STEPS[distIdx]
   filterAgeMin = parseInt(el('filter-age-min')?.value ?? 18)
   filterAgeMax = parseInt(el('filter-age-max').value)
+  console.log('[Filter Applied] ageMin:', filterAgeMin, '| ageMax:', filterAgeMax, '| gender:', filterGender, '| hsv:', filterHsv)
   localStorage.setItem('sx_filter_age_min', filterAgeMin)
   localStorage.setItem('sx_filter_age_max', filterAgeMax)
   localStorage.setItem('sx_filter_gender', filterGender)
