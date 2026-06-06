@@ -5426,6 +5426,17 @@ async function maybeShowSecondLook(stack) {
 
   if (!profile) { renderEmptyState(); return }
 
+  // Apply the same active filters as loadDiscover — skip if profile is out of range
+  if (filterGender !== 'all' && profile.gender !== filterGender) { renderEmptyState(); return }
+  if (filterHsv !== 'all' && profile.hsv_type !== filterHsv) { renderEmptyState(); return }
+  const _ageFiltered = filterAgeMin > 18 || filterAgeMax < 65
+  if (profile.birthdate) {
+    const _age = Math.floor((Date.now() - new Date(profile.birthdate)) / (365.25 * 24 * 3600 * 1000))
+    if (_age < filterAgeMin || (filterAgeMax < 65 && _age > filterAgeMax)) { renderEmptyState(); return }
+  } else if (_ageFiltered) {
+    renderEmptyState(); return
+  }
+
   localStorage.setItem('sx_last_suggestion', today)
   profile._secondLook = true
   discoverProfiles.push(profile)
