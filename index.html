@@ -794,7 +794,7 @@
       <div style="margin-bottom:28px">
         <span style="color:#9e9b97;font-size:14px;display:block;margin-bottom:12px">Show me</span>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button class="filter-gender-btn selected" onclick="toggleFilterGender(this,'all')">Everyone</button>
+          <button class="filter-gender-btn selected" onclick="toggleFilterGender(this,'all')">Both</button>
           <button class="filter-gender-btn" onclick="toggleFilterGender(this,'Man')">Men</button>
           <button class="filter-gender-btn" onclick="toggleFilterGender(this,'Woman')">Women</button>
         </div>
@@ -5228,15 +5228,11 @@ async function loadDiscover() {
   let query = sb.from('profiles').select(PUBLIC_PROFILE_COLS).or('incognito.is.null,incognito.eq.false').or('visibility.is.null,visibility.eq.everyone').limit(200)
   // Exclude already-swiped profiles (pass, like, super) and own profile
   if (swipedIds.length > 0) query = query.not('id', 'in', `(${swipedIds.join(',')})`)
-  // Gender filter: explicit selection beats seeking preference
+  // Gender filter: only apply when user explicitly picks Man or Woman
   let activeGenderFilter = null
   if (filterGender !== 'all') {
     query = query.eq('gender', filterGender)
     activeGenderFilter = filterGender
-  } else if (currentProfile?.seeking && currentProfile.seeking !== 'Everyone') {
-    const genderWanted = currentProfile.seeking === 'Women' ? 'Woman' : 'Man'
-    query = query.eq('gender', genderWanted)
-    activeGenderFilter = genderWanted + ' (from seeking)'
   }
   // HSV type filter (only when explicitly selected — 'all' passes everything through)
   if (filterHsv !== 'all') query = query.eq('hsv_type', filterHsv)
