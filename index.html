@@ -3397,16 +3397,18 @@ function urlBase64ToUint8Array(base64String) {
 
 async function sendPush(userId, title, body, tag, matchId) {
   try {
+    console.log('[Push] sendPush called', { userId, tag, matchId })
     // Suppress push if the current user has muted this conversation
-    if (matchId && getMutedChats().includes(matchId)) return
+    if (matchId && getMutedChats().includes(matchId)) { console.log('[Push] early exit: muted chat'); return }
     // Check recipient's per-type notification preference before sending
     const prefKey = { match: 'notif_matches', message: 'notif_messages', wink: 'notif_winks', view: 'notif_views', reminder: 'notif_reminders' }[tag]
     if (prefKey) {
       const { data: prefs } = await sb.from('profiles').select('notifications_enabled,' + prefKey).eq('id', userId).maybeSingle()
-      if (prefs && (prefs.notifications_enabled === false || prefs[prefKey] === false)) return
+      if (prefs && (prefs.notifications_enabled === false || prefs[prefKey] === false)) { console.log('[Push] early exit: prefs disabled', prefs); return }
     }
     const { data: { session: _pushSession } } = await sb.auth.getSession()
-    if (!_pushSession?.access_token) return
+    if (!_pushSession?.access_token) { console.log('[Push] early exit: no session/access_token'); return }
+    console.log('[Push] firing fetch')
     await fetch('https://ocwgwfnrstzrapsblkxm.supabase.co/functions/v1/send-push', {
       method: 'POST',
       headers: {
