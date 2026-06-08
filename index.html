@@ -2248,7 +2248,9 @@ async function enterApp(user) {
   setTimeout(showLaunchHelpModal, 5000)
   checkWhatsNew()
   setTimeout(checkRateAppPrompt, 8000)
-  registerPushNotifications()
+  // Re-subscribe silently if the user already granted permission on a previous visit.
+  // Permission is requested only from the notifications toggle in Settings (user gesture).
+  if ('Notification' in window && Notification.permission === 'granted') registerPushNotifications()
   updateLastSeen()
   // Refresh last_seen every 5 minutes; clear any previous interval first
   if (lastSeenIntervalId) clearInterval(lastSeenIntervalId)
@@ -3328,9 +3330,7 @@ async function registerPushNotifications() {
       return
     }
 
-    const permission = await Notification.requestPermission()
-    console.log('[Push] Notification permission:', permission)
-    if (permission !== 'granted') {
+    if (Notification.permission !== 'granted') {
       console.warn('[Push] Permission not granted — aborting')
       return
     }
@@ -8775,12 +8775,24 @@ function closeSettings() {
 }
 
 async function toggleNotifications(val) {
-  const sl = el('notif-slider'), th = el('notif-thumb')
+  const sl = el('notif-slider'), th = el('notif-thumb'), tog = el('notif-toggle')
+  if (val && 'Notification' in window) {
+    const permission = await Notification.requestPermission()
+    if (permission !== 'granted') {
+      // Revert the toggle — browser denied or dismissed the prompt
+      if (tog) tog.checked = false
+      if (sl) sl.style.background = '#2a2a2a'
+      if (th) th.style.transform = 'translateX(0)'
+      showToast('Notifications are blocked — enable them in your browser settings.')
+      return
+    }
+  }
   if (sl) sl.style.background = val ? '#e8503a' : '#2a2a2a'
   if (th) th.style.transform = val ? 'translateX(20px)' : 'translateX(0)'
   await sb.from('profiles').update({ notifications_enabled: val }).eq('id', currentUser.id)
   if (currentProfile) currentProfile.notifications_enabled = val
   showToast(val ? 'Push notifications on' : 'Push notifications off')
+  if (val) registerPushNotifications()
 }
 
 async function toggleNotifPref(key, val) {
