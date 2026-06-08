@@ -3693,6 +3693,22 @@ async function loadOnlineNow() {
     return true
   })
 
+  // Age filter — skipped for newest/joined24h so incomplete profiles without a birthdate still appear
+  if (!showAllProfiles) {
+    const now = new Date()
+    const ageFiltered = filterAgeMin > 18 || filterAgeMax < 65
+    filtered = filtered.filter(p => {
+      if (p.birthdate) {
+        const age = Math.floor((now - new Date(p.birthdate)) / (365.25 * 24 * 3600 * 1000))
+        if (age < filterAgeMin) return false
+        if (filterAgeMax < 65 && age > filterAgeMax) return false
+      } else if (ageFiltered) {
+        return false
+      }
+      return true
+    })
+  }
+
   // Distance sort client-side
   if (currentOnlineSort === 'closest' && userLat && userLng) {
     filtered = filtered
