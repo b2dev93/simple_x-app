@@ -7130,43 +7130,44 @@ async function checkStreakMilestone(streak) {
   if (currentUser && currentProfile) await checkAndAwardBadge(milestone.badge)
 }
 
-/**
- * On a 60-day streak, grant the user 7 days of Plus — once per account.
- * Guards against double-award with localStorage flag sx_streak60_bonus.
- */
+// DEFERRED to pre-production: re-implement the 60-day reward as an edge
+// function that validates the streak from server-side data (not
+// localStorage) and records the claim in the DB so it can't be replayed.
+// PRODUCTION POLICY: streaks may persist across launch, but the 60-day
+// reward only counts for a 60-day milestone reached AFTER launch. Store a
+// reward-eligibility-start timestamp and require the qualifying streak to
+// begin on/after it. Beta streaks do NOT earn the reward retroactively.
 async function checkStreak60Bonus(streak) {
   if (streak !== 60) return
   if (localStorage.getItem('sx_streak60_bonus')) return
   if (!currentUser || !currentProfile) return
 
-  // Mark bonus as awarded immediately so concurrent calls don't double-grant
+  // Mark as shown so this modal doesn't re-trigger on subsequent opens
   localStorage.setItem('sx_streak60_bonus', '1')
 
-  // Extend premium_expires_at by 7 days from now, or from existing expiry, whichever is later
-  const sevenDaysFromNow = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-  const existing = currentProfile.premium_expires_at ? new Date(currentProfile.premium_expires_at) : new Date(0)
-  const newExpiry = existing > sevenDaysFromNow ? existing : sevenDaysFromNow
-  const newExpiryISO = newExpiry.toISOString()
+  // DISABLED until production: re-implement as edge function (audit D-4)
+  // const sevenDaysFromNow = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+  // const existing = currentProfile.premium_expires_at ? new Date(currentProfile.premium_expires_at) : new Date(0)
+  // const newExpiry = existing > sevenDaysFromNow ? existing : sevenDaysFromNow
+  // const newExpiryISO = newExpiry.toISOString()
+  //
+  // const { error } = await sb.from('profiles')
+  //   .update({ is_premium: true, premium_expires_at: newExpiryISO })
+  //   .eq('id', currentUser.id)
+  //
+  // if (error) {
+  //   console.error('[Streak60] Could not grant Plus:', error.message)
+  // } else {
+  //   if (currentProfile) {
+  //     currentProfile.is_premium = true
+  //     currentProfile.premium_expires_at = newExpiryISO
+  //   }
+  // }
 
-  const { error } = await sb.from('profiles')
-    .update({ is_premium: true, premium_expires_at: newExpiryISO })
-    .eq('id', currentUser.id)
-
-  if (error) {
-    // Don't remove the localStorage flag — re-awarding on next open would be wrong.
-    // The DB update can be retried if needed but the celebratory modal should still show.
-    console.error('[Streak60] Could not grant Plus:', error.message)
-  } else {
-    if (currentProfile) {
-      currentProfile.is_premium = true
-      currentProfile.premium_expires_at = newExpiryISO
-    }
-  }
-
-  showStreak60BonusModal(newExpiry)
+  showStreak60BonusModal()
 }
 
-function showStreak60BonusModal(expiresAt) {
+function showStreak60BonusModal() {
   document.getElementById('streak60-bonus-modal')?.remove()
 
   const overlay = document.createElement('div')
@@ -7187,20 +7188,15 @@ function showStreak60BonusModal(expiresAt) {
   }
   overlay.appendChild(confettiWrap)
 
-  const expiryLabel = expiresAt
-    ? expiresAt.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
-    : '7 days from now'
-
   const box = document.createElement('div')
   box.style.cssText = 'background:#141414;border:1px solid #3a1a14;border-radius:24px;padding:36px 28px;text-align:center;width:100%;max-width:320px;position:relative;z-index:1'
   box.onclick = e => e.stopPropagation()
   box.innerHTML = `
     <div style="font-size:68px;margin-bottom:12px;line-height:1">🔥</div>
     <p style="color:#e8503a;font-size:12px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;margin-bottom:8px">60-Day Streak!</p>
-    <h2 style="color:#f0ede8;font-size:22px;font-weight:800;margin-bottom:12px;line-height:1.3">You earned 7 days of Plus — on us! 🎁</h2>
-    <p style="color:#9e9b97;font-size:14px;line-height:1.6;margin-bottom:8px">Your dedication to showing up every day deserves a reward. Enjoy unlimited likes, messages, and more.</p>
-    <p style="color:#f5c518;font-size:13px;font-weight:600;margin-bottom:24px">Active until ${escapeHtml(expiryLabel)}</p>
-    <button onclick="document.getElementById('streak60-bonus-modal')?.remove()" style="background:#e8503a;border:none;color:#fff;border-radius:14px;padding:15px;font-size:15px;font-weight:700;cursor:pointer;width:100%">Claim my reward 🎉</button>`
+    <h2 style="color:#f0ede8;font-size:22px;font-weight:800;margin-bottom:12px;line-height:1.3">60 days in a row — you made it! 🏆</h2>
+    <p style="color:#9e9b97;font-size:14px;line-height:1.6;margin-bottom:24px">That's real dedication. Showing up every single day for 60 days is something to be proud of.</p>
+    <button onclick="document.getElementById('streak60-bonus-modal')?.remove()" style="background:#e8503a;border:none;color:#fff;border-radius:14px;padding:15px;font-size:15px;font-weight:700;cursor:pointer;width:100%">Awesome! 🎉</button>`
   overlay.appendChild(box)
   document.body.appendChild(overlay)
 }
