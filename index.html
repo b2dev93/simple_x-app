@@ -2339,7 +2339,9 @@ async function checkUnreadOnLoad() {
       if (!lastSeen) return true
       return new Date(msg.created_at).getTime() > new Date(lastSeen).getTime()
     })
-    if (hasActualUnread) setUnreadDot(true)
+    setUnreadDot(!!hasActualUnread)
+  } else {
+    setUnreadDot(false)
   }
 }
 
@@ -5888,7 +5890,10 @@ async function loadMatches() {
   const sortedData = [...(data || [])].sort((a, b) => {
     const aPin = pinnedIds.includes(a.id) ? 0 : 1
     const bPin = pinnedIds.includes(b.id) ? 0 : 1
-    return aPin - bPin
+    if (aPin !== bPin) return aPin - bPin
+    const aTime = lastMsgMap[a.id] ? new Date(lastMsgMap[a.id].created_at).getTime() : new Date(a.created_at).getTime()
+    const bTime = lastMsgMap[b.id] ? new Date(lastMsgMap[b.id].created_at).getTime() : new Date(b.created_at).getTime()
+    return bTime - aTime
   })
 
   const matchFragment = document.createDocumentFragment()
@@ -6075,7 +6080,6 @@ function openChat(match) {
   activeMatch = match
   lastMessageDate = null
   localStorage.setItem('sx_last_seen_' + match.id, new Date().toISOString())
-  setUnreadDot(false)
   markMessagesRead(match.id)
   const other = match.user_a === currentUser.id ? match.profiles_b : match.profiles_a
   const chatAvEl = el('chat-avatar')
@@ -6182,6 +6186,7 @@ function closeChat() {
   const ind = document.getElementById('typing-indicator')
   if (ind) ind.style.display = 'none'
   activeMatch = null
+  loadMatches()
   setTimeout(() => checkUnreadOnLoad(), 300)
 }
 
