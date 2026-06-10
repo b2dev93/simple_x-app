@@ -3668,9 +3668,9 @@ async function loadOnlineNow() {
   } else if (currentOnlineSort === 'newest' || currentOnlineSort === 'joined24h') {
     query = query.order('created_at', { ascending: false })
   } else if (currentOnlineSort === 'youngest') {
-    query = query.order('birthdate', { ascending: false })
+    query = query.order('birthdate', { ascending: false, nullsFirst: false })
   } else if (currentOnlineSort === 'oldest') {
-    query = query.order('birthdate', { ascending: true })
+    query = query.order('birthdate', { ascending: true, nullsFirst: false })
   } else if (currentOnlineSort === 'closest' || currentOnlineSort === 'today') {
     query = query.order('last_seen', { ascending: false, nullsFirst: false })
   }
@@ -7441,8 +7441,9 @@ function renderProfileScreen() {
       premiumCard.style.cursor = 'default'
       premiumBadge.textContent = '✓ Active'
       premiumBadge.style.background = '#2ecc71'
-      premiumSub.textContent = p.premium_expires_at
-        ? 'Active until ' + new Date(p.premium_expires_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+      const _expDate = p.premium_expires_at ? new Date(p.premium_expires_at) : null
+      premiumSub.textContent = (_expDate && !isNaN(_expDate))
+        ? 'Active until ' + _expDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
         : 'Unlimited likes · Unlimited messages'
     } else {
       premiumCard.onclick = () => showUpgradePrompt('Unlock unlimited likes, unlimited conversations, and more with Simple-x Plus.')
