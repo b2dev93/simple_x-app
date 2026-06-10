@@ -5660,50 +5660,58 @@ async function checkSuperLikeLimit() {
 
 let lastSwipedProfile = null
 let lastSwipedDirection = null
+let swipeInProgress = false
 
 
 async function swipe(direction, reason = null) {
-  if (isGuestMode) { promptGuestSignup(); return }
-  const card = el('current-card')
-  const profile = discoverProfiles[discoverIdx]
-  if (!profile || !card) return
+  if (swipeInProgress) return
+  swipeInProgress = true
+  try {
+    if (isGuestMode) { promptGuestSignup(); return }
+    const card = el('current-card')
+    const profile = discoverProfiles[discoverIdx]
+    if (!profile || !card) return
 
-  if (direction === 'super' && !(await checkSuperLikeLimit())) return
-  if ((direction === 'like' || direction === 'super') && !(await checkLikeLimit())) return
+    if (direction === 'super' && !(await checkSuperLikeLimit())) return
+    if ((direction === 'like' || direction === 'super') && !(await checkLikeLimit())) return
 
-  card.style.transition = 'transform 0.28s ease-in'
-  card.style.transform = (direction === 'like' || direction === 'super')
-    ? 'translateX(150%) rotate(12deg)' : 'translateX(-150%) rotate(-12deg)'
+    card.style.transition = 'transform 0.28s ease-in'
+    card.style.transform = (direction === 'like' || direction === 'super')
+      ? 'translateX(150%) rotate(12deg)' : 'translateX(-150%) rotate(-12deg)'
 
-  const swipeRow = { swiper_id: currentUser.id, swiped_id: profile.id, direction }
-  if (reason) swipeRow.reason = reason
-  await sb.from('swipes').insert(swipeRow)
+    const swipeRow = { swiper_id: currentUser.id, swiped_id: profile.id, direction }
+    if (reason) swipeRow.reason = reason
+    await sb.from('swipes').insert(swipeRow)
 
-  if (direction === 'super') {
-    sendPush(profile.id, 'Someone super liked you! ⭐', `${currentProfile?.display_name || 'Someone'} super liked you on Simple-x`, 'view')
-  }
+    if (direction === 'super') {
+      sendPush(profile.id, 'Someone super liked you! ⭐', `${currentProfile?.display_name || 'Someone'} super liked you on Simple-x`, 'view')
+    }
 
-  if (direction === 'like' || direction === 'super') {
-    const { data: theirSwipe } = await sb.from('swipes')
-      .select('id').eq('swiper_id', profile.id).eq('swiped_id', currentUser.id).in('direction', ['like','super']).maybeSingle()
-    if (theirSwipe) {
-      const { data: existingMatch } = await sb.from('matches')
-        .select('id')
-        .or(`and(user_a.eq.${currentUser.id},user_b.eq.${profile.id}),and(user_a.eq.${profile.id},user_b.eq.${currentUser.id})`)
-        .maybeSingle()
-      if (!existingMatch) {
-        await sb.from('matches').insert({ user_a: currentUser.id, user_b: profile.id })
-        lastMatchProfile = profile
-        showMatchModal(profile)
+    if (direction === 'like' || direction === 'super') {
+      const { data: theirSwipe } = await sb.from('swipes')
+        .select('id').eq('swiper_id', profile.id).eq('swiped_id', currentUser.id).in('direction', ['like','super']).maybeSingle()
+      if (theirSwipe) {
+        const { data: existingMatch } = await sb.from('matches')
+          .select('id')
+          .or(`and(user_a.eq.${currentUser.id},user_b.eq.${profile.id}),and(user_a.eq.${profile.id},user_b.eq.${currentUser.id})`)
+          .maybeSingle()
+        if (!existingMatch) {
+          await sb.from('matches').insert({ user_a: currentUser.id, user_b: profile.id })
+          lastMatchProfile = profile
+          showMatchModal(profile)
+        }
       }
     }
-  }
 
-  lastSwipedProfile = profile
-  lastSwipedDirection = direction
-  const undoBtn = el('undo-btn')
-  if (undoBtn) undoBtn.style.display = ''
-  setTimeout(() => { discoverIdx++; renderCard() }, 300)
+    lastSwipedProfile = profile
+    lastSwipedDirection = direction
+    const undoBtn = el('undo-btn')
+    if (undoBtn) undoBtn.style.display = ''
+    setTimeout(() => { discoverIdx++; renderCard(); swipeInProgress = false }, 300)
+  } catch (err) {
+    swipeInProgress = false
+    throw err
+  }
 }
 
 
