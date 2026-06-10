@@ -1275,6 +1275,7 @@ let currentProfile = null
 let isGuestMode = false
 let discoverProfiles = []
 let discoverIdx = 0
+let justRefilled = false
 let secondLookChecked = false
 let currentMatchId = null
 let chatSubscription = null
@@ -5247,8 +5248,8 @@ async function loadDiscover() {
   const swipedIds = [...new Set((swipes || []).map(s => s.swiped_id).filter(id => id != null))]
   swipedIds.push(currentUser.id)
 
-  // Always fetch 200 so new members are never suppressed by a tiny batch limit
-  let query = sb.from('profiles').select(PUBLIC_PROFILE_COLS).or('incognito.is.null,incognito.eq.false').or('visibility.is.null,visibility.eq.everyone').limit(200)
+  // Newest profiles first so the 200-slot cap surfaces the most recent members
+  let query = sb.from('profiles').select(PUBLIC_PROFILE_COLS).or('incognito.is.null,incognito.eq.false').or('visibility.is.null,visibility.eq.everyone').order('created_at', { ascending: false }).limit(200)
   // Exclude already-swiped profiles (pass, like, super) and own profile
   if (swipedIds.length > 0) query = query.not('id', 'in', `(${swipedIds.join(',')})`)
   // Gender filter: only apply when user explicitly picks Man or Woman
@@ -5301,6 +5302,7 @@ async function loadDiscover() {
   const newSlotCount = Math.ceil(data.length * 0.2)
   data = [...newMembers.slice(0, newSlotCount), ...veterans, ...newMembers.slice(newSlotCount)]
 
+  if (data.length > 0) justRefilled = false  // new profiles arrived — reset auto-refill guard
   discoverProfiles = data
   discoverIdx = 0
   renderCard()
@@ -5309,6 +5311,12 @@ async function loadDiscover() {
 function renderCard() {
   const stack = el('card-stack')
   if (discoverIdx >= discoverProfiles.length) {
+    if (!justRefilled) {
+      justRefilled = true
+      loadDiscover()  // one auto-refill attempt; loadDiscover clears the flag if it finds profiles
+      return
+    }
+    justRefilled = false  // truly empty after refill — fall through to empty state
     maybeShowSecondLook(stack)
     return
   }
