@@ -9303,6 +9303,7 @@ let obCurrentSlide = 0
 const OB_TOTAL = 5
 
 function showOnboarding() {
+  if (currentProfile?.onboarded) return
   if (localStorage.getItem('sx_onboarded')) return
   obCurrentSlide = 0
   const el = document.getElementById('onboarding')
@@ -9327,6 +9328,7 @@ function obNext() {
 
 function obFinish() {
   localStorage.setItem('sx_onboarded', '1')
+  sb.from('profiles').update({ onboarded: true }).eq('id', currentUser.id)
   const el = document.getElementById('onboarding')
   if (el) el.style.display = 'none'
   // Natural next-step prompts for new users
