@@ -6182,6 +6182,8 @@ function openChat(match) {
   chatSubscription = sb.channel('chat-' + match.id)
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `match_id=eq.${match.id}` },
       payload => appendMessage(payload.new))
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'messages', filter: `match_id=eq.${match.id}` },
+      payload => applyMessageUpdate(payload.new))
     .subscribe()
 
   // Typing indicator via Supabase Presence
@@ -6870,6 +6872,50 @@ async function editMessage(msgId, bubbleEl) {
   bubbleEl.insertBefore(editWrap, textSpan)
   textarea.focus()
   textarea.setSelectionRange(textarea.value.length, textarea.value.length)
+}
+
+function applyMessageUpdate(msg) {
+  const bubble = document.querySelector(`.bubble[data-msg-id="${CSS.escape(String(msg.id))}"]`)
+  if (!bubble) return
+  if (msg.is_deleted) {
+    if (bubble.dataset.deleted === 'true') return
+    const textSpan = bubble.querySelector('.bubble-text')
+    if (textSpan) {
+      while (textSpan.firstChild) textSpan.removeChild(textSpan.firstChild)
+      textSpan.textContent = 'Message deleted'
+      textSpan.style.fontStyle = 'italic'
+      textSpan.style.opacity = '0.45'
+    }
+    const timeDiv = bubble.querySelector('.bubble-time')
+    if (timeDiv) timeDiv.textContent = ''
+    const reactWrap = bubble.querySelector('.msg-reactions-wrap')
+    if (reactWrap) reactWrap.innerHTML = ''
+    bubble.dataset.content = ''
+    bubble.dataset.deleted = 'true'
+  } else {
+    const newContent = msg.content || ''
+    if (bubble.dataset.content === newContent) return
+    bubble.dataset.content = newContent
+    const textSpan = bubble.querySelector('.bubble-text')
+    if (textSpan) {
+      while (textSpan.firstChild) textSpan.removeChild(textSpan.firstChild)
+      const urlRegex = /https?:\/\/[^\s]+/g
+      const urlMatches = newContent.match(urlRegex) || []
+      const textParts = newContent.split(urlRegex)
+      textParts.forEach((part, idx) => {
+        if (part) textSpan.appendChild(document.createTextNode(part))
+        if (urlMatches[idx]) {
+          const a = document.createElement('a')
+          a.href = urlMatches[idx]; a.textContent = urlMatches[idx]; a.target = '_blank'
+          a.rel = 'noopener noreferrer'; a.style.color = 'inherit'
+          a.style.textDecorationColor = 'rgba(255,255,255,0.5)'
+          textSpan.appendChild(a)
+        }
+      })
+    }
+    const timeDiv = bubble.querySelector('.bubble-time')
+    if (timeDiv && !timeDiv.textContent.endsWith(' · edited')) timeDiv.textContent += ' · edited'
+  }
 }
 
 // ── MESSAGE REACTIONS ────────────────────────────────
