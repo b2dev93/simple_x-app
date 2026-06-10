@@ -4357,7 +4357,7 @@ async function loadQuestionsPage() {
   const list = document.getElementById('qp-list')
   const countEl = document.getElementById('qp-count')
   if (!list) return
-  const { data: questions } = await sb.from('anonymous_questions')
+  const { data: questions } = await sb.from('anonymous_questions_safe')
     .select('*, asker_profile:profiles!asker_id(display_name)')
     .eq('target_id', currentUser.id).order('created_at', { ascending: false })
   if (!list.isConnected) return
@@ -5066,7 +5066,7 @@ async function loadMyQuestions() {
   const list = document.getElementById('questions-list')
   const countEl = document.getElementById('questions-count')
   if (!section || !list) return
-  const { data: questions } = await sb.from('anonymous_questions')
+  const { data: questions } = await sb.from('anonymous_questions_safe')
     .select('*, asker_profile:profiles!asker_id(display_name)')
     .eq('target_id', currentUser.id).order('created_at', { ascending: false })
   _anonQCount = (questions || []).filter(q => !q.answer).length
