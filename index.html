@@ -4357,9 +4357,15 @@ async function loadQuestionsPage() {
   const list = document.getElementById('qp-list')
   const countEl = document.getElementById('qp-count')
   if (!list) return
-  const { data: questions } = await sb.from('anonymous_questions_safe')
-    .select('*, asker_profile:profiles!asker_id(display_name)')
+  let { data: questions } = await sb.from('anonymous_questions_safe')
+    .select('id, question, answer, show_asker, is_hidden, created_at, asker_id')
     .eq('target_id', currentUser.id).order('created_at', { ascending: false })
+  const _namedIds1 = [...new Set((questions || []).map(q => q.asker_id).filter(Boolean))]
+  if (_namedIds1.length) {
+    const { data: _profiles1 } = await sb.from('profiles').select('id, display_name').in('id', _namedIds1)
+    const _nameMap1 = Object.fromEntries((_profiles1 || []).map(p => [p.id, p.display_name]))
+    questions = (questions || []).map(q => ({ ...q, asker_profile: q.asker_id ? { display_name: _nameMap1[q.asker_id] } : null }))
+  }
   if (!list.isConnected) return
   if (!questions?.length) {
     list.innerHTML = '<div style="text-align:center;padding:60px 20px"><p style="color:#6b6866;font-size:14px">No questions yet.</p></div>'
@@ -5066,9 +5072,15 @@ async function loadMyQuestions() {
   const list = document.getElementById('questions-list')
   const countEl = document.getElementById('questions-count')
   if (!section || !list) return
-  const { data: questions } = await sb.from('anonymous_questions_safe')
-    .select('*, asker_profile:profiles!asker_id(display_name)')
+  let { data: questions } = await sb.from('anonymous_questions_safe')
+    .select('id, question, answer, show_asker, is_hidden, created_at, asker_id')
     .eq('target_id', currentUser.id).order('created_at', { ascending: false })
+  const _namedIds2 = [...new Set((questions || []).map(q => q.asker_id).filter(Boolean))]
+  if (_namedIds2.length) {
+    const { data: _profiles2 } = await sb.from('profiles').select('id, display_name').in('id', _namedIds2)
+    const _nameMap2 = Object.fromEntries((_profiles2 || []).map(p => [p.id, p.display_name]))
+    questions = (questions || []).map(q => ({ ...q, asker_profile: q.asker_id ? { display_name: _nameMap2[q.asker_id] } : null }))
+  }
   _anonQCount = (questions || []).filter(q => !q.answer).length
   clearAnonQuestionsBadge()
   if (!questions?.length) { section.style.display = 'none'; return }
