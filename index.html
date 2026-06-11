@@ -7374,8 +7374,8 @@ function getStreakDigestLine() {
   // Respect the toggle the user set in Settings → Notifications
   if (localStorage.getItem('sx_notif_streak') === 'false') return null
 
-  const today     = new Date().toISOString().slice(0, 10)
-  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10)
+  const today     = new Date().toLocaleDateString('sv')
+  const yesterday = new Date(Date.now() - 86400000).toLocaleDateString('sv')
   const lastActive = localStorage.getItem('sx_last_active')
   const streak     = parseInt(localStorage.getItem('sx_streak') || '0', 10)
 
@@ -7432,7 +7432,7 @@ function getStreakDigestLine() {
 }
 
 function showDailyCheckIn(streak) {
-  const today = new Date().toISOString().slice(0, 10)
+  const today = new Date().toLocaleDateString('sv')
 
   // Day 1: showDailyCheckIn won't show a modal, but the intro digest line
   // should still surface — deliver it as a light toast instead.
