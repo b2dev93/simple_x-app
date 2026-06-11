@@ -6895,7 +6895,6 @@ async function editMessage(msgId, bubbleEl) {
   if (timeDiv) timeDiv.style.display = 'none'
   bubbleEl.insertBefore(editWrap, textSpan)
   textarea.focus()
-  textarea.setSelectionRange(textarea.value.length, textarea.value.length)
 }
 
 function applyMessageUpdate(msg) {
