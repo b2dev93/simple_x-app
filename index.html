@@ -3657,10 +3657,12 @@ async function loadOnlineNow() {
   const showAllProfiles = currentOnlineSort === 'newest' || currentOnlineSort === 'joined24h'
   const fetchLimit = showAllProfiles ? 200 : 60
 
-  // For newest/joined24h: skip visibility filter so new/incomplete profiles (which may not have
-  // visibility set to 'everyone' yet) still appear. Incognito filter always applies.
-  let query = sb.from('profiles').select(PUBLIC_PROFILE_COLS).or('incognito.is.null,incognito.eq.false')
-  if (!showAllProfiles) query = query.or('visibility.is.null,visibility.eq.everyone')
+  // Incognito and visibility filters always apply on all sorts.
+  // newest/joined24h skip gender/age/birthdate filters so incomplete profiles still appear,
+  // but a profile explicitly set to non-everyone visibility should never be shown.
+  let query = sb.from('profiles').select(PUBLIC_PROFILE_COLS)
+    .or('incognito.is.null,incognito.eq.false')
+    .or('visibility.is.null,visibility.eq.everyone')
   query = query.limit(fetchLimit)
   if (currentUser?.id) query = query.neq('id', currentUser.id)
 
