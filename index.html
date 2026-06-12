@@ -6862,7 +6862,7 @@ async function editMessage(msgId, bubbleEl) {
 
   saveBtn.addEventListener('click', async () => {
     const newContent = textarea.value.trim()
-    if (!newContent) return
+    if (!newContent) { showToast("Message can't be empty."); return }
     if (newContent === currentContent) { cancelBtn.click(); return }
     saveBtn.textContent = 'Saving…'; saveBtn.disabled = true
     const { error } = await sb.from('messages')
