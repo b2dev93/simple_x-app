@@ -589,6 +589,7 @@
         <div id="referral-count-badge" style="display:none;margin-top:10px;padding:7px 14px;background:#1c1c1c;border-radius:20px;border:1px solid #252525;color:#9e9b97;font-size:12px;text-align:center"></div>
       </div>
       <div id="profile-fields"></div>
+      <div id="profile-badges"></div>
       <div id="profile-featured" style="margin-bottom:4px"></div>
 
       <div id="referral-leaderboard" style="display:none;margin-bottom:16px"></div>
@@ -7527,12 +7528,21 @@ function renderProfileScreen() {
   renderPrivateAlbum()
   renderStreakBadge()
   renderProfileCompletion()
+  renderProfileBadges()
   renderFeaturedSection()
   checkProfileNudge()
   loadProfileViewCount()
   renderBoostBtn()
   loadReferralCount()
   loadReferralLeaderboard()
+}
+
+function renderProfileBadges() {
+  const container = document.getElementById('profile-badges')
+  if (!container) return
+  const badges = currentProfile?.badges
+  if (!badges?.length) { container.innerHTML = ''; return }
+  container.innerHTML = `<div style="margin-bottom:16px"><p style="color:#9e9b97;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:8px">Badges</p><div style="display:flex;flex-wrap:wrap;gap:5px">${badges.map(b => `<span style="background:#1c1c1c;border:1px solid #252525;border-radius:20px;padding:3px 10px;font-size:12px;color:#f0ede8">${escapeHtml(b)}</span>`).join('')}</div></div>`
 }
 
 function renderFeaturedSection() {
