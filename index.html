@@ -1411,10 +1411,13 @@ async function savePrivatePhotoCaptions() {
 async function deletePhoto(idx) {
   if (!confirm('Remove this photo?')) return
   const urls = [...(currentProfile.photo_urls || [])]
+  const captions = [...(currentProfile.photo_captions || [])]
   urls.splice(idx, 1)
-  const { error: delPhotoErr } = await sb.from('profiles').update({ photo_urls: urls }).eq('id', currentUser.id)
+  captions.splice(idx, 1)
+  const { error: delPhotoErr } = await sb.from('profiles').update({ photo_urls: urls, photo_captions: captions }).eq('id', currentUser.id)
   if (delPhotoErr) { showToast('Could not remove photo.'); return }
   currentProfile.photo_urls = urls
+  currentProfile.photo_captions = captions
   renderProfileScreen()
   if (el('edit-profile-page')?.style.display === 'flex') renderEditPhotos()
 }
@@ -1492,12 +1495,17 @@ async function uploadPrivatePhoto(input) {
 async function deletePrivatePhoto(idx) {
   if (!confirm('Remove this photo from your private album?')) return
   const urls = [...(currentProfile.private_photo_urls || [])]
+  const captions = [...(currentProfile.private_photo_captions || [])]
   const path = urls[idx]
   if (path && !path.startsWith('http')) await sb.storage.from('private-photos').remove([path])
   urls.splice(idx, 1)
-  await sb.from('profiles').update({ private_photo_urls: urls }).eq('id', currentUser.id)
+  captions.splice(idx, 1)
+  const { error: delPrivErr } = await sb.from('profiles').update({ private_photo_urls: urls, private_photo_captions: captions }).eq('id', currentUser.id)
+  if (delPrivErr) { showToast('Could not remove photo.'); return }
   currentProfile.private_photo_urls = urls
+  currentProfile.private_photo_captions = captions
   await renderPrivateAlbum()
+  if (el('edit-profile-page')?.style.display === 'flex') renderEditPhotos()
 }
 
 async function requestPrivateAlbum(ownerId) {
@@ -7912,7 +7920,7 @@ function selectEditHsv(btn, val) {
 async function saveProfile() {
   const updates = {
     id: currentUser.id,
-    display_name: el('edit-name').value.trim(),
+    display_name: el('edit-name').value.trim() || currentProfile?.display_name || null,
     city: el('edit-city').value.trim(),
     bio: el('edit-bio').value.trim(),
     quote: el('edit-quote').value.trim() || null,
@@ -7949,7 +7957,8 @@ async function saveProfile() {
     willing_to_fly: el('edit-willing-to-fly')?.checked || false,
     dating_distance: el('edit-dating-distance').value || null,
   }
-  await sb.from('profiles').upsert(updates)
+  const { error: saveErr } = await sb.from('profiles').upsert(updates)
+  if (saveErr) { showToast("Couldn't save changes — please try again."); return }
   currentProfile = { ...currentProfile, ...updates }
   renderProfileScreen()
   closeEditPage()
