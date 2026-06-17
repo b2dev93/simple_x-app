@@ -3283,7 +3283,8 @@ async function submitPost() {
   })
 
   if (error) {
-    showToast('Could not post. Please try again.')
+    console.error('[submitPost] insert error:', error)
+    showToast('Post failed: ' + error.message)
     btn.textContent = 'Post'
     btn.disabled = false
     return
