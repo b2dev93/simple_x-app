@@ -3175,6 +3175,56 @@ async function sendCommentNotifications(postId, commentBody) {
   })
 }
 
+let _postImages = []
+
+async function uploadPostImages(input) {
+  const files = Array.from(input.files)
+  input.value = ''
+  if (!files.length) return
+  const remaining = 10 - _postImages.length
+  if (remaining <= 0) { showToast('Maximum 10 photos per post.'); return }
+  const toUpload = files.slice(0, remaining)
+  if (files.length > remaining) showToast(`Only ${remaining} slot(s) left. Uploading first ${remaining}.`)
+  const btn = document.getElementById('post-add-photo-btn')
+  if (btn) { btn.disabled = true; btn.textContent = 'Uploading…' }
+  for (const file of toUpload) {
+    let blob
+    try { blob = await convertToJpeg(file) } catch (e) { showToast('Could not process image: ' + e.message); continue }
+    const path = `${currentUser.id}/${Date.now()}_${Math.random().toString(36).slice(2)}.jpg`
+    const { error: upErr } = await sb.storage.from('post-images').upload(path, blob, { upsert: false, contentType: 'image/jpeg' })
+    if (upErr) { showToast('Upload failed: ' + upErr.message); continue }
+    const { data: urlData } = sb.storage.from('post-images').getPublicUrl(path)
+    _postImages.push({ url: urlData.publicUrl, path })
+  }
+  if (btn) { btn.disabled = false; btn.textContent = '📷 Add photos' }
+  renderPostImagePreviews()
+}
+
+async function removePostImage(path) {
+  await sb.storage.from('post-images').remove([path])
+  _postImages = _postImages.filter(i => i.path !== path)
+  renderPostImagePreviews()
+}
+
+function renderPostImagePreviews() {
+  const container = document.getElementById('post-image-previews')
+  if (!container) return
+  if (!_postImages.length) { container.innerHTML = ''; return }
+  container.innerHTML = `<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px">${
+    _postImages.map(img => `
+      <div style="position:relative;width:72px;height:72px;border-radius:8px;overflow:hidden;flex-shrink:0">
+        <img src="${img.url}" style="width:100%;height:100%;object-fit:cover">
+        <button onclick="removePostImage('${img.path}')" style="position:absolute;top:3px;right:3px;background:rgba(0,0,0,0.7);border:none;border-radius:50%;width:20px;height:20px;color:#fff;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;padding:0">&#x00D7;</button>
+      </div>`).join('')
+  }</div>`
+}
+
+async function cleanupPostImages() {
+  if (!_postImages.length) return
+  await sb.storage.from('post-images').remove(_postImages.map(i => i.path))
+  _postImages = []
+}
+
 function showNewPostModal() {
   if (!currentProfile?.is_premium && !currentProfile?.is_admin) {
     showUpgradePrompt('Community posting is a Simple-x Plus feature. Upgrade to share with the community.')
@@ -3199,10 +3249,14 @@ function showNewPostModal() {
       <input id="post-title" placeholder="Title (optional)" style="width:100%;padding:12px;background:#1c1c1c;border:1px solid #252525;border-radius:12px;color:#f0ede8;font-size:14px;margin-bottom:10px;box-sizing:border-box" />
       <textarea id="post-body" placeholder="Share something with the community..." rows="5" style="width:100%;padding:12px;background:#1c1c1c;border:1px solid #252525;border-radius:12px;color:#f0ede8;font-size:14px;resize:vertical;box-sizing:border-box;font-family:inherit"></textarea>
 
+      <input type="file" id="post-image-input" accept="image/*" multiple style="display:none" onchange="uploadPostImages(this)">
+      <button id="post-add-photo-btn" type="button" onclick="document.getElementById('post-image-input').click()" style="background:none;border:1px solid #252525;color:#9e9b97;font-size:13px;padding:8px 14px;border-radius:10px;cursor:pointer;margin-top:10px">&#x1F4F7; Add photos</button>
+      <div id="post-image-previews"></div>
+
       <p style="color:#6b6866;font-size:11px;margin:8px 0 16px">Posts that violate community rules will be removed. Repeat violations may result in account suspension.</p>
 
       <div style="display:flex;gap:10px">
-        <button onclick="document.getElementById('new-post-modal').remove()" style="flex:1;padding:14px;border-radius:12px;border:1px solid #252525;background:transparent;color:#9e9b97;font-size:15px;cursor:pointer">Cancel</button>
+        <button onclick="cleanupPostImages();document.getElementById('new-post-modal').remove()" style="flex:1;padding:14px;border-radius:12px;border:1px solid #252525;background:transparent;color:#9e9b97;font-size:15px;cursor:pointer">Cancel</button>
         <button id="submit-post-btn" onclick="submitPost()" style="flex:1;padding:14px;border-radius:12px;border:none;background:#e8503a;color:#fff;font-size:15px;font-weight:600;cursor:pointer">Post</button>
       </div>
     </div>
@@ -3225,6 +3279,7 @@ async function submitPost() {
     user_id: currentUser.id,
     title: title || null,
     body,
+    image_urls: _postImages.length ? _postImages.map(i => i.url) : null,
   })
 
   if (error) {
@@ -3234,6 +3289,7 @@ async function submitPost() {
     return
   }
 
+  _postImages = []
   document.getElementById('new-post-modal')?.remove()
   showToast('Post shared with the community.')
   loadCommunity()
