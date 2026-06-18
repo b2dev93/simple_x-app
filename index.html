@@ -1449,6 +1449,82 @@ function showLightbox(url) {
   document.body.appendChild(box)
 }
 
+function showPostLightbox(postId, startIdx) {
+  const urls = _postImageCache[postId]
+  if (!urls?.length) return
+  const n = urls.length
+
+  document.getElementById('sx-post-lightbox')?.remove()
+  const lb = document.createElement('div')
+  lb.id = 'sx-post-lightbox'
+  lb.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.95);z-index:99999;display:flex;flex-direction:column'
+
+  const header = document.createElement('div')
+  header.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:max(20px,env(safe-area-inset-top)) 16px 12px;flex-shrink:0'
+  header.innerHTML = `<span id="sx-plb-counter" style="color:#fff;font-size:15px;font-weight:600">${startIdx + 1}/${n}</span><button onclick="document.getElementById('sx-post-lightbox').remove()" style="background:rgba(255,255,255,0.12);border:none;color:#fff;font-size:24px;width:40px;height:40px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1">&#x00D7;</button>`
+  lb.appendChild(header)
+
+  const trackWrap = document.createElement('div')
+  trackWrap.style.cssText = 'flex:1;position:relative;overflow:hidden'
+
+  const track = document.createElement('div')
+  track.style.cssText = 'position:absolute;inset:0;display:flex;overflow-x:scroll;scroll-snap-type:x mandatory;scrollbar-width:none;-ms-overflow-style:none;align-items:center;-webkit-overflow-scrolling:touch'
+  urls.forEach(url => {
+    const slide = document.createElement('div')
+    slide.style.cssText = 'flex:0 0 100%;scroll-snap-align:start;display:flex;align-items:center;justify-content:center;padding:0 4px;box-sizing:border-box;height:100%'
+    const img = document.createElement('img')
+    img.src = url
+    img.style.cssText = 'max-width:100%;max-height:100%;object-fit:contain'
+    img.onclick = e => e.stopPropagation()
+    slide.appendChild(img)
+    track.appendChild(slide)
+  })
+  trackWrap.appendChild(track)
+
+  if (n > 1) {
+    const aStyle = 'position:absolute;top:50%;transform:translateY(-50%);background:rgba(0,0,0,0.5);border:none;color:#fff;font-size:28px;width:40px;height:40px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2;line-height:1'
+    const prev = document.createElement('button')
+    prev.innerHTML = '&#x2039;'
+    prev.style.cssText = aStyle + ';left:8px'
+    prev.onclick = () => track.scrollBy({ left: -track.offsetWidth, behavior: 'smooth' })
+    const next = document.createElement('button')
+    next.innerHTML = '&#x203A;'
+    next.style.cssText = aStyle + ';right:8px'
+    next.onclick = () => track.scrollBy({ left: track.offsetWidth, behavior: 'smooth' })
+    trackWrap.appendChild(prev)
+    trackWrap.appendChild(next)
+  }
+  lb.appendChild(trackWrap)
+
+  const dotsEl = n > 1 ? document.createElement('div') : null
+  if (dotsEl) {
+    dotsEl.style.cssText = 'display:flex;justify-content:center;gap:6px;padding:12px 0 max(20px,env(safe-area-inset-bottom));flex-shrink:0'
+    urls.forEach((_, i) => {
+      const d = document.createElement('div')
+      d.style.cssText = `width:8px;height:8px;border-radius:50%;background:${i === startIdx ? '#fff' : 'rgba(255,255,255,0.4)'}`
+      dotsEl.appendChild(d)
+    })
+    lb.appendChild(dotsEl)
+  }
+
+  track.onscroll = function() {
+    const idx = Math.round(track.scrollLeft / track.offsetWidth)
+    const counter = document.getElementById('sx-plb-counter')
+    if (counter) counter.textContent = `${idx + 1}/${n}`
+    if (dotsEl) Array.from(dotsEl.children).forEach((d, i) => { d.style.background = i === idx ? '#fff' : 'rgba(255,255,255,0.4)' })
+  }
+
+  let _swX = 0, _swY = 0
+  lb.addEventListener('touchstart', e => { _swX = e.touches[0].clientX; _swY = e.touches[0].clientY }, { passive: true })
+  lb.addEventListener('touchend', e => {
+    const dy = e.changedTouches[0].clientY - _swY
+    if (dy > 80 && dy > Math.abs(e.changedTouches[0].clientX - _swX)) lb.remove()
+  }, { passive: true })
+
+  document.body.appendChild(lb)
+  if (startIdx > 0) setTimeout(() => { track.scrollLeft = startIdx * track.offsetWidth }, 0)
+}
+
 // ── PRIVATE ALBUM ─────────────────────────────────
 
 async function getSignedPrivateUrls(paths, expiresIn = 3600) {
@@ -2522,20 +2598,51 @@ async function loadCommunity() {
   loadCommunityNotifs()
 }
 
-function renderPostImages(urls) {
+let _carouselStyleInjected = false
+const _postImageCache = {}
+
+function onCarouselScroll(id) {
+  const track = document.getElementById(id)
+  if (!track) return
+  const idx = Math.round(track.scrollLeft / track.offsetWidth)
+  const n = parseInt(track.dataset.n, 10)
+  const counter = document.getElementById(id + '-c')
+  if (counter) counter.textContent = `${idx + 1}/${n}`
+  const dotsEl = document.getElementById(id + '-d')
+  if (dotsEl) Array.from(dotsEl.children).forEach((d, i) => { d.style.background = i === idx ? '#fff' : 'rgba(255,255,255,0.45)' })
+}
+
+function renderPostImages(urls, postId) {
   if (!urls?.length) return ''
   const n = urls.length
+  if (postId) _postImageCache[postId] = urls
+
+  const tap = (i) => postId ? `event.stopPropagation();showPostLightbox('${postId}',${i})` : ''
+
   if (n === 1) {
-    return `<div style="margin-top:10px;border-radius:12px;overflow:hidden"><img src="${safeImgSrc(urls[0])}" loading="lazy" style="width:100%;display:block;object-fit:cover;max-height:300px"></div>`
+    return `<div style="margin-top:10px;border-radius:12px;overflow:hidden;cursor:pointer" onclick="${tap(0)}">` +
+      `<img src="${safeImgSrc(urls[0])}" loading="lazy" style="width:100%;display:block;object-fit:cover;max-height:300px"></div>`
   }
-  if (n === 2) {
-    return `<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:10px;border-radius:12px;overflow:hidden">` +
-      `<img src="${safeImgSrc(urls[0])}" loading="lazy" style="width:100%;aspect-ratio:1/1;object-fit:cover;display:block">` +
-      `<img src="${safeImgSrc(urls[1])}" loading="lazy" style="width:100%;aspect-ratio:1/1;object-fit:cover;display:block"></div>`
+
+  if (!_carouselStyleInjected) {
+    _carouselStyleInjected = true
+    const s = document.createElement('style')
+    s.textContent = '.sx-carousel::-webkit-scrollbar{display:none}'
+    document.head.appendChild(s)
   }
+
+  const cid = `cx-${postId || Date.now()}`
+  const slides = urls.map((url, i) =>
+    `<div style="flex:0 0 100%;scroll-snap-align:start"><img src="${safeImgSrc(url)}" loading="lazy" onclick="${tap(i)}" style="width:100%;display:block;object-fit:cover;max-height:300px;cursor:pointer"></div>`
+  ).join('')
+  const dots = urls.map((_, i) =>
+    `<div style="width:6px;height:6px;border-radius:50%;background:${i === 0 ? '#fff' : 'rgba(255,255,255,0.45)'}"></div>`
+  ).join('')
   return `<div style="margin-top:10px;border-radius:12px;overflow:hidden;position:relative">` +
-    `<img src="${safeImgSrc(urls[0])}" loading="lazy" style="width:100%;display:block;object-fit:cover;max-height:300px">` +
-    `<div style="position:absolute;bottom:8px;right:8px;background:rgba(0,0,0,0.6);color:#fff;font-size:12px;font-weight:600;padding:3px 8px;border-radius:20px">1/${n}</div></div>`
+    `<div id="${cid}" class="sx-carousel" data-n="${n}" onscroll="onCarouselScroll('${cid}')" style="display:flex;overflow-x:scroll;scroll-snap-type:x mandatory;scrollbar-width:none;-ms-overflow-style:none;-webkit-overflow-scrolling:touch">${slides}</div>` +
+    `<div id="${cid}-c" style="position:absolute;top:8px;right:8px;background:rgba(0,0,0,0.55);color:#fff;font-size:12px;font-weight:600;padding:2px 8px;border-radius:20px">1/${n}</div>` +
+    `<div id="${cid}-d" style="position:absolute;bottom:8px;left:0;right:0;display:flex;justify-content:center;gap:5px;pointer-events:none">${dots}</div>` +
+    `</div>`
 }
 
 function renderPostCard(p, isTrending = false) {
@@ -2567,7 +2674,7 @@ function renderPostCard(p, isTrending = false) {
     <div onclick="openPostThread('${p.id}')" style="cursor:pointer">
       ${p.title ? `<p style="color:#f0ede8;font-size:15px;font-weight:600;margin-bottom:6px">${escapeHtml(p.title)}</p>` : ''}
       <p style="color:#9e9b97;font-size:14px;line-height:1.6;white-space:pre-wrap;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden">${escapeHtml(p.body)}</p>
-      ${renderPostImages(p.image_urls)}
+      ${renderPostImages(p.image_urls, p.id)}
     </div>
     <div style="display:flex;gap:12px;margin-top:12px;padding-top:12px;border-top:1px solid #252525;align-items:center">
       <button onclick="togglePostLike('${p.id}', this)" data-post="${p.id}" style="background:none;border:none;color:#6b6866;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:5px">
@@ -3062,7 +3169,7 @@ async function openPostThread(postId) {
       </div>
       ${post.title ? `<p style="color:#f0ede8;font-size:16px;font-weight:700;margin-bottom:8px">${escapeHtml(post.title)}</p>` : ''}
       <p style="color:#9e9b97;font-size:14px;line-height:1.7;white-space:pre-wrap">${escapeHtml(post.body)}</p>
-      ${renderPostImages(post.image_urls)}
+      ${renderPostImages(post.image_urls, post.id)}
       <div style="display:flex;gap:12px;margin-top:14px;padding-top:12px;border-top:1px solid #252525">
         <button id="thread-like-btn-${postId}" onclick="togglePostLike('${postId}', this)" data-post="${postId}" style="background:none;border:none;color:${iLiked ? '#e8503a' : '#6b6866'};font-size:13px;cursor:pointer;display:flex;align-items:center;gap:5px">
           ❤️ <span id="thread-like-count-${postId}" onclick="event.stopPropagation();showPostLikers('${postId}')" style="cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px">${likeCount}</span>
