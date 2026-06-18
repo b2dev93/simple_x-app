@@ -2522,6 +2522,22 @@ async function loadCommunity() {
   loadCommunityNotifs()
 }
 
+function renderPostImages(urls) {
+  if (!urls?.length) return ''
+  const n = urls.length
+  if (n === 1) {
+    return `<div style="margin-top:10px;border-radius:12px;overflow:hidden"><img src="${safeImgSrc(urls[0])}" loading="lazy" style="width:100%;display:block;object-fit:cover;max-height:300px"></div>`
+  }
+  if (n === 2) {
+    return `<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:10px;border-radius:12px;overflow:hidden">` +
+      `<img src="${safeImgSrc(urls[0])}" loading="lazy" style="width:100%;aspect-ratio:1/1;object-fit:cover;display:block">` +
+      `<img src="${safeImgSrc(urls[1])}" loading="lazy" style="width:100%;aspect-ratio:1/1;object-fit:cover;display:block"></div>`
+  }
+  return `<div style="margin-top:10px;border-radius:12px;overflow:hidden;position:relative">` +
+    `<img src="${safeImgSrc(urls[0])}" loading="lazy" style="width:100%;display:block;object-fit:cover;max-height:300px">` +
+    `<div style="position:absolute;bottom:8px;right:8px;background:rgba(0,0,0,0.6);color:#fff;font-size:12px;font-weight:600;padding:3px 8px;border-radius:20px">1/${n}</div></div>`
+}
+
 function renderPostCard(p, isTrending = false) {
   const name = escapeHtml(p.profiles?.display_name || 'Member')
   const avatar = p.profiles?.photo_urls?.[0]
@@ -2551,6 +2567,7 @@ function renderPostCard(p, isTrending = false) {
     <div onclick="openPostThread('${p.id}')" style="cursor:pointer">
       ${p.title ? `<p style="color:#f0ede8;font-size:15px;font-weight:600;margin-bottom:6px">${escapeHtml(p.title)}</p>` : ''}
       <p style="color:#9e9b97;font-size:14px;line-height:1.6;white-space:pre-wrap;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden">${escapeHtml(p.body)}</p>
+      ${renderPostImages(p.image_urls)}
     </div>
     <div style="display:flex;gap:12px;margin-top:12px;padding-top:12px;border-top:1px solid #252525;align-items:center">
       <button onclick="togglePostLike('${p.id}', this)" data-post="${p.id}" style="background:none;border:none;color:#6b6866;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:5px">
@@ -3045,6 +3062,7 @@ async function openPostThread(postId) {
       </div>
       ${post.title ? `<p style="color:#f0ede8;font-size:16px;font-weight:700;margin-bottom:8px">${escapeHtml(post.title)}</p>` : ''}
       <p style="color:#9e9b97;font-size:14px;line-height:1.7;white-space:pre-wrap">${escapeHtml(post.body)}</p>
+      ${renderPostImages(post.image_urls)}
       <div style="display:flex;gap:12px;margin-top:14px;padding-top:12px;border-top:1px solid #252525">
         <button id="thread-like-btn-${postId}" onclick="togglePostLike('${postId}', this)" data-post="${postId}" style="background:none;border:none;color:${iLiked ? '#e8503a' : '#6b6866'};font-size:13px;cursor:pointer;display:flex;align-items:center;gap:5px">
           ❤️ <span id="thread-like-count-${postId}" onclick="event.stopPropagation();showPostLikers('${postId}')" style="cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px">${likeCount}</span>
@@ -3285,8 +3303,7 @@ async function submitPost() {
   })
 
   if (error) {
-    console.error('[submitPost] insert error:', error)
-    showToast('Post failed: ' + error.message)
+    showToast('Could not post. Please try again.')
     btn.textContent = 'Post'
     btn.disabled = false
     return
